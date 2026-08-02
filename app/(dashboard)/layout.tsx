@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { setupPushNotifications } from "@/lib/push";
 import StreakBadge from "@/components/StreakBadge";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { loading: familyLoading, member } = useFamily();
+  const { loading: familyLoading, familyId, member } = useFamily();
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
 
   const loading = authLoading || familyLoading;
 
@@ -19,6 +21,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
     }
   }, [loading, user, member, router]);
+
+  async function enableNotifications() {
+    if (!familyId || !user) return;
+    const result = await setupPushNotifications(familyId, user.uid);
+    setPushStatus(
+      result === "granted"
+        ? "Notifikace zapnuty."
+        : result === "denied"
+          ? "Notifikace zamítnuty."
+          : "Notifikace nejsou podporovány v tomto prohlížeči."
+    );
+  }
 
   if (loading || !user || !member) {
     return (
@@ -35,7 +49,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p className="font-medium">{member.name}</p>
           <p className="text-sm text-amber-600">{member.xpBalance.toLocaleString("cs-CZ")} XP</p>
         </div>
-        <StreakBadge currentStreak={member.currentStreak} />
+        <div className="flex items-center gap-3">
+          <StreakBadge currentStreak={member.currentStreak} />
+          {!member.fcmToken && (
+            <button
+              type="button"
+              onClick={enableNotifications}
+              title={pushStatus ?? "Povolit notifikace"}
+              className="text-xl"
+            >
+              🔔
+            </button>
+          )}
+        </div>
       </header>
       <main className="flex-1 p-4 pb-20">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 flex justify-around border-t border-zinc-200 bg-white py-2 dark:border-zinc-800 dark:bg-zinc-950">
