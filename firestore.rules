@@ -20,6 +20,15 @@ service cloud.firestore {
       return isFamilyMember(familyId) && memberRole(familyId) == 'parent';
     }
 
+    // users/{userId} maps a signed-in user to their familyId so the client can
+    // resolve family membership after login. Only ever written by trusted
+    // server code (Cloud Functions using the Admin SDK) — see createFamily /
+    // joinFamily — never directly by clients.
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     match /families/{familyId} {
       allow read: if isFamilyMember(familyId);
       allow write: if isParent(familyId);

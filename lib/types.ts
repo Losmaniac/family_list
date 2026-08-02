@@ -1,3 +1,12 @@
+/**
+ * users/{userId} — top-level lookup so the client can resolve which family a
+ * signed-in user belongs to without scanning every families/{familyId} doc.
+ * Only ever written by trusted server code (Cloud Functions), never by clients.
+ */
+export interface UserFamilyMapping {
+  familyId: string;
+}
+
 export type MemberRole = "parent" | "child";
 
 export interface Member {

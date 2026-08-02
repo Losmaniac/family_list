@@ -1,6 +1,7 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFunctions, type Functions } from "firebase/functions";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,8 +12,31 @@ const firebaseConfig: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+export function isFirebaseConfigured(): boolean {
+  return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+}
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export default app;
+function getFirebaseApp() {
+  return getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+}
+
+// getAuth/getFirestore/getFunctions validate the config eagerly, so they must
+// only ever run client-side (inside effects/handlers) — never at module
+// import time, or SSR prerendering of any page breaks without real env vars.
+let authInstance: Auth | null = null;
+export function getFirebaseAuth(): Auth {
+  if (!authInstance) authInstance = getAuth(getFirebaseApp());
+  return authInstance;
+}
+
+let dbInstance: Firestore | null = null;
+export function getDb(): Firestore {
+  if (!dbInstance) dbInstance = getFirestore(getFirebaseApp());
+  return dbInstance;
+}
+
+let functionsInstance: Functions | null = null;
+export function getFirebaseFunctions(): Functions {
+  if (!functionsInstance) functionsInstance = getFunctions(getFirebaseApp());
+  return functionsInstance;
+}
