@@ -16,6 +16,10 @@ export interface Member {
   avatarUrl?: string;
   xpBalance: number;
   currentStreak: number;
+  /** Date (YYYY-MM-DD) of the last day a task was completed — drives currentStreak. */
+  lastActiveDate?: string;
+  /** Web Push (FCM) registration token for evening reminders. */
+  fcmToken?: string;
 }
 
 export type Recurrence = "daily" | "weekly" | "custom";

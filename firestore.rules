@@ -20,6 +20,10 @@ service cloud.firestore {
       return isFamilyMember(familyId) && memberRole(familyId) == 'parent';
     }
 
+    function rewardRequiresApproval(familyId, rewardId) {
+      return get(/databases/$(database)/documents/families/$(familyId)/rewards/$(rewardId)).data.approvalRequired;
+    }
+
     // users/{userId} maps a signed-in user to their familyId so the client can
     // resolve family membership after login. Only ever written by trusted
     // server code (Cloud Functions using the Admin SDK) — see createFamily /
@@ -35,7 +39,18 @@ service cloud.firestore {
 
       match /members/{userId} {
         allow read: if isFamilyMember(familyId);
-        allow write: if isParent(familyId);
+        allow create: if isParent(familyId);
+        allow delete: if isParent(familyId);
+        // xpBalance/currentStreak/lastActiveDate are never client-writable —
+        // only the onTaskCompleted/onRedemptionApproved Cloud Functions
+        // (Admin SDK, bypasses rules) ever change them. Parents may edit a
+        // member's profile fields; any signed-in member may update their own
+        // push token.
+        allow update: if
+          (isParent(familyId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'role'])) ||
+          (isSignedIn() && request.auth.uid == userId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']));
       }
 
       match /taskTemplates/{templateId} {
@@ -67,8 +82,20 @@ service cloud.firestore {
 
       match /rewardRedemptions/{redemptionId} {
         allow read: if isFamilyMember(familyId);
-        allow create: if isFamilyMember(familyId) && request.resource.data.userId == request.auth.uid;
-        allow update: if isParent(familyId);
+        // Requests for a reward that needs approval must start 'requested';
+        // rewards that don't need approval may self-create as 'approved'
+        // (the onRedemptionApproved function still verifies + deducts XP).
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.userId == request.auth.uid &&
+          (
+            (rewardRequiresApproval(familyId, request.resource.data.rewardId) &&
+              request.resource.data.status == 'requested') ||
+            (!rewardRequiresApproval(familyId, request.resource.data.rewardId) &&
+              request.resource.data.status == 'approved')
+          );
+        allow update: if isParent(familyId) &&
+          resource.data.status == 'requested' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
         allow delete: if false;
       }
     }

@@ -2,8 +2,9 @@ import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
+import type { Messaging } from "firebase/messaging";
 
-const firebaseConfig: FirebaseOptions = {
+export const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -39,4 +40,12 @@ let functionsInstance: Functions | null = null;
 export function getFirebaseFunctions(): Functions {
   if (!functionsInstance) functionsInstance = getFunctions(getFirebaseApp());
   return functionsInstance;
+}
+
+let messagingInstance: Messaging | null = null;
+export async function getFirebaseMessaging(): Promise<Messaging | null> {
+  const { isSupported, getMessaging } = await import("firebase/messaging");
+  if (!(await isSupported())) return null;
+  if (!messagingInstance) messagingInstance = getMessaging(getFirebaseApp());
+  return messagingInstance;
 }
