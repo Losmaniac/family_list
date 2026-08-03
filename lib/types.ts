@@ -22,7 +22,7 @@ export interface Member {
   fcmToken?: string;
 }
 
-export type Recurrence = "daily" | "weekly" | "custom";
+export type Recurrence = "once" | "daily" | "weekly" | "custom";
 
 export interface TaskTemplate {
   id: string;
@@ -31,7 +31,10 @@ export interface TaskTemplate {
   xpValue: number;
   recurrence: Recurrence;
   assignedTo: string[];
+  /** Days of week (0=Sun..6=Sat) the task is due — used by 'weekly'/'custom'. */
   daysOfWeek: number[];
+  /** Date (YYYY-MM-DD) the task is due — used by 'once'. */
+  date?: string;
   active: boolean;
 }
 

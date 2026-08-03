@@ -17,6 +17,14 @@
       ]
     },
     {
+      "collectionGroup": "dailyTasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "xpLedger",
       "queryScope": "COLLECTION",
       "fields": [
