@@ -7,3 +7,4 @@ export { sendReminders } from "./sendReminders";
 export { createFamily, joinFamily } from "./family";
 export { onTaskCompleted } from "./onTaskCompleted";
 export { onRedemptionApproved } from "./onRedemptionApproved";
+export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
