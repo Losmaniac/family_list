@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { FamilyProvider } from "@/lib/family-context";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import ThemeProvider from "@/components/ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,12 +43,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <ServiceWorkerRegistration />
-        <AuthProvider>
-          <FamilyProvider>{children}</FamilyProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <ServiceWorkerRegistration />
+          <AuthProvider>
+            <FamilyProvider>{children}</FamilyProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

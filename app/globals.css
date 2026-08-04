@@ -26,16 +26,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0c0a09;
-    --foreground: #f5f5f4;
-    --surface: #1c1917;
-    --surface-muted: #292524;
-    --border: #3f3a37;
-    --accent: #f59e0b;
-    --accent-foreground: #0c0a09;
-  }
+/* Dark mode is controlled by next-themes toggling this class on <html> —
+   defaultTheme="system" means it still follows the OS by default, but the
+   user can now override it explicitly (see ThemeToggle). */
+.dark {
+  --background: #0c0a09;
+  --foreground: #f5f5f4;
+  --surface: #1c1917;
+  --surface-muted: #292524;
+  --border: #3f3a37;
+  --accent: #f59e0b;
+  --accent-foreground: #0c0a09;
 }
 
 * {
