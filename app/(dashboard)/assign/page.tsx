@@ -140,6 +140,14 @@ export default function AssignPage() {
     if (editingId === template.id) cancelEdit();
   }
 
+  async function handleReassignDay(template: TaskTemplate, fromDay: number, toDay: number) {
+    if (!familyId) return;
+    const nextDays = Array.from(new Set([...template.daysOfWeek.filter((d) => d !== fromDay), toDay]));
+    await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
+      daysOfWeek: nextDays,
+    });
+  }
+
   function recurrenceLabel(template: TaskTemplate): string {
     if (template.recurrence === "once") return template.date ?? "jednorázově";
     if (template.recurrence === "daily") return "denně";
@@ -168,7 +176,7 @@ export default function AssignPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Tento týden</h2>
-        <WeekSchedule templates={templates} members={members} />
+        <WeekSchedule templates={templates} members={members} onReassignDay={handleReassignDay} />
       </section>
 
       {!showForm && (

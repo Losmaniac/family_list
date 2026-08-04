@@ -11,6 +11,7 @@ import { setupPushNotifications } from "@/lib/push";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { generateInviteCode } from "@/lib/invite-code";
 import Avatar from "@/components/Avatar";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { Member } from "@/lib/types";
 
 interface FamilyInfo {
@@ -156,6 +157,11 @@ export default function SettingsPage() {
             Uložit profil
           </button>
         </form>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-medium">Vzhled</h2>
+        <ThemeToggle />
       </section>
 
       <section className="flex flex-col gap-3">
