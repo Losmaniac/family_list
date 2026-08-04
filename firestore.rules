@@ -99,10 +99,30 @@ service cloud.firestore {
             (!rewardRequiresApproval(familyId, request.resource.data.rewardId) &&
               request.resource.data.status == 'approved')
           );
+        // requested -> approved/rejected (the usual decision), or
+        // approved -> fulfilled (marking it actually handed over in real
+        // life). Never any other transition — in particular an approved
+        // redemption can't be rejected, since XP has already been spent.
         allow update: if isParent(familyId) &&
-          resource.data.status == 'requested' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          (
+            (resource.data.status == 'requested' && request.resource.data.status in ['approved', 'rejected']) ||
+            (resource.data.status == 'approved' && request.resource.data.status == 'fulfilled')
+          );
         allow delete: if false;
+      }
+
+      // Family chat — an immutable, append-only log. Anyone in the family
+      // can read and post as themselves; nothing can be edited or deleted.
+      match /messages/{messageId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['userId', 'text', 'timestamp']) &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 2000;
+        allow update, delete: if false;
       }
     }
   }

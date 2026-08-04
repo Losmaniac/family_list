@@ -86,7 +86,8 @@ function TaskChip({ template, dayIndex, members }: TaskChipProps) {
       {draggable && <GripVertical size={12} className="shrink-0 text-zinc-400" />}
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium">
-          {categoryInfo(template.category).icon} {template.title}
+          {template.category && `${categoryInfo(template.category).icon} `}
+          {template.title}
         </p>
         <div className="mt-0.5 flex -space-x-1">
           {template.assignedTo.map((userId) => {
