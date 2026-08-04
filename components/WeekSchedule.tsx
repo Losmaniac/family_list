@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
 import { isDue } from "@/lib/task-scheduler";
+import { categoryInfo } from "@/lib/categories";
 import type { Member, TaskTemplate } from "@/lib/types";
 import Avatar from "./Avatar";
 
@@ -84,7 +85,9 @@ function TaskChip({ template, dayIndex, members }: TaskChipProps) {
     >
       {draggable && <GripVertical size={12} className="shrink-0 text-zinc-400" />}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium">{template.title}</p>
+        <p className="truncate text-xs font-medium">
+          {categoryInfo(template.category).icon} {template.title}
+        </p>
         <div className="mt-0.5 flex -space-x-1">
           {template.assignedTo.map((userId) => {
             const assignee = members.find((m) => m.id === userId);

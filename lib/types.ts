@@ -16,18 +16,25 @@ export interface Member {
   avatarUrl?: string;
   xpBalance: number;
   currentStreak: number;
+  /** Highest currentStreak ever reached — badges key off this, not the live streak, so they don't vanish when a streak breaks. Absent on members created before this field existed; treat as 0. */
+  longestStreak?: number;
   /** Date (YYYY-MM-DD) of the last day a task was completed — drives currentStreak. */
   lastActiveDate?: string;
+  /** ISO week (e.g. "2026-W32") the streak freeze was last used — one per week. */
+  streakFreezeWeek?: string;
   /** Web Push (FCM) registration token for evening reminders. */
   fcmToken?: string;
 }
 
 export type Recurrence = "once" | "daily" | "weekly" | "custom";
 
+export type TaskCategory = "household" | "school" | "health" | "personal" | "other";
+
 export interface TaskTemplate {
   id: string;
   title: string;
   description?: string;
+  category: TaskCategory;
   xpValue: number;
   recurrence: Recurrence;
   assignedTo: string[];
@@ -38,7 +45,13 @@ export interface TaskTemplate {
   active: boolean;
 }
 
-export type DailyTaskStatus = "pending" | "done" | "missed";
+/**
+ * pending -> submitted -> done (XP awarded) | returned (back to pending, with
+ * a comment) -> missed (rolled over past its date while still pending).
+ * Children always pass through 'submitted' for a parent to approve; a parent
+ * completing their own task skips straight to 'done' (self-approved).
+ */
+export type DailyTaskStatus = "pending" | "submitted" | "done" | "returned" | "missed";
 
 export interface DailyTask {
   id: string;
@@ -48,6 +61,8 @@ export interface DailyTask {
   status: DailyTaskStatus;
   completedAt?: number;
   xpAwarded?: number;
+  /** Left by a parent when returning a submitted task instead of approving it. */
+  returnComment?: string;
 }
 
 export interface XpLedgerEntry {

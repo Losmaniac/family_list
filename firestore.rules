@@ -61,11 +61,16 @@ service cloud.firestore {
 
       match /dailyTasks/{taskId} {
         allow read: if isFamilyMember(familyId);
-        // Child role may only update the status field of their own daily tasks.
+        // A parent can move a task to any status (approve to 'done', return
+        // it, or complete their own task directly — self-approved). A child
+        // may only submit their own task for approval or pull it back to
+        // pending — never award themselves 'done' directly; that always
+        // requires a parent action, which is what actually triggers XP.
         allow update: if isFamilyMember(familyId) &&
           (isParent(familyId) ||
             (resource.data.assignedTo == request.auth.uid &&
-             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt'])));
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt']) &&
+             request.resource.data.status in ['submitted', 'pending']));
         allow create, delete: if isParent(familyId);
       }
 
