@@ -1,3 +1,4 @@
+import { CheckCircle2, Circle } from "lucide-react";
 import type { DailyTask, TaskTemplate } from "@/lib/types";
 
 interface TaskCardProps {
@@ -13,21 +14,20 @@ export default function TaskCard({ task, template, onToggle }: TaskCardProps) {
     <button
       type="button"
       onClick={() => onToggle?.(task)}
-      className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
-        isDone
-          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950"
-          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+        isDone ? "border-success/30 bg-success/10" : "border-border bg-surface"
       }`}
     >
-      <div>
-        <p className={`font-medium ${isDone ? "line-through text-zinc-400" : ""}`}>
-          {template.title}
-        </p>
-        {template.description && (
-          <p className="text-sm text-zinc-500">{template.description}</p>
-        )}
+      {isDone ? (
+        <CheckCircle2 className="shrink-0 text-success" size={22} />
+      ) : (
+        <Circle className="shrink-0 text-zinc-400" size={22} />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className={`font-medium ${isDone ? "text-zinc-400 line-through" : ""}`}>{template.title}</p>
+        {template.description && <p className="truncate text-sm text-zinc-500">{template.description}</p>}
       </div>
-      <span className="text-sm font-semibold text-amber-600">+{template.xpValue} XP</span>
+      <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
     </button>
   );
 }

@@ -18,6 +18,20 @@ export function canAffordReward(xpBalance: number, rewardXpCost: number): boolea
   return xpBalance >= rewardXpCost;
 }
 
+const XP_PER_LEVEL = 100;
+
+export function levelForXp(xpBalance: number): number {
+  return Math.floor(xpBalance / XP_PER_LEVEL) + 1;
+}
+
+export function xpIntoCurrentLevel(xpBalance: number): number {
+  return xpBalance % XP_PER_LEVEL;
+}
+
+export function xpPerLevel(): number {
+  return XP_PER_LEVEL;
+}
+
 export interface LedgerEntryInput {
   userId: string;
   delta: number;

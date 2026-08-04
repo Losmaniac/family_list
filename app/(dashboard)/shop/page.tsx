@@ -114,7 +114,7 @@ export default function ShopPage() {
                 return (
                   <div
                     key={redemption.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                    className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
                   >
                     <div>
                       <p className="font-medium">{reward?.title ?? redemption.rewardId}</p>
@@ -131,7 +131,7 @@ export default function ShopPage() {
                       <button
                         type="button"
                         onClick={() => handleDecision(redemption, "rejected")}
-                        className="rounded-full bg-zinc-200 px-3 py-1 text-sm font-semibold dark:bg-zinc-800"
+                        className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
                       >
                         Zamítnout
                       </button>
@@ -150,14 +150,14 @@ export default function ShopPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-lg border border-border bg-surface px-4 py-2"
             />
             <input
               type="number"
               min={1}
               value={xpCost}
               onChange={(e) => setXpCost(Number(e.target.value))}
-              className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-lg border border-border bg-surface px-4 py-2"
             />
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -170,7 +170,7 @@ export default function ShopPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white disabled:bg-zinc-300"
+              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-40"
             >
               Přidat odměnu
             </button>

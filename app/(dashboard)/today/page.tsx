@@ -9,6 +9,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { PartyPopper } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -67,20 +68,38 @@ export default function TodayPage() {
     return <p className="text-zinc-500">Načítání…</p>;
   }
 
+  const pending = tasks.filter((t) => t.status !== "done");
+  const done = tasks.filter((t) => t.status === "done");
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
       {tasks.length === 0 ? (
-        <p className="text-zinc-500">Na dnes nemáš žádné úkoly.</p>
+        <div className="flex flex-col items-center gap-2 py-12 text-center text-zinc-500">
+          <PartyPopper size={32} />
+          <p>Na dnes nemáš žádné úkoly.</p>
+        </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {tasks.map((task) => {
-            const template = templates[task.templateId];
-            if (!template) return null;
-            return (
-              <TaskCard key={task.id} task={task} template={template} onToggle={toggleTask} />
-            );
-          })}
+        <div className="flex flex-col gap-4">
+          {pending.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {pending.map((task) => {
+                const template = templates[task.templateId];
+                if (!template) return null;
+                return <TaskCard key={task.id} task={task} template={template} onToggle={toggleTask} />;
+              })}
+            </div>
+          )}
+          {done.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-zinc-500">Hotovo</p>
+              {done.map((task) => {
+                const template = templates[task.templateId];
+                if (!template) return null;
+                return <TaskCard key={task.id} task={task} template={template} onToggle={toggleTask} />;
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
