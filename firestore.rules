@@ -43,14 +43,15 @@ service cloud.firestore {
         allow delete: if isParent(familyId);
         // xpBalance/currentStreak/lastActiveDate are never client-writable —
         // only the onTaskCompleted/onRedemptionApproved Cloud Functions
-        // (Admin SDK, bypasses rules) ever change them. Parents may edit a
-        // member's profile fields; any signed-in member may update their own
-        // push token.
+        // (Admin SDK, bypasses rules) ever change them. Parents may edit any
+        // member's profile fields (including role); a member may always edit
+        // their own name/avatar/push token, but never their own role — role
+        // changes must go through a parent.
         allow update: if
           (isParent(familyId) &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'role'])) ||
           (isSignedIn() && request.auth.uid == userId &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']));
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'fcmToken']));
       }
 
       match /taskTemplates/{templateId} {

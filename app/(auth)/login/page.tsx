@@ -74,7 +74,7 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => signInWithGoogle()}
-          className="rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white"
+          className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
         >
           Přihlásit se přes Google
         </button>
@@ -86,12 +86,12 @@ export default function LoginPage() {
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
       <h1 className="text-2xl font-semibold">Family Quest</h1>
 
-      <div className="flex rounded-full border border-zinc-200 p-1 dark:border-zinc-800">
+      <div className="flex rounded-full border border-border p-1">
         <button
           type="button"
           onClick={() => setMode("join")}
           className={`rounded-full px-4 py-2 text-sm font-medium ${
-            mode === "join" ? "bg-amber-500 text-white" : "text-zinc-500"
+            mode === "join" ? "bg-accent text-accent-foreground" : "text-zinc-500"
           }`}
         >
           Připojit se
@@ -100,7 +100,7 @@ export default function LoginPage() {
           type="button"
           onClick={() => setMode("create")}
           className={`rounded-full px-4 py-2 text-sm font-medium ${
-            mode === "create" ? "bg-amber-500 text-white" : "text-zinc-500"
+            mode === "create" ? "bg-accent text-accent-foreground" : "text-zinc-500"
           }`}
         >
           Založit rodinu
@@ -114,7 +114,7 @@ export default function LoginPage() {
           value={memberName}
           onChange={(e) => setMemberName(e.target.value)}
           required
-          className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+          className="rounded-lg border border-border bg-surface px-4 py-2"
         />
 
         {mode === "create" ? (
@@ -124,7 +124,7 @@ export default function LoginPage() {
             value={familyName}
             onChange={(e) => setFamilyName(e.target.value)}
             required
-            className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+            className="rounded-lg border border-border bg-surface px-4 py-2"
           />
         ) : (
           <input
@@ -133,7 +133,7 @@ export default function LoginPage() {
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
             required
-            className="rounded-lg border border-zinc-200 px-4 py-2 uppercase dark:border-zinc-800 dark:bg-zinc-900"
+            className="rounded-lg border border-border bg-surface px-4 py-2 uppercase"
           />
         )}
 
@@ -142,7 +142,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white disabled:bg-zinc-300"
+          className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-40"
         >
           {mode === "create" ? "Založit rodinu" : "Připojit se"}
         </button>

@@ -1,18 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { CalendarCheck, ListChecks, Settings, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
-import { setupPushNotifications } from "@/lib/push";
+import Avatar from "@/components/Avatar";
+import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
+
+const NAV_ITEMS = [
+  { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
+  { href: "/assign", label: "Zadat", icon: ListChecks, parentOnly: true },
+  { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
+] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
-  const { loading: familyLoading, familyId, member } = useFamily();
-  const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const { loading: familyLoading, member } = useFamily();
 
   const loading = authLoading || familyLoading;
 
@@ -21,18 +29,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
     }
   }, [loading, user, member, router]);
-
-  async function enableNotifications() {
-    if (!familyId || !user) return;
-    const result = await setupPushNotifications(familyId, user.uid);
-    setPushStatus(
-      result === "granted"
-        ? "Notifikace zapnuty."
-        : result === "denied"
-          ? "Notifikace zamítnuty."
-          : "Notifikace nejsou podporovány v tomto prohlížeči."
-    );
-  }
 
   if (loading || !user || !member) {
     return (
@@ -44,38 +40,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div>
-          <p className="font-medium">{member.name}</p>
-          <p className="text-sm text-amber-600">{member.xpBalance.toLocaleString("cs-CZ")} XP</p>
+      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
+        <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
+          <Avatar name={member.name} avatarUrl={member.avatarUrl} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-medium">{member.name}</p>
+            <StreakBadge currentStreak={member.currentStreak} />
+          </div>
+          <XPBar xpBalance={member.xpBalance} />
         </div>
-        <div className="flex items-center gap-3">
-          <StreakBadge currentStreak={member.currentStreak} />
-          {!member.fcmToken && (
-            <button
-              type="button"
-              onClick={enableNotifications}
-              title={pushStatus ?? "Povolit notifikace"}
-              className="text-xl"
-            >
-              🔔
-            </button>
-          )}
-        </div>
+        <Link
+          href="/settings"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-surface-muted"
+          aria-label="Nastavení"
+        >
+          <Settings size={20} />
+        </Link>
       </header>
-      <main className="flex-1 p-4 pb-20">{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 flex justify-around border-t border-zinc-200 bg-white py-2 dark:border-zinc-800 dark:bg-zinc-950">
-        <Link href="/today" className="px-4 py-2 text-sm">
-          Dnes
-        </Link>
-        {member.role === "parent" && (
-          <Link href="/assign" className="px-4 py-2 text-sm">
-            Zadat
-          </Link>
-        )}
-        <Link href="/shop" className="px-4 py-2 text-sm">
-          Obchod
-        </Link>
+
+      <main className="flex-1 p-4 pb-24">{children}</main>
+
+      <nav className="fixed inset-x-0 bottom-0 flex justify-around border-t border-border bg-surface py-2">
+        {NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent").map((item) => {
+          const Icon = item.icon;
+          const active = pathname?.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
+                active ? "text-accent" : "text-zinc-500"
+              }`}
+            >
+              <Icon size={22} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );

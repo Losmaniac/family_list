@@ -17,7 +17,7 @@ export default function RewardShop({ rewards, xpBalance, onRedeem }: RewardShopP
           return (
             <div
               key={reward.id}
-              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+              className="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
             >
               <div>
                 <p className="font-medium">{reward.title}</p>
@@ -27,7 +27,7 @@ export default function RewardShop({ rewards, xpBalance, onRedeem }: RewardShopP
                 type="button"
                 disabled={!affordable}
                 onClick={() => onRedeem?.(reward)}
-                className="rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:disabled:bg-zinc-700"
+                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {reward.approvalRequired ? "Požádat" : "Uplatnit"}
               </button>

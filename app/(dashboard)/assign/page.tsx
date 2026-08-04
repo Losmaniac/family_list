@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
+import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
+import Avatar from "@/components/Avatar";
+import WeekSchedule from "@/components/WeekSchedule";
 import type { Member, Recurrence, TaskTemplate } from "@/lib/types";
 
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
@@ -31,6 +34,7 @@ export default function AssignPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     if (!familyId) return;
@@ -75,11 +79,24 @@ export default function AssignPage() {
       date: template.date ?? todayKey(),
       assignedTo: template.assignedTo,
     });
+    setShowForm(true);
+  }
+
+  function applyPreset(preset: TaskPreset) {
+    setForm((prev) => ({
+      ...prev,
+      title: preset.title,
+      xpValue: preset.xpValue,
+      recurrence: preset.recurrence,
+      daysOfWeek: preset.daysOfWeek,
+    }));
+    setShowForm(true);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm());
+    setShowForm(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -135,118 +152,165 @@ export default function AssignPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Zadávání úkolů</h1>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {editingId && (
-          <p className="text-sm text-amber-600">
-            Upravuješ úkol.{" "}
-            <button type="button" onClick={cancelEdit} className="underline">
-              Zrušit úpravu
-            </button>
-          </p>
+    <div className="flex flex-col gap-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Zadávání úkolů</h1>
+        {!showForm && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          >
+            + Nový úkol
+          </button>
         )}
+      </div>
 
-        <input
-          type="text"
-          placeholder="Název úkolu"
-          value={form.title}
-          onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-          required
-          className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-        />
+      <section className="flex flex-col gap-3">
+        <h2 className="font-medium">Tento týden</h2>
+        <WeekSchedule templates={templates} members={members} />
+      </section>
 
-        <textarea
-          placeholder="Popis (nepovinné)"
-          value={form.description}
-          onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-          rows={2}
-          className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-        />
+      {!showForm && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Rychlé přidání</h2>
+          {TASK_PRESET_CATEGORIES.map((category) => (
+            <div key={category.label} className="flex flex-col gap-1.5">
+              <p className="text-sm text-zinc-500">{category.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {category.presets.map((preset) => (
+                  <button
+                    key={preset.title}
+                    type="button"
+                    onClick={() => applyPreset(preset)}
+                    className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-sm"
+                  >
+                    <span>{preset.icon}</span>
+                    {preset.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-zinc-500" htmlFor="xpValue">
-            XP za splnění
-          </label>
+      {showForm && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          {editingId && (
+            <p className="text-sm text-accent">Upravuješ úkol.</p>
+          )}
+
           <input
-            id="xpValue"
-            type="number"
-            min={1}
-            value={form.xpValue}
-            onChange={(e) => setForm((prev) => ({ ...prev, xpValue: Number(e.target.value) }))}
-            className="w-24 rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+            type="text"
+            placeholder="Název úkolu"
+            value={form.title}
+            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+            required
+            className="rounded-lg border border-border bg-surface px-4 py-2"
           />
-        </div>
 
-        <select
-          value={form.recurrence}
-          onChange={(e) => setForm((prev) => ({ ...prev, recurrence: e.target.value as Recurrence }))}
-          className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <option value="once">Jednorázově</option>
-          <option value="daily">Denně</option>
-          <option value="weekly">Týdně (vybrané dny)</option>
-          <option value="custom">Vlastní dny</option>
-        </select>
-
-        {form.recurrence === "once" && (
-          <input
-            type="date"
-            value={form.date}
-            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
-            className="rounded-lg border border-zinc-200 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+          <textarea
+            placeholder="Popis (nepovinné)"
+            value={form.description}
+            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+            rows={2}
+            className="rounded-lg border border-border bg-surface px-4 py-2"
           />
-        )}
 
-        {(form.recurrence === "weekly" || form.recurrence === "custom") && (
-          <div className="flex gap-2">
-            {WEEKDAYS.map((label, day) => (
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-zinc-500" htmlFor="xpValue">
+              XP za splnění
+            </label>
+            <input
+              id="xpValue"
+              type="number"
+              min={1}
+              value={form.xpValue}
+              onChange={(e) => setForm((prev) => ({ ...prev, xpValue: Number(e.target.value) }))}
+              className="w-24 rounded-lg border border-border bg-surface px-4 py-2"
+            />
+          </div>
+
+          <select
+            value={form.recurrence}
+            onChange={(e) => setForm((prev) => ({ ...prev, recurrence: e.target.value as Recurrence }))}
+            className="rounded-lg border border-border bg-surface px-4 py-2"
+          >
+            <option value="once">Jednorázově</option>
+            <option value="daily">Denně</option>
+            <option value="weekly">Týdně (vybrané dny)</option>
+            <option value="custom">Vlastní dny</option>
+          </select>
+
+          {form.recurrence === "once" && (
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+              className="rounded-lg border border-border bg-surface px-4 py-2"
+            />
+          )}
+
+          {(form.recurrence === "weekly" || form.recurrence === "custom") && (
+            <div className="flex gap-2">
+              {WEEKDAYS.map((label, day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDay(day)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    form.daysOfWeek.includes(day)
+                      ? "bg-accent text-accent-foreground"
+                      : "border border-border"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {members.map((m) => (
               <button
-                key={day}
+                key={m.id}
                 type="button"
-                onClick={() => toggleDay(day)}
-                className={`rounded-full px-3 py-1 text-sm ${
-                  form.daysOfWeek.includes(day)
-                    ? "bg-amber-500 text-white"
-                    : "border border-zinc-200 dark:border-zinc-800"
+                onClick={() => toggleAssignee(m.id)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm ${
+                  form.assignedTo.includes(m.id)
+                    ? "bg-accent text-accent-foreground"
+                    : "border border-border"
                 }`}
               >
-                {label}
+                <Avatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
+                {m.name}
               </button>
             ))}
           </div>
-        )}
 
-        <div className="flex flex-wrap gap-2">
-          {members.map((m) => (
+          <div className="flex gap-2">
             <button
-              key={m.id}
-              type="button"
-              onClick={() => toggleAssignee(m.id)}
-              className={`rounded-full px-3 py-1 text-sm ${
-                form.assignedTo.includes(m.id)
-                  ? "bg-amber-500 text-white"
-                  : "border border-zinc-200 dark:border-zinc-800"
-              }`}
+              type="submit"
+              disabled={submitting || form.assignedTo.length === 0}
+              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
             >
-              {m.name}
+              {editingId ? "Uložit změny" : "Přidat úkol"}
             </button>
-          ))}
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting || form.assignedTo.length === 0}
-          className="rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white disabled:bg-zinc-300"
-        >
-          {editingId ? "Uložit změny" : "Přidat úkol"}
-        </button>
-        <p className="text-xs text-zinc-500">
-          Úkol, který je splatný dnes, se na stránce Dnes objeví ihned — není potřeba čekat na
-          půlnoc.
-        </p>
-      </form>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+            >
+              Zrušit
+            </button>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Úkol, který je splatný dnes, se na stránce Dnes objeví ihned — není potřeba čekat na
+            půlnoc.
+          </p>
+        </form>
+      )}
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Šablony úkolů</h2>
@@ -254,7 +318,7 @@ export default function AssignPage() {
         {templates.map((template) => (
           <div
             key={template.id}
-            className="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+            className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
           >
             <div>
               <p className={`font-medium ${!template.active ? "text-zinc-400 line-through" : ""}`}>
@@ -268,13 +332,13 @@ export default function AssignPage() {
               </p>
             </div>
             <div className="flex gap-3">
-              <button type="button" onClick={() => startEdit(template)} className="text-sm text-amber-600">
+              <button type="button" onClick={() => startEdit(template)} className="text-sm text-accent">
                 Upravit
               </button>
-              <button type="button" onClick={() => toggleActive(template)} className="text-sm text-amber-600">
+              <button type="button" onClick={() => toggleActive(template)} className="text-sm text-accent">
                 {template.active ? "Deaktivovat" : "Aktivovat"}
               </button>
-              <button type="button" onClick={() => removeTemplate(template)} className="text-sm text-red-600">
+              <button type="button" onClick={() => removeTemplate(template)} className="text-sm text-danger">
                 Smazat
               </button>
             </div>
