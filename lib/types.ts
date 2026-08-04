@@ -26,7 +26,7 @@ export interface Member {
   fcmToken?: string;
 }
 
-export type Recurrence = "once" | "daily" | "weekly" | "custom";
+export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";
 
 export type TaskCategory = "household" | "school" | "health" | "personal" | "other";
 
@@ -42,6 +42,8 @@ export interface TaskTemplate {
   daysOfWeek: number[];
   /** Date (YYYY-MM-DD) the task is due — used by 'once'. */
   date?: string;
+  /** Day of month (1-31) the task is due — used by 'monthly'. */
+  dayOfMonth?: number;
   active: boolean;
 }
 
@@ -82,12 +84,25 @@ export interface Reward {
   active: boolean;
 }
 
-export type RewardRedemptionStatus = "requested" | "approved" | "rejected";
+/**
+ * requested -> approved (XP deducted, reward reserved) -> fulfilled (parent
+ * confirms it was actually handed over in real life) | rejected (from
+ * requested only — an approved redemption is committed, it can't be
+ * rejected after XP has already been spent).
+ */
+export type RewardRedemptionStatus = "requested" | "approved" | "fulfilled" | "rejected";
 
 export interface RewardRedemption {
   id: string;
   userId: string;
   rewardId: string;
   status: RewardRedemptionStatus;
+  timestamp: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  text: string;
   timestamp: number;
 }

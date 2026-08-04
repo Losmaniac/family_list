@@ -25,6 +25,7 @@ function emptyForm() {
     recurrence: "daily" as Recurrence,
     daysOfWeek: [] as number[],
     date: todayKey(),
+    dayOfMonth: 1,
     assignedTo: [] as string[],
   };
 }
@@ -80,6 +81,7 @@ export default function AssignPage() {
       recurrence: template.recurrence,
       daysOfWeek: template.daysOfWeek,
       date: template.date ?? todayKey(),
+      dayOfMonth: template.dayOfMonth ?? 1,
       assignedTo: template.assignedTo,
     });
     setShowForm(true);
@@ -117,6 +119,7 @@ export default function AssignPage() {
         assignedTo: form.assignedTo,
         daysOfWeek: form.recurrence === "weekly" || form.recurrence === "custom" ? form.daysOfWeek : [],
         date: form.recurrence === "once" ? form.date : null,
+        dayOfMonth: form.recurrence === "monthly" ? form.dayOfMonth : null,
         active: true,
       };
 
@@ -156,6 +159,7 @@ export default function AssignPage() {
   function recurrenceLabel(template: TaskTemplate): string {
     if (template.recurrence === "once") return template.date ?? "jednorázově";
     if (template.recurrence === "daily") return "denně";
+    if (template.recurrence === "monthly") return `měsíčně (${template.dayOfMonth ?? "?"}. den)`;
     if (template.daysOfWeek.length === 0) return "vybrané dny";
     return template.daysOfWeek.map((d) => WEEKDAYS[d]).join(", ");
   }
@@ -269,6 +273,7 @@ export default function AssignPage() {
             <option value="once">Jednorázově</option>
             <option value="daily">Denně</option>
             <option value="weekly">Týdně (vybrané dny)</option>
+            <option value="monthly">Měsíčně</option>
             <option value="custom">Vlastní dny</option>
           </select>
 
@@ -279,6 +284,23 @@ export default function AssignPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
               className="rounded-lg border border-border bg-surface px-4 py-2"
             />
+          )}
+
+          {form.recurrence === "monthly" && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-zinc-500" htmlFor="dayOfMonth">
+                Den v měsíci
+              </label>
+              <input
+                id="dayOfMonth"
+                type="number"
+                min={1}
+                max={31}
+                value={form.dayOfMonth}
+                onChange={(e) => setForm((prev) => ({ ...prev, dayOfMonth: Number(e.target.value) }))}
+                className="w-20 rounded-lg border border-border bg-surface px-4 py-2"
+              />
+            </div>
           )}
 
           {(form.recurrence === "weekly" || form.recurrence === "custom") && (
@@ -351,7 +373,7 @@ export default function AssignPage() {
           >
             <div>
               <p className={`font-medium ${!template.active ? "text-zinc-400 line-through" : ""}`}>
-                <span className="mr-1">{categoryInfo(template.category).icon}</span>
+                {template.category && <span className="mr-1">{categoryInfo(template.category).icon}</span>}
                 {template.title}
               </p>
               <p className="text-sm text-zinc-500">

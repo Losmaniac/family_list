@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
+import PersonalWeekAhead from "@/components/PersonalWeekAhead";
 import type { DailyTask, Member, TaskTemplate } from "@/lib/types";
 
 function todayKey(): string {
@@ -189,6 +190,13 @@ export default function TodayPage() {
           </div>
         )}
       </section>
+
+      {user && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Tento týden</h2>
+          <PersonalWeekAhead templates={Object.values(templates)} userId={user.uid} />
+        </section>
+      )}
     </div>
   );
 }

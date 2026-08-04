@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck, ListChecks, Settings, ShoppingBag } from "lucide-react";
+import { CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import Avatar from "@/components/Avatar";
@@ -12,7 +12,9 @@ import StreakBadge from "@/components/StreakBadge";
 
 const NAV_ITEMS = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
+  { href: "/family", label: "Rodina", icon: Users, parentOnly: false },
   { href: "/assign", label: "Zadat", icon: ListChecks, parentOnly: true },
+  { href: "/chat", label: "Chat", icon: MessageCircle, parentOnly: false },
   { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
 ] as const;
 

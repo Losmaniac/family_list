@@ -5,7 +5,9 @@ import {
   addDoc,
   collection,
   doc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   updateDoc,
   where,
@@ -16,13 +18,29 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import RewardShop from "@/components/RewardShop";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
-import type { Member, Reward, RewardRedemption } from "@/lib/types";
+import type { Member, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
+
+const STATUS_LABELS: Record<RewardRedemptionStatus, string> = {
+  requested: "Čeká na schválení",
+  approved: "Schváleno · čeká na vyřízení",
+  fulfilled: "Vyřízeno",
+  rejected: "Zamítnuto",
+};
+
+const STATUS_COLORS: Record<RewardRedemptionStatus, string> = {
+  requested: "text-accent",
+  approved: "text-accent",
+  fulfilled: "text-success",
+  rejected: "text-danger",
+};
 
 export default function ShopPage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [pending, setPending] = useState<RewardRedemption[]>([]);
+  const [awaitingFulfillment, setAwaitingFulfillment] = useState<RewardRedemption[]>([]);
+  const [myRedemptions, setMyRedemptions] = useState<RewardRedemption[]>([]);
   const [members, setMembers] = useState<Record<string, Member>>({});
 
   const [title, setTitle] = useState("");
@@ -52,6 +70,30 @@ export default function ShopPage() {
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
+    const fulfillmentQuery = query(
+      collection(getDb(), "families", familyId, "rewardRedemptions"),
+      where("status", "==", "approved")
+    );
+    return onSnapshot(fulfillmentQuery, (snapshot) => {
+      setAwaitingFulfillment(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as RewardRedemption));
+    });
+  }, [familyId, member?.role]);
+
+  useEffect(() => {
+    if (!familyId || !user) return;
+    const myQuery = query(
+      collection(getDb(), "families", familyId, "rewardRedemptions"),
+      where("userId", "==", user.uid),
+      orderBy("timestamp", "desc"),
+      limit(10)
+    );
+    return onSnapshot(myQuery, (snapshot) => {
+      setMyRedemptions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as RewardRedemption));
+    });
+  }, [familyId, user]);
+
+  useEffect(() => {
+    if (!familyId || member?.role !== "parent") return;
     return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
       const next: Record<string, Member> = {};
       for (const memberDoc of snapshot.docs) {
@@ -75,6 +117,13 @@ export default function ShopPage() {
     if (!familyId) return;
     await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
       status,
+    });
+  }
+
+  async function handleFulfill(redemption: RewardRedemption) {
+    if (!familyId) return;
+    await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
+      status: "fulfilled",
     });
   }
 
@@ -139,6 +188,26 @@ export default function ShopPage() {
         <RewardShop rewards={rewards} xpBalance={member?.xpBalance ?? 0} onRedeem={handleRedeem} />
       )}
 
+      {myRedemptions.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium">Moje odměny</h2>
+          {myRedemptions.map((redemption) => {
+            const reward = rewards.find((r) => r.id === redemption.rewardId);
+            return (
+              <div
+                key={redemption.id}
+                className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
+              >
+                <p className="font-medium">{reward?.title ?? redemption.rewardId}</p>
+                <span className={`text-sm font-medium ${STATUS_COLORS[redemption.status]}`}>
+                  {STATUS_LABELS[redemption.status]}
+                </span>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
       {member?.role === "parent" && (
         <>
           {pending.length > 0 && (
@@ -172,6 +241,34 @@ export default function ShopPage() {
                         Zamítnout
                       </button>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {awaitingFulfillment.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h2 className="font-medium">Schváleno · čeká na vyřízení</h2>
+              {awaitingFulfillment.map((redemption) => {
+                const reward = rewards.find((r) => r.id === redemption.rewardId);
+                const requester = members[redemption.userId];
+                return (
+                  <div
+                    key={redemption.id}
+                    className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium">{reward?.title ?? redemption.rewardId}</p>
+                      <p className="text-sm text-zinc-500">{requester?.name ?? redemption.userId}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleFulfill(redemption)}
+                      className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
+                    >
+                      Označit jako vyřízené
+                    </button>
                   </div>
                 );
               })}

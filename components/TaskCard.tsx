@@ -15,7 +15,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function TaskCard({ task, template, onToggle }: TaskCardProps) {
-  const { icon: categoryIcon } = categoryInfo(template.category);
+  const categoryIcon = template.category ? categoryInfo(template.category).icon : null;
 
   return (
     <button
@@ -28,7 +28,7 @@ export default function TaskCard({ task, template, onToggle }: TaskCardProps) {
       <StatusIcon status={task.status} />
       <div className="min-w-0 flex-1">
         <p className={`font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
-          <span className="mr-1">{categoryIcon}</span>
+          {categoryIcon && <span className="mr-1">{categoryIcon}</span>}
           {template.title}
         </p>
         {task.status === "returned" && task.returnComment ? (

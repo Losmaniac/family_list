@@ -10,6 +10,10 @@ export function dailyTaskId(date: string, templateId: string, userId: string): s
   return `${date}_${templateId}_${userId}`;
 }
 
+function lastDayOfMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
 export function isDue(template: TaskTemplate, date: Date): boolean {
   if (!template.active) return false;
   if (template.recurrence === "once") {
@@ -18,6 +22,13 @@ export function isDue(template: TaskTemplate, date: Date): boolean {
   if (template.recurrence === "daily") return true;
   if (template.recurrence === "weekly" || template.recurrence === "custom") {
     return template.daysOfWeek.includes(date.getDay());
+  }
+  if (template.recurrence === "monthly") {
+    if (!template.dayOfMonth) return false;
+    // Clamp to the month's last day so e.g. "day 31" still fires in a
+    // 30-day month instead of silently never triggering that month.
+    const targetDay = Math.min(template.dayOfMonth, lastDayOfMonth(date));
+    return date.getDate() === targetDay;
   }
   return false;
 }
