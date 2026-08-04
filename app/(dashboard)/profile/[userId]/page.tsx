@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, orderBy, query, where, limit } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getCountFromServer,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  limit,
+} from "firebase/firestore";
 import { use } from "react";
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
+import { computeAchievements } from "@/lib/achievements";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
@@ -25,6 +35,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const { familyId } = useFamily();
   const [profile, setProfile] = useState<Member | null>(null);
   const [ledger, setLedger] = useState<XpLedgerEntry[]>([]);
+  const [completedCount, setCompletedCount] = useState(0);
 
   useEffect(() => {
     if (!familyId) return;
@@ -46,9 +57,22 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     });
   }, [familyId, userId]);
 
+  useEffect(() => {
+    if (!familyId) return;
+    const countQuery = query(
+      collection(getDb(), "families", familyId, "xpLedger"),
+      where("userId", "==", userId),
+      where("reason", "==", "task_completed")
+    );
+    getCountFromServer(countQuery).then((snap) => setCompletedCount(snap.data().count));
+  }, [familyId, userId, ledger.length]);
+
   if (!profile) {
     return <p className="text-zinc-500">Načítání…</p>;
   }
+
+  const achievements = computeAchievements(profile.longestStreak ?? 0, completedCount);
+  const unlockedAchievements = achievements.filter((a) => a.unlocked);
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,6 +88,26 @@ export default function ProfilePage({ params }: ProfilePageProps) {
       </div>
 
       <XPBar xpBalance={profile.xpBalance} />
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-medium">Odznaky</h2>
+        {unlockedAchievements.length === 0 ? (
+          <p className="text-sm text-zinc-500">Zatím žádné odznaky — první přijde brzy!</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {unlockedAchievements.map((a) => (
+              <div
+                key={a.key}
+                title={a.description}
+                className="flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent"
+              >
+                <span>{a.icon}</span>
+                {a.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Historie XP</h2>

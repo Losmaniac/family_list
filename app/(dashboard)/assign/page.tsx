@@ -5,9 +5,10 @@ import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "fireb
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
+import { TASK_CATEGORIES, categoryInfo } from "@/lib/categories";
 import Avatar from "@/components/Avatar";
 import WeekSchedule from "@/components/WeekSchedule";
-import type { Member, Recurrence, TaskTemplate } from "@/lib/types";
+import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types";
 
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
 
@@ -19,6 +20,7 @@ function emptyForm() {
   return {
     title: "",
     description: "",
+    category: "household" as TaskCategory,
     xpValue: 10,
     recurrence: "daily" as Recurrence,
     daysOfWeek: [] as number[],
@@ -73,6 +75,7 @@ export default function AssignPage() {
     setForm({
       title: template.title,
       description: template.description ?? "",
+      category: template.category ?? "household",
       xpValue: template.xpValue,
       recurrence: template.recurrence,
       daysOfWeek: template.daysOfWeek,
@@ -86,6 +89,7 @@ export default function AssignPage() {
     setForm((prev) => ({
       ...prev,
       title: preset.title,
+      category: preset.category,
       xpValue: preset.xpValue,
       recurrence: preset.recurrence,
       daysOfWeek: preset.daysOfWeek,
@@ -107,6 +111,7 @@ export default function AssignPage() {
       const payload = {
         title: form.title,
         description: form.description || null,
+        category: form.category,
         xpValue: form.xpValue,
         recurrence: form.recurrence,
         assignedTo: form.assignedTo,
@@ -182,11 +187,11 @@ export default function AssignPage() {
       {!showForm && (
         <section className="flex flex-col gap-3">
           <h2 className="font-medium">Rychlé přidání</h2>
-          {TASK_PRESET_CATEGORIES.map((category) => (
-            <div key={category.label} className="flex flex-col gap-1.5">
-              <p className="text-sm text-zinc-500">{category.label}</p>
+          {TASK_PRESET_CATEGORIES.map((presetGroup) => (
+            <div key={presetGroup.label} className="flex flex-col gap-1.5">
+              <p className="text-sm text-zinc-500">{presetGroup.label}</p>
               <div className="flex flex-wrap gap-2">
-                {category.presets.map((preset) => (
+                {presetGroup.presets.map((preset) => (
                   <button
                     key={preset.title}
                     type="button"
@@ -225,6 +230,22 @@ export default function AssignPage() {
             rows={2}
             className="rounded-lg border border-border bg-surface px-4 py-2"
           />
+
+          <div className="flex flex-wrap gap-2">
+            {TASK_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, category: cat.value }))}
+                className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm ${
+                  form.category === cat.value ? "bg-accent text-accent-foreground" : "border border-border"
+                }`}
+              >
+                <span>{cat.icon}</span>
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
           <div className="flex items-center gap-2">
             <label className="text-sm text-zinc-500" htmlFor="xpValue">
@@ -330,6 +351,7 @@ export default function AssignPage() {
           >
             <div>
               <p className={`font-medium ${!template.active ? "text-zinc-400 line-through" : ""}`}>
+                <span className="mr-1">{categoryInfo(template.category).icon}</span>
                 {template.title}
               </p>
               <p className="text-sm text-zinc-500">
