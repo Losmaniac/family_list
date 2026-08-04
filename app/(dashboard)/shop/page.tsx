@@ -9,11 +9,13 @@ import {
   query,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import RewardShop from "@/components/RewardShop";
+import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
 import type { Member, Reward, RewardRedemption } from "@/lib/types";
 
 export default function ShopPage() {
@@ -27,6 +29,8 @@ export default function ShopPage() {
   const [xpCost, setXpCost] = useState(50);
   const [approvalRequired, setApprovalRequired] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showRewardForm, setShowRewardForm] = useState(false);
+  const [bulkAddingTier, setBulkAddingTier] = useState<string | null>(null);
 
   useEffect(() => {
     if (!familyId) return;
@@ -88,8 +92,40 @@ export default function ShopPage() {
       setTitle("");
       setXpCost(50);
       setApprovalRequired(true);
+      setShowRewardForm(false);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function applyPreset(preset: RewardPreset) {
+    setTitle(preset.title);
+    setXpCost(preset.xpCost);
+    setApprovalRequired(preset.approvalRequired);
+    setShowRewardForm(true);
+  }
+
+  async function handleAddAllInTier(tierLabel: string, presets: RewardPreset[]) {
+    if (!familyId) return;
+    const existingTitles = new Set(rewards.map((r) => r.title));
+    const toAdd = presets.filter((p) => !existingTitles.has(p.title));
+    if (toAdd.length === 0) return;
+
+    setBulkAddingTier(tierLabel);
+    try {
+      const batch = writeBatch(getDb());
+      const rewardsRef = collection(getDb(), "families", familyId, "rewards");
+      for (const preset of toAdd) {
+        batch.set(doc(rewardsRef), {
+          title: preset.title,
+          xpCost: preset.xpCost,
+          approvalRequired: preset.approvalRequired,
+          active: true,
+        });
+      }
+      await batch.commit();
+    } finally {
+      setBulkAddingTier(null);
     }
   }
 
@@ -142,39 +178,108 @@ export default function ShopPage() {
             </div>
           )}
 
-          <form onSubmit={handleCreateReward} className="flex flex-col gap-3">
-            <h2 className="font-medium">Přidat odměnu</h2>
-            <input
-              type="text"
-              placeholder="Název odměny"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="rounded-lg border border-border bg-surface px-4 py-2"
-            />
-            <input
-              type="number"
-              min={1}
-              value={xpCost}
-              onChange={(e) => setXpCost(Number(e.target.value))}
-              className="rounded-lg border border-border bg-surface px-4 py-2"
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={approvalRequired}
-                onChange={(e) => setApprovalRequired(e.target.checked)}
-              />
-              Vyžaduje schválení rodičem
-            </label>
+          <section className="flex flex-col gap-3">
+            <h2 className="font-medium">Katalog odměn</h2>
+            {REWARD_PRESET_TIERS.map((tier) => {
+              const existingTitles = new Set(rewards.map((r) => r.title));
+              const remaining = tier.presets.filter((p) => !existingTitles.has(p.title));
+              return (
+                <div key={tier.label} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-zinc-500">
+                      {tier.label} <span className="text-zinc-400">· {tier.hint}</span>
+                    </p>
+                    {remaining.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddAllInTier(tier.label, tier.presets)}
+                        disabled={bulkAddingTier === tier.label}
+                        className="text-xs font-semibold text-accent disabled:opacity-40"
+                      >
+                        {bulkAddingTier === tier.label ? "Přidávám…" : `Přidat všech ${remaining.length}`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tier.presets.map((preset) => {
+                      const alreadyAdded = existingTitles.has(preset.title);
+                      return (
+                        <button
+                          key={preset.title}
+                          type="button"
+                          onClick={() => applyPreset(preset)}
+                          disabled={alreadyAdded}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm ${
+                            alreadyAdded
+                              ? "border-border bg-surface-muted text-zinc-400"
+                              : "border-border bg-surface"
+                          }`}
+                        >
+                          <span>{preset.icon}</span>
+                          {preset.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          {!showRewardForm && (
             <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+              type="button"
+              onClick={() => setShowRewardForm(true)}
+              className="self-start rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
             >
-              Přidat odměnu
+              + Vlastní odměna
             </button>
-          </form>
+          )}
+
+          {showRewardForm && (
+            <form onSubmit={handleCreateReward} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+              <h2 className="font-medium">Přidat odměnu</h2>
+              <input
+                type="text"
+                placeholder="Název odměny"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="rounded-lg border border-border bg-surface px-4 py-2"
+              />
+              <input
+                type="number"
+                min={1}
+                value={xpCost}
+                onChange={(e) => setXpCost(Number(e.target.value))}
+                className="rounded-lg border border-border bg-surface px-4 py-2"
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={approvalRequired}
+                  onChange={(e) => setApprovalRequired(e.target.checked)}
+                />
+                Vyžaduje schválení rodičem
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+                >
+                  Přidat odměnu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRewardForm(false)}
+                  className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+                >
+                  Zrušit
+                </button>
+              </div>
+            </form>
+          )}
         </>
       )}
     </div>
