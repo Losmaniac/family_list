@@ -142,6 +142,15 @@ npx firebase-tools deploy --only functions --project familylist-70e9b --non-inte
 
 Service account potřebuje role **Editor**, **Firebase Admin** a (kvůli
 prvnímu nastavení IAM bindingů pro Eventarc/Pub/Sub u Cloud Functions 2nd gen)
-i **Owner** na GCP projektu `familylist-70e9b`. Klíč po použití vždy smazat ze
-sessions (`shred -u` / `rm`) a doporučit uživateli ho v Firebase konzoli
-revokovat — nejde o commitovatelný secret.
+i **Owner** na GCP projektu `familylist-70e9b`. Uživatel tento klíč používá
+opakovaně napříč sessions — po deployi ho smazat jen z disku session
+(`shred -u` / `rm`, protože sessions v tomto prostředí běží ve sdíleném
+kontejneru a klíč by jinak zůstal ležet na disku), ale **needoporučovat
+uživateli klíč revokovat ani ho sám nijak neinvalidovat** — nic v deploy
+procesu klíč sám od sebe nerevokuje ani nerotuje, takže pokud příště selže
+s `invalid_grant: Invalid JWT Signature`, není to auto-revoke, ale buď byl
+klíč omylem smazán/revokován ručně (v Firebase konzoli nebo GCP IAM →
+Service accounts → Keys), nebo GCP org policy vynucuje max. stáří klíče —
+v tom případě je potřeba nový klíč. Klíč samotný (obsah JSON) se nikdy
+neukládá do repa ani do tohoto souboru — je to secret, jen se dočasně
+uloží na disk session pro dobu trvání deploy příkazu a pak smaže.
