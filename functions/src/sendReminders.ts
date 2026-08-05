@@ -4,13 +4,14 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { dateKeyInFamilyZone } from "../../lib/date-utils";
 
 export const sendReminders = onSchedule(
   { schedule: "0 19 * * *", timeZone: "Europe/Prague" },
   async () => {
     const db = getFirestore();
     const messaging = getMessaging();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dateKeyInFamilyZone(new Date());
 
     const familiesSnapshot = await db.collection("families").get();
 

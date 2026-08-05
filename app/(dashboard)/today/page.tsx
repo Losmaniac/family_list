@@ -8,13 +8,14 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import PersonalWeekAhead from "@/components/PersonalWeekAhead";
 import type { DailyTask, Member, TaskTemplate } from "@/lib/types";
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dateKeyInFamilyZone(new Date());
 }
 
 export default function TodayPage() {

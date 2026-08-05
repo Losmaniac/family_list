@@ -1,5 +1,6 @@
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo } from "@/lib/categories";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import type { TaskTemplate } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
@@ -20,7 +21,7 @@ interface PersonalWeekAheadProps {
 /** Read-only week-ahead preview for a single member — no drag/drop, no daily task documents needed (those don't exist yet for future days), just a projection from active templates via isDue(). */
 export default function PersonalWeekAhead({ templates, userId }: PersonalWeekAheadProps) {
   const monday = startOfWeek(new Date());
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = dateKeyInFamilyZone(new Date());
   const myTemplates = templates.filter((t) => t.active && t.assignedTo.includes(userId));
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -32,7 +33,7 @@ export default function PersonalWeekAhead({ templates, userId }: PersonalWeekAhe
   return (
     <div className="grid grid-cols-7 gap-1.5 overflow-x-auto">
       {weekDates.map((date, displayIndex) => {
-        const dateKey = date.toISOString().slice(0, 10);
+        const dateKey = dateKeyInFamilyZone(date);
         const dueTemplates = myTemplates.filter((t) => isDue(t, date));
         const isToday = dateKey === todayKey;
 

@@ -9,6 +9,7 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { dailyTaskId, isDue } from "../../lib/task-scheduler";
+import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import type { TaskTemplate } from "../../lib/types";
 
 export const onTaskTemplateWritten = onDocumentWritten(
@@ -21,7 +22,7 @@ export const onTaskTemplateWritten = onDocumentWritten(
     if (!isDue(after, now)) return;
 
     const { familyId, templateId } = event.params;
-    const dateKey = now.toISOString().slice(0, 10);
+    const dateKey = dateKeyInFamilyZone(now);
     const db = getFirestore();
     const dailyTasksRef = db.collection("families").doc(familyId).collection("dailyTasks");
 
