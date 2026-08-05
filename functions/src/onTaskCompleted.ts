@@ -59,28 +59,54 @@ export const onTaskCompleted = onDocumentUpdated(
     const after = event.data?.after.data() as DailyTask | undefined;
     if (!before || !after || before.status === after.status) return;
 
+    const becameDone = before.status !== "done" && after.status === "done";
+    const becameUndone = before.status === "done" && after.status !== "done";
+    if (!becameDone && !becameUndone) return;
+
     const { familyId, taskId } = event.params;
     const db = getFirestore();
     const familyRef = db.collection("families").doc(familyId);
     const taskRef = familyRef.collection("dailyTasks").doc(taskId);
     const memberRef = familyRef.collection("members").doc(after.assignedTo);
 
-    if (before.status !== "done" && after.status === "done") {
-      const templateSnap = await familyRef.collection("taskTemplates").doc(after.templateId).get();
-      const template = templateSnap.data() as TaskTemplate | undefined;
-      if (!template) return;
+    const template = becameDone
+      ? ((await familyRef.collection("taskTemplates").doc(after.templateId).get()).data() as
+          | TaskTemplate
+          | undefined)
+      : undefined;
+    if (becameDone && !template) return;
 
-      await db.runTransaction(async (tx) => {
-        const memberSnap = await tx.get(memberRef);
-        const member = memberSnap.data() as Member | undefined;
-        const { streak, freezeWeek } = computeStreak(member, after.date);
-        const delta = applyStreakBonus(template.xpValue, streak);
+    // Rapid repeated taps fire this trigger multiple times in quick
+    // succession, and Cloud Functions gives no ordering guarantee between
+    // them — a later "became undone" invocation can run and finish *before*
+    // an earlier "became done" invocation's transaction has actually
+    // committed xpAwarded. Deciding off event.data (a snapshot from when
+    // each trigger fired) instead of a fresh read is exactly how XP awards
+    // survive a revert: the revert reads before.xpAwarded, sees it not yet
+    // set, and silently no-ops. Re-reading the task *inside* the
+    // transaction — and gating on its *current* status, not the event's —
+    // makes this converge to the correct end state regardless of ordering.
+    await db.runTransaction(async (tx) => {
+      const taskSnap = await tx.get(taskRef);
+      const task = taskSnap.data() as DailyTask | undefined;
+      if (!task) return;
+
+      const memberSnap = await tx.get(memberRef);
+      const member = memberSnap.data() as Member | undefined;
+
+      if (becameDone) {
+        // Already awarded (a duplicate trigger), or a later toggle already
+        // moved it back off 'done' — nothing to do either way.
+        if (task.xpAwarded || task.status !== "done") return;
+
+        const { streak, freezeWeek } = computeStreak(member, task.date);
+        const delta = applyStreakBonus(template!.xpValue, streak);
         const longestStreak = Math.max(member?.longestStreak ?? 0, streak);
 
         tx.set(
           familyRef.collection("xpLedger").doc(),
           buildLedgerEntry({
-            userId: after.assignedTo,
+            userId: task.assignedTo,
             delta,
             reason: "task_completed",
             relatedTaskId: taskId,
@@ -90,20 +116,21 @@ export const onTaskCompleted = onDocumentUpdated(
           xpBalance: FieldValue.increment(delta),
           currentStreak: streak,
           longestStreak,
-          lastActiveDate: after.date,
+          lastActiveDate: task.date,
           streakFreezeWeek: freezeWeek,
         });
         tx.update(taskRef, { xpAwarded: delta });
-      });
-    } else if (before.status === "done" && after.status !== "done") {
-      const awarded = before.xpAwarded;
-      if (!awarded) return;
+      } else {
+        // Nothing was ever awarded (a duplicate trigger, or the award
+        // transaction above hasn't landed yet), or a later toggle already
+        // re-completed it (and re-awarded fresh) — don't revert either way.
+        const awarded = task.xpAwarded;
+        if (!awarded || task.status === "done") return;
 
-      await db.runTransaction(async (tx) => {
         tx.set(
           familyRef.collection("xpLedger").doc(),
           buildLedgerEntry({
-            userId: after.assignedTo,
+            userId: task.assignedTo,
             delta: -awarded,
             reason: "task_reverted",
             relatedTaskId: taskId,
@@ -111,7 +138,7 @@ export const onTaskCompleted = onDocumentUpdated(
         );
         tx.update(memberRef, { xpBalance: FieldValue.increment(-awarded) });
         tx.update(taskRef, { xpAwarded: FieldValue.delete() });
-      });
-    }
+      }
+    });
   }
 );
