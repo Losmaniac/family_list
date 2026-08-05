@@ -7,6 +7,8 @@ import { LogOut, RefreshCw, Trash2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import { setupPushNotifications } from "@/lib/push";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { generateInviteCode } from "@/lib/invite-code";
@@ -23,6 +25,8 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, signOutUser } = useAuth();
   const { familyId, member } = useFamily();
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [family, setFamily] = useState<FamilyInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
 
@@ -61,6 +65,9 @@ export default function SettingsPage() {
         name,
         avatarUrl: avatarUrl ?? null,
       });
+      toast.success("Profil uložen.");
+    } catch {
+      toast.error("Profil se nepodařilo uložit.");
     } finally {
       setSavingProfile(false);
     }
@@ -80,10 +87,20 @@ export default function SettingsPage() {
 
   async function handleRegenerateInviteCode() {
     if (!familyId) return;
-    if (!confirm("Vygenerovat nový invite kód? Starý přestane fungovat.")) return;
-    await updateDoc(doc(getDb(), "families", familyId), {
-      inviteCode: generateInviteCode(),
+    const ok = await confirm({
+      title: "Vygenerovat nový invite kód?",
+      description: "Starý kód přestane fungovat.",
+      confirmLabel: "Vygenerovat",
     });
+    if (!ok) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId), {
+        inviteCode: generateInviteCode(),
+      });
+      toast.success("Nový invite kód je vygenerovaný.");
+    } catch {
+      toast.error("Kód se nepodařilo vygenerovat.");
+    }
   }
 
   async function handleCopyInviteCode() {
@@ -97,18 +114,33 @@ export default function SettingsPage() {
     if (!familyId) return;
     const parentCount = members.filter((m) => m.role === "parent").length;
     if (target.role === "parent" && parentCount <= 1) {
-      alert("Rodina musí mít alespoň jednoho rodiče.");
+      toast.error("Rodina musí mít alespoň jednoho rodiče.");
       return;
     }
-    await updateDoc(doc(getDb(), "families", familyId, "members", target.id), {
-      role: target.role === "parent" ? "child" : "parent",
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "members", target.id), {
+        role: target.role === "parent" ? "child" : "parent",
+      });
+    } catch {
+      toast.error("Roli se nepodařilo změnit.");
+    }
   }
 
   async function handleRemoveMember(target: Member) {
     if (!familyId) return;
-    if (!confirm(`Odebrat „${target.name}“ z rodiny?`)) return;
-    await deleteDoc(doc(getDb(), "families", familyId, "members", target.id));
+    const ok = await confirm({
+      title: `Odebrat „${target.name}“ z rodiny?`,
+      description: "Tuto akci nelze vrátit zpět.",
+      confirmLabel: "Odebrat",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(getDb(), "families", familyId, "members", target.id));
+      toast.success(`„${target.name}“ byl odebrán.`);
+    } catch {
+      toast.error("Člena se nepodařilo odebrat.");
+    }
   }
 
   async function handleSignOut() {

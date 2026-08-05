@@ -6,12 +6,14 @@ import { Send } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
 import Avatar from "@/components/Avatar";
 import type { ChatMessage, Member } from "@/lib/types";
 
 export default function ChatPage() {
   const { user } = useAuth();
   const { familyId } = useFamily();
+  const toast = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [members, setMembers] = useState<Record<string, Member>>({});
   const [text, setText] = useState("");
@@ -56,6 +58,8 @@ export default function ChatPage() {
         timestamp: Date.now(),
       });
       setText("");
+    } catch {
+      toast.error("Zprávu se nepodařilo odeslat.");
     } finally {
       setSending(false);
     }

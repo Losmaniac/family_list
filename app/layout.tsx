@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { FamilyProvider } from "@/lib/family-context";
+import { ToastProvider } from "@/lib/toast-context";
+import { DialogProvider } from "@/lib/dialog-context";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ThemeProvider from "@/components/ThemeProvider";
 
@@ -47,10 +49,14 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <ServiceWorkerRegistration />
-          <AuthProvider>
-            <FamilyProvider>{children}</FamilyProvider>
-          </AuthProvider>
+          <ToastProvider>
+            <DialogProvider>
+              <ServiceWorkerRegistration />
+              <AuthProvider>
+                <FamilyProvider>{children}</FamilyProvider>
+              </AuthProvider>
+            </DialogProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

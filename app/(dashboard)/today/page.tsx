@@ -6,6 +6,8 @@ import { PartyPopper } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import PersonalWeekAhead from "@/components/PersonalWeekAhead";
@@ -18,6 +20,8 @@ function todayKey(): string {
 export default function TodayPage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
+  const toast = useToast();
+  const { promptText } = useDialog();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [pendingApproval, setPendingApproval] = useState<DailyTask[]>([]);
   const [templates, setTemplates] = useState<Record<string, TaskTemplate>>({});
@@ -78,33 +82,54 @@ export default function TodayPage() {
     if (!familyId) return;
     const ref = doc(getDb(), "families", familyId, "dailyTasks", task.id);
 
-    if (member?.role === "parent") {
-      const nextStatus = task.status === "done" ? "pending" : "done";
-      await updateDoc(ref, { status: nextStatus, completedAt: nextStatus === "done" ? Date.now() : null });
-      return;
-    }
+    try {
+      if (member?.role === "parent") {
+        const nextStatus = task.status === "done" ? "pending" : "done";
+        await updateDoc(ref, { status: nextStatus, completedAt: nextStatus === "done" ? Date.now() : null });
+        return;
+      }
 
-    if (task.status === "pending") {
-      await updateDoc(ref, { status: "submitted", completedAt: Date.now() });
-    } else if (task.status === "submitted") {
-      await updateDoc(ref, { status: "pending", completedAt: null });
-    } else if (task.status === "returned") {
-      await updateDoc(ref, { status: "submitted", completedAt: Date.now() });
+      if (task.status === "pending") {
+        await updateDoc(ref, { status: "submitted", completedAt: Date.now() });
+        toast.success("Úkol odeslán ke schválení.");
+      } else if (task.status === "submitted") {
+        await updateDoc(ref, { status: "pending", completedAt: null });
+      } else if (task.status === "returned") {
+        await updateDoc(ref, { status: "submitted", completedAt: Date.now() });
+        toast.success("Úkol znovu odeslán ke schválení.");
+      }
+    } catch {
+      toast.error("Úkol se nepodařilo aktualizovat.");
     }
   }
 
   async function handleApprove(task: DailyTask) {
     if (!familyId) return;
-    await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), { status: "done" });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), { status: "done" });
+      toast.success("Úkol schválen.");
+    } catch {
+      toast.error("Úkol se nepodařilo schválit.");
+    }
   }
 
   async function handleReturn(task: DailyTask) {
     if (!familyId) return;
-    const comment = prompt("Proč úkol vracíš? (nepovinné)") ?? "";
-    await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
-      status: "returned",
-      returnComment: comment,
+    const comment = await promptText({
+      title: "Proč úkol vracíš?",
+      description: "Nepovinné — dítě uvidí tento komentář.",
+      placeholder: "Např. ještě to není celé hotové…",
     });
+    if (comment === null) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
+        status: "returned",
+        returnComment: comment,
+      });
+      toast.success("Úkol vrácen.");
+    } catch {
+      toast.error("Úkol se nepodařilo vrátit.");
+    }
   }
 
   if (loading) {

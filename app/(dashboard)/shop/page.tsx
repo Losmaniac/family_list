@@ -16,6 +16,7 @@ import {
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
 import RewardShop from "@/components/RewardShop";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
 import type { Member, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
@@ -37,6 +38,7 @@ const STATUS_COLORS: Record<RewardRedemptionStatus, string> = {
 export default function ShopPage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
+  const toast = useToast();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [pending, setPending] = useState<RewardRedemption[]>([]);
   const [awaitingFulfillment, setAwaitingFulfillment] = useState<RewardRedemption[]>([]);
@@ -105,26 +107,40 @@ export default function ShopPage() {
 
   async function handleRedeem(reward: Reward) {
     if (!familyId || !user) return;
-    await addDoc(collection(getDb(), "families", familyId, "rewardRedemptions"), {
-      userId: user.uid,
-      rewardId: reward.id,
-      status: reward.approvalRequired ? "requested" : "approved",
-      timestamp: Date.now(),
-    });
+    try {
+      await addDoc(collection(getDb(), "families", familyId, "rewardRedemptions"), {
+        userId: user.uid,
+        rewardId: reward.id,
+        status: reward.approvalRequired ? "requested" : "approved",
+        timestamp: Date.now(),
+      });
+      toast.success(reward.approvalRequired ? "Odměna vyžádána." : "Odměna uplatněna.");
+    } catch {
+      toast.error("Odměnu se nepodařilo uplatnit.");
+    }
   }
 
   async function handleDecision(redemption: RewardRedemption, status: "approved" | "rejected") {
     if (!familyId) return;
-    await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
-      status,
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
+        status,
+      });
+    } catch {
+      toast.error("Nepodařilo se uložit rozhodnutí.");
+    }
   }
 
   async function handleFulfill(redemption: RewardRedemption) {
     if (!familyId) return;
-    await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
-      status: "fulfilled",
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
+        status: "fulfilled",
+      });
+      toast.success("Odměna označena jako vyřízená.");
+    } catch {
+      toast.error("Nepodařilo se označit odměnu jako vyřízenou.");
+    }
   }
 
   async function handleCreateReward(e: React.FormEvent) {
@@ -142,6 +158,9 @@ export default function ShopPage() {
       setXpCost(50);
       setApprovalRequired(true);
       setShowRewardForm(false);
+      toast.success("Odměna byla přidána.");
+    } catch {
+      toast.error("Odměnu se nepodařilo přidat.");
     } finally {
       setSubmitting(false);
     }
@@ -173,6 +192,8 @@ export default function ShopPage() {
         });
       }
       await batch.commit();
+    } catch {
+      toast.error("Odměny se nepodařilo přidat.");
     } finally {
       setBulkAddingTier(null);
     }
