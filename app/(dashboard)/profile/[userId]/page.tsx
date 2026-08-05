@@ -25,6 +25,7 @@ const REASON_LABELS: Record<string, string> = {
   task_reverted: "Zrušené splnění úkolu",
   reward_redeemed: "Uplatněná odměna",
   manual_adjustment: "Ruční úprava XP",
+  pooled_contribution: "Příspěvek do sbírky",
 };
 
 interface ProfilePageProps {
