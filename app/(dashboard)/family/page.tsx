@@ -11,6 +11,7 @@ import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
 import { dayOfWeekInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
+import Leaderboard from "@/components/Leaderboard";
 import type { Member, Recurrence, TaskCategory, TaskProposal, TaskTemplate } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
@@ -152,6 +153,8 @@ export default function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <Leaderboard members={members} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Úkoly celé rodiny</h1>

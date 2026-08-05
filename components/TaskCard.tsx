@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
+import { Camera, CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
 import { categoryInfo } from "@/lib/categories";
 import type { DailyTask, TaskTemplate } from "@/lib/types";
 
@@ -29,9 +29,12 @@ export default function TaskCard({ task, template, onToggle, disabled }: TaskCar
     >
       <StatusIcon status={task.status} />
       <div className="min-w-0 flex-1">
-        <p className={`font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
-          {categoryIcon && <span className="mr-1">{categoryIcon}</span>}
+        <p className={`flex items-center gap-1 font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
+          {categoryIcon && <span>{categoryIcon}</span>}
           {template.title}
+          {template.photoRequired && (task.status === "pending" || task.status === "returned") && (
+            <Camera size={14} className="shrink-0 text-zinc-400" aria-label="Vyžaduje foto" />
+          )}
         </p>
         {task.status === "returned" && task.returnComment ? (
           <p className="truncate text-sm text-danger">Vráceno: {task.returnComment}</p>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { PartyPopper } from "lucide-react";
-import { getDb } from "@/lib/firebase";
+import { getDb, getFirebaseStorage } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
@@ -28,6 +29,8 @@ export default function TodayPage() {
   const [members, setMembers] = useState<Record<string, Member>>({});
   const [loading, setLoading] = useState(true);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
+  const [photoTask, setPhotoTask] = useState<DailyTask | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -82,6 +85,13 @@ export default function TodayPage() {
   async function handleOwnToggle(task: DailyTask) {
     if (!familyId || pendingTaskIds.has(task.id)) return;
     const ref = doc(getDb(), "families", familyId, "dailyTasks", task.id);
+    const template = templates[task.templateId];
+
+    if (member?.role !== "parent" && template?.photoRequired && task.status !== "submitted") {
+      setPhotoTask(task);
+      photoInputRef.current?.click();
+      return;
+    }
 
     setPendingTaskIds((prev) => new Set(prev).add(task.id));
     try {
@@ -102,6 +112,35 @@ export default function TodayPage() {
       }
     } catch {
       toast.error("Úkol se nepodařilo aktualizovat.");
+    } finally {
+      setPendingTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }
+  }
+
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const task = photoTask;
+    e.target.value = "";
+    setPhotoTask(null);
+    if (!file || !task || !familyId) return;
+
+    setPendingTaskIds((prev) => new Set(prev).add(task.id));
+    try {
+      const photoRef = storageRef(getFirebaseStorage(), `families/${familyId}/taskPhotos/${task.id}`);
+      await uploadBytes(photoRef, file, { contentType: file.type });
+      const photoUrl = await getDownloadURL(photoRef);
+      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
+        status: "submitted",
+        completedAt: Date.now(),
+        photoUrl,
+      });
+      toast.success("Foto nahráno, úkol odeslán ke schválení.");
+    } catch {
+      toast.error("Foto se nepodařilo nahrát.");
     } finally {
       setPendingTaskIds((prev) => {
         const next = new Set(prev);
@@ -155,6 +194,15 @@ export default function TodayPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePhotoSelected}
+        className="hidden"
+      />
+
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-medium">Čeká na schválení</h2>
@@ -168,6 +216,14 @@ export default function TodayPage() {
                 className="flex items-center justify-between rounded-xl border border-accent/30 bg-accent/5 px-4 py-3"
               >
                 <div className="flex items-center gap-3">
+                  {task.photoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset
+                    <img
+                      src={task.photoUrl}
+                      alt="Foto potvrzení úkolu"
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
+                  )}
                   {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
                   <div>
                     <p className="font-medium">{template.title}</p>

@@ -45,6 +45,8 @@ export interface TaskTemplate {
   /** Day of month (1-31) the task is due — used by 'monthly'. */
   dayOfMonth?: number;
   active: boolean;
+  /** If true, a photo must be attached before the task can be submitted for approval. */
+  photoRequired?: boolean;
 }
 
 /**
@@ -65,6 +67,8 @@ export interface DailyTask {
   xpAwarded?: number;
   /** Left by a parent when returning a submitted task instead of approving it. */
   returnComment?: string;
+  /** Firebase Storage download URL for the proof photo, when the template requires one. */
+  photoUrl?: string;
 }
 
 export interface XpLedgerEntry {

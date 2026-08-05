@@ -8,6 +8,7 @@ import { DialogProvider } from "@/lib/dialog-context";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ThemeProvider from "@/components/ThemeProvider";
 import AppVersion from "@/components/AppVersion";
+import WakeLock from "@/components/WakeLock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,6 +58,7 @@ export default function RootLayout({
           <ToastProvider>
             <DialogProvider>
               <ServiceWorkerRegistration />
+              <WakeLock />
               <AuthProvider>
                 <FamilyProvider>{children}</FamilyProvider>
               </AuthProvider>
