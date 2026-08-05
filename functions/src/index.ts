@@ -5,7 +5,7 @@ initializeApp();
 export { dailyTaskGenerator } from "./dailyTaskGenerator";
 export { sendReminders } from "./sendReminders";
 export { createFamily, joinFamily } from "./family";
-export { onTaskCompleted } from "./onTaskCompleted";
+export { onTaskCompleted, reconcileTaskXpSweep } from "./onTaskCompleted";
 export { onRedemptionApproved } from "./onRedemptionApproved";
 export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
 export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
