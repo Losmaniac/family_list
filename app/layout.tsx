@@ -7,6 +7,7 @@ import { ToastProvider } from "@/lib/toast-context";
 import { DialogProvider } from "@/lib/dialog-context";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ThemeProvider from "@/components/ThemeProvider";
+import AppVersion from "@/components/AppVersion";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,7 @@ export default function RootLayout({
             </DialogProvider>
           </ToastProvider>
         </ThemeProvider>
+        <AppVersion className="pointer-events-none fixed top-1 right-2 z-50 text-[10px] text-zinc-400" />
       </body>
     </html>
   );
