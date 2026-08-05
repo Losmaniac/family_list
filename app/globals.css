@@ -53,3 +53,29 @@ body {
   background: var(--accent);
   color: var(--accent-foreground);
 }
+
+@keyframes xp-gain-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.85);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.05);
+  }
+  25% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -12px) scale(0.95);
+  }
+}
+
+.animate-xp-gain-pop {
+  animation: xp-gain-pop 2.2s ease-out forwards;
+}
