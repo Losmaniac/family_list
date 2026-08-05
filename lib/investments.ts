@@ -12,10 +12,16 @@ export interface InvestmentTerm {
   label: string;
 }
 
+// Each longer tier must beat repeatedly rolling over the shorter one for
+// the same total duration — otherwise the "rational" move is to always
+// pick the shortest term and reinvest, which defeats the entire point of
+// rewarding a longer commitment. E.g. 4.29x weekly compounding over 30
+// days at 2%/week already reaches ~8.9%, so the monthly rate has to clear
+// that bar with real room to spare, not just nominally look bigger.
 export const INVESTMENT_TERMS: InvestmentTerm[] = [
   { days: 7, rate: 0.02, label: "1 týden" },
-  { days: 30, rate: 0.08, label: "1 měsíc" },
-  { days: 90, rate: 0.3, label: "3 měsíce" },
+  { days: 30, rate: 0.12, label: "1 měsíc" },
+  { days: 90, rate: 0.5, label: "3 měsíce" },
 ];
 
 export function findInvestmentTerm(days: number): InvestmentTerm | undefined {
