@@ -24,6 +24,7 @@ const REASON_LABELS: Record<string, string> = {
   task_completed: "Splněný úkol",
   task_reverted: "Zrušené splnění úkolu",
   reward_redeemed: "Uplatněná odměna",
+  manual_adjustment: "Ruční úprava XP",
 };
 
 interface ProfilePageProps {
@@ -119,8 +120,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               key={entry.id}
               className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium">{REASON_LABELS[entry.reason] ?? entry.reason}</p>
+                {entry.note && <p className="truncate text-sm text-zinc-500">{entry.note}</p>}
                 <p className="text-xs text-zinc-500">
                   {new Date(entry.timestamp).toLocaleString("cs-CZ")}
                 </p>

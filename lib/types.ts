@@ -74,6 +74,26 @@ export interface XpLedgerEntry {
   reason: string;
   timestamp: number;
   relatedTaskId?: string;
+  /** Free-text detail for reason == 'manual_adjustment' — the requesting parent's stated reason. */
+  note?: string;
+}
+
+/**
+ * requested -> approved (a *different* parent approves — one parent can't
+ * unilaterally move XP — after which the ledger write happens) | rejected.
+ * Auto-approved on creation if the family has no second parent to ever
+ * approve it (see onXpAdjustmentRequestWritten).
+ */
+export type XpAdjustmentStatus = "requested" | "approved" | "rejected";
+
+export interface XpAdjustmentRequest {
+  id: string;
+  targetUserId: string;
+  requestedBy: string;
+  delta: number;
+  reason: string;
+  status: XpAdjustmentStatus;
+  timestamp: number;
 }
 
 export interface Reward {
@@ -97,6 +117,33 @@ export interface RewardRedemption {
   userId: string;
   rewardId: string;
   status: RewardRedemptionStatus;
+  timestamp: number;
+}
+
+/**
+ * pending -> approved (every other family member has approved — unanimous,
+ * a task everyone lives with should have everyone's buy-in — at which point
+ * a Cloud Function creates the real, active taskTemplate) | rejected (any
+ * one other member can veto outright). The proposer can't vote on their own
+ * proposal.
+ */
+export type TaskProposalStatus = "pending" | "approved" | "rejected";
+
+export interface TaskProposal {
+  id: string;
+  title: string;
+  description?: string;
+  category: TaskCategory;
+  xpValue: number;
+  recurrence: Recurrence;
+  daysOfWeek: number[];
+  date?: string;
+  dayOfMonth?: number;
+  assignedTo: string[];
+  proposedBy: string;
+  /** userIds who've approved so far. */
+  approvals: string[];
+  status: TaskProposalStatus;
   timestamp: number;
 }
 

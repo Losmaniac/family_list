@@ -112,6 +112,51 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /taskProposals/{proposalId} {
+        allow read: if isFamilyMember(familyId);
+        // Any family member — including a child — can propose a task for
+        // themselves. Always starts 'pending' with no approvals yet.
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.proposedBy == request.auth.uid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.approvals.size() == 0 &&
+          request.resource.data.xpValue is number && request.resource.data.xpValue > 0;
+        // Voting: any *other* member may add exactly their own uid to
+        // approvals (never someone else's, never more than one at a time),
+        // or reject the proposal outright — one veto kills it. Only while
+        // still 'pending'; the proposer never votes on their own proposal.
+        allow update: if isFamilyMember(familyId) &&
+          resource.data.status == 'pending' &&
+          request.auth.uid != resource.data.proposedBy &&
+          (
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvals']) &&
+              request.resource.data.approvals == resource.data.approvals.concat([request.auth.uid])) ||
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+              request.resource.data.status == 'rejected')
+          );
+        allow delete: if false;
+      }
+
+      match /xpAdjustmentRequests/{requestId} {
+        allow read: if isFamilyMember(familyId);
+        // Any parent can request an adjustment for any member (including
+        // themselves) — it always starts 'requested'. A Cloud Function
+        // auto-approves it if the family has no second parent to ever
+        // approve it.
+        allow create: if isParent(familyId) &&
+          request.resource.data.requestedBy == request.auth.uid &&
+          request.resource.data.status == 'requested' &&
+          request.resource.data.delta is number && request.resource.data.delta != 0;
+        // Only a *different* parent than the requester may decide it —
+        // "second parent must approve" — and only while still 'requested'.
+        allow update: if isParent(familyId) &&
+          request.auth.uid != resource.data.requestedBy &&
+          resource.data.status == 'requested' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status in ['approved', 'rejected'];
+        allow delete: if false;
+      }
+
       // Family chat — an immutable, append-only log. Anyone in the family
       // can read and post as themselves; nothing can be edited or deleted.
       match /messages/{messageId} {

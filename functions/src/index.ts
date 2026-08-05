@@ -8,3 +8,5 @@ export { createFamily, joinFamily } from "./family";
 export { onTaskCompleted } from "./onTaskCompleted";
 export { onRedemptionApproved } from "./onRedemptionApproved";
 export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
+export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
+export { onTaskProposalWritten } from "./taskProposals";

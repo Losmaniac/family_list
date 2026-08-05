@@ -1,19 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
 import { isDue } from "@/lib/task-scheduler";
-import { categoryInfo } from "@/lib/categories";
+import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
 import { dayOfWeekInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
-import type { Member, TaskTemplate } from "@/lib/types";
+import type { Member, Recurrence, TaskCategory, TaskProposal, TaskTemplate } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
 const DISPLAY_TO_JS_DAY = [1, 2, 3, 4, 5, 6, 0];
+const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
+
+function emptyProposalForm() {
+  return {
+    title: "",
+    category: "household" as TaskCategory,
+    xpValue: 10,
+    recurrence: "daily" as Recurrence,
+    daysOfWeek: [] as number[],
+  };
+}
 
 function startOfWeek(date: Date): Date {
   const result = new Date(date);
@@ -28,10 +41,16 @@ function todayDisplayIndex(): number {
 }
 
 export default function FamilyPage() {
+  const { user } = useAuth();
   const { familyId } = useFamily();
+  const toast = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(todayDisplayIndex);
+  const [proposals, setProposals] = useState<TaskProposal[]>([]);
+  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [proposalForm, setProposalForm] = useState(emptyProposalForm);
+  const [submittingProposal, setSubmittingProposal] = useState(false);
 
   useEffect(() => {
     if (!familyId) return;
@@ -46,6 +65,76 @@ export default function FamilyPage() {
       setTemplates(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskTemplate));
     });
   }, [familyId]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    const proposalsQuery = query(
+      collection(getDb(), "families", familyId, "taskProposals"),
+      where("status", "==", "pending")
+    );
+    return onSnapshot(proposalsQuery, (snapshot) => {
+      setProposals(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskProposal));
+    });
+  }, [familyId]);
+
+  function toggleProposalDay(day: number) {
+    setProposalForm((prev) => ({
+      ...prev,
+      daysOfWeek: prev.daysOfWeek.includes(day)
+        ? prev.daysOfWeek.filter((d) => d !== day)
+        : [...prev.daysOfWeek, day],
+    }));
+  }
+
+  async function handleSubmitProposal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!familyId || !user) return;
+    setSubmittingProposal(true);
+    try {
+      await addDoc(collection(getDb(), "families", familyId, "taskProposals"), {
+        title: proposalForm.title,
+        category: proposalForm.category,
+        xpValue: proposalForm.xpValue,
+        recurrence: proposalForm.recurrence,
+        daysOfWeek: proposalForm.recurrence === "weekly" ? proposalForm.daysOfWeek : [],
+        assignedTo: [user.uid],
+        proposedBy: user.uid,
+        approvals: [],
+        status: "pending",
+        timestamp: Date.now(),
+      });
+      toast.success("Návrh odeslán, čeká na schválení zbytkem rodiny.");
+      setProposalForm(emptyProposalForm());
+      setShowProposalForm(false);
+    } catch {
+      toast.error("Návrh se nepodařilo odeslat.");
+    } finally {
+      setSubmittingProposal(false);
+    }
+  }
+
+  async function handleApproveProposal(proposal: TaskProposal) {
+    if (!familyId || !user) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskProposals", proposal.id), {
+        approvals: arrayUnion(user.uid),
+      });
+    } catch {
+      toast.error("Nepodařilo se uložit schválení.");
+    }
+  }
+
+  async function handleRejectProposal(proposal: TaskProposal) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskProposals", proposal.id), {
+        status: "rejected",
+      });
+      toast.success("Návrh zamítnut.");
+    } catch {
+      toast.error("Nepodařilo se zamítnout návrh.");
+    }
+  }
 
   const monday = startOfWeek(new Date());
   const weekDates = Array.from({ length: 7 }, (_, i) => {
@@ -63,12 +152,162 @@ export default function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Úkoly celé rodiny</h1>
-        <p className="text-sm text-zinc-500">
-          {isToday ? "Dnes" : `${DAY_LABELS[selectedIndex]} ${selectedDate.getDate()}.`}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Úkoly celé rodiny</h1>
+          <p className="text-sm text-zinc-500">
+            {isToday ? "Dnes" : `${DAY_LABELS[selectedIndex]} ${selectedDate.getDate()}.`}
+          </p>
+        </div>
+        {!showProposalForm && (
+          <button
+            type="button"
+            onClick={() => setShowProposalForm(true)}
+            className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+          >
+            + Navrhnout úkol
+          </button>
+        )}
       </div>
+
+      {showProposalForm && (
+        <form onSubmit={handleSubmitProposal} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          <input
+            type="text"
+            placeholder="Název úkolu"
+            value={proposalForm.title}
+            onChange={(e) => setProposalForm((prev) => ({ ...prev, title: e.target.value }))}
+            required
+            className="rounded-lg border border-border bg-surface px-4 py-2"
+          />
+
+          <div className="flex flex-wrap gap-2">
+            {TASK_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setProposalForm((prev) => ({ ...prev, category: cat.value }))}
+                className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm ${
+                  proposalForm.category === cat.value ? "bg-accent text-accent-foreground" : "border border-border"
+                }`}
+              >
+                <span>{cat.icon}</span>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-zinc-500" htmlFor="proposalXp">
+              XP za splnění
+            </label>
+            <input
+              id="proposalXp"
+              type="number"
+              min={1}
+              value={proposalForm.xpValue}
+              onChange={(e) => setProposalForm((prev) => ({ ...prev, xpValue: Number(e.target.value) }))}
+              className="w-24 rounded-lg border border-border bg-surface px-4 py-2"
+            />
+          </div>
+
+          <select
+            value={proposalForm.recurrence}
+            onChange={(e) => setProposalForm((prev) => ({ ...prev, recurrence: e.target.value as Recurrence }))}
+            className="rounded-lg border border-border bg-surface px-4 py-2"
+          >
+            <option value="daily">Denně</option>
+            <option value="weekly">Týdně (vybrané dny)</option>
+          </select>
+
+          {proposalForm.recurrence === "weekly" && (
+            <div className="flex gap-2">
+              {WEEKDAYS.map((label, day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleProposalDay(day)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
+                    proposalForm.daysOfWeek.includes(day)
+                      ? "bg-accent text-accent-foreground"
+                      : "border border-border"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-zinc-500">
+            Návrh se stane skutečným úkolem, jakmile ho schválí zbytek rodiny.
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submittingProposal}
+              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              Odeslat návrh
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowProposalForm(false)}
+              className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+            >
+              Zrušit
+            </button>
+          </div>
+        </form>
+      )}
+
+      {proposals.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium">Návrhy úkolů</h2>
+          {proposals.map((proposal) => {
+            const proposer = members.find((m) => m.id === proposal.proposedBy);
+            const needed = Math.max(members.length - 1, 0);
+            const isOwn = proposal.proposedBy === user?.uid;
+            const alreadyVoted = user ? proposal.approvals.includes(user.uid) : false;
+            return (
+              <div key={proposal.id} className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {categoryInfo(proposal.category).icon} {proposal.title} · +{proposal.xpValue} XP
+                    </p>
+                    <p className="truncate text-sm text-zinc-500">
+                      Navrhl(a) {proposer?.name ?? proposal.proposedBy} · schváleno {proposal.approvals.length}/{needed}
+                    </p>
+                  </div>
+                  {!isOwn && !alreadyVoted && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveProposal(proposal)}
+                        className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
+                      >
+                        Schválit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectProposal(proposal)}
+                        className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
+                      >
+                        Zamítnout
+                      </button>
+                    </div>
+                  )}
+                  {(isOwn || alreadyVoted) && (
+                    <span className="shrink-0 text-sm text-zinc-400">Čeká na ostatní</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1">
         {weekDates.map((date, i) => {
