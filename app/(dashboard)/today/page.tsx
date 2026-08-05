@@ -11,7 +11,6 @@ import { useDialog } from "@/lib/dialog-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
-import PersonalWeekAhead from "@/components/PersonalWeekAhead";
 import type { DailyTask, Member, TaskTemplate } from "@/lib/types";
 
 function todayKey(): string {
@@ -143,7 +142,7 @@ export default function TodayPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-2" aria-label="Načítání…">
+      <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-2" aria-label="Načítání…">
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-[60px] animate-pulse rounded-xl bg-surface-muted" />
         ))}
@@ -155,7 +154,7 @@ export default function TodayPage() {
   const done = tasks.filter((t) => t.status === "done");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-medium">Čeká na schválení</h2>
@@ -199,12 +198,12 @@ export default function TodayPage() {
         </section>
       )}
 
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-1 flex-col gap-4">
         <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
         {tasks.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center text-zinc-500">
-            <PartyPopper size={32} />
-            <p>Na dnes nemáš žádné úkoly.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-zinc-500">
+            <PartyPopper size={40} />
+            <p className="text-lg">Na dnes nemáš žádné úkoly.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -246,13 +245,6 @@ export default function TodayPage() {
           </div>
         )}
       </section>
-
-      {user && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Tento týden</h2>
-          <PersonalWeekAhead templates={Object.values(templates)} userId={user.uid} />
-        </section>
-      )}
     </div>
   );
 }
