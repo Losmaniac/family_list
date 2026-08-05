@@ -193,6 +193,8 @@ export interface Investment {
   status: InvestmentStatus;
   /** Final XP credited back — principal+interest if matured, principal only if withdrawn early. */
   payout?: number;
+  /** Set once the principal has actually been deducted — lets a reconciliation sweep tell a fully-processed 'active' investment apart from one whose creation event never got processed. */
+  principalDeducted?: boolean;
 }
 
 export interface ChatMessage {
