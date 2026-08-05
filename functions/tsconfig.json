@@ -13,5 +13,5 @@
   },
   "compileOnSave": true,
   "include": ["src", "../lib"],
-  "exclude": ["../lib/**/*.tsx"]
+  "exclude": ["../lib/**/*.tsx", "../lib/**/*.test.ts"]
 }
