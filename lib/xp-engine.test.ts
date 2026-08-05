@@ -118,6 +118,15 @@ describe("buildLedgerEntry", () => {
     const entry = buildLedgerEntry({ userId: "u1", delta: -20, reason: "manual_adjustment", note: "Za drzost" });
     expect(entry.note).toBe("Za drzost");
   });
+
+  it("omits relatedTaskId/note entirely when not given, rather than including them as undefined", () => {
+    // The Firestore Admin SDK throws on any field explicitly set to
+    // `undefined` — `"key" in entry` catches that even though plain
+    // property access (entry.key) reads as undefined either way.
+    const entry = buildLedgerEntry({ userId: "u1", delta: 6, reason: "task_completed" });
+    expect("relatedTaskId" in entry).toBe(false);
+    expect("note" in entry).toBe(false);
+  });
 });
 
 describe("xpAdjustmentNeedsApproval", () => {

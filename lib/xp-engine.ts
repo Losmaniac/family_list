@@ -86,14 +86,18 @@ export interface LedgerEntryInput {
 }
 
 export function buildLedgerEntry(input: LedgerEntryInput): Omit<XpLedgerEntry, "id"> {
-  return {
+  // The Firestore Admin SDK rejects any write containing an explicit
+  // `undefined` value — relatedTaskId/note must be omitted entirely when
+  // not given, never included as `key: undefined`.
+  const entry: Omit<XpLedgerEntry, "id"> = {
     userId: input.userId,
     delta: input.delta,
     reason: input.reason,
-    relatedTaskId: input.relatedTaskId,
-    note: input.note,
     timestamp: Date.now(),
   };
+  if (input.relatedTaskId !== undefined) entry.relatedTaskId = input.relatedTaskId;
+  if (input.note !== undefined) entry.note = input.note;
+  return entry;
 }
 
 /**
