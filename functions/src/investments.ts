@@ -5,13 +5,70 @@
  * time this runs) and returns just the principal on an early-withdrawal
  * request. maturedInvestmentsPayout is the daily sweep that credits
  * principal + interest once a term's up.
+ *
+ * reconcileInvestment mirrors the same pattern used for tasks
+ * (see onTaskCompleted.ts): it looks only at an investment's *current*
+ * state, never at what triggered the call, so it's safe to invoke both
+ * from the live trigger and from reconcileInvestmentSweep — a periodic
+ * safety net for the same "Firestore triggers can silently drop events
+ * under rapid writes or mid-deploy" gap documented there.
  */
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, type Firestore } from "firebase-admin/firestore";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import { maturityPayout } from "../../lib/investments";
 import type { Investment, Member } from "../../lib/types";
+
+async function reconcileInvestment(db: Firestore, familyId: string, investmentId: string): Promise<void> {
+  const familyRef = db.collection("families").doc(familyId);
+  const investmentRef = familyRef.collection("investments").doc(investmentId);
+
+  await db.runTransaction(async (tx) => {
+    const investmentSnap = await tx.get(investmentRef);
+    const investment = investmentSnap.data() as Investment | undefined;
+    if (!investment) return;
+
+    const needsDeduction = investment.status === "active" && !investment.principalDeducted;
+    const needsWithdrawal = investment.status === "withdrawal_requested";
+    if (!needsDeduction && !needsWithdrawal) return;
+
+    const memberRef = familyRef.collection("members").doc(investment.userId);
+
+    if (needsDeduction) {
+      const memberSnap = await tx.get(memberRef);
+      const member = memberSnap.data() as Member | undefined;
+      if (!member || member.xpBalance < investment.principal) {
+        tx.update(investmentRef, { status: "cancelled" });
+        return;
+      }
+
+      tx.set(
+        familyRef.collection("xpLedger").doc(),
+        buildLedgerEntry({
+          userId: investment.userId,
+          delta: -investment.principal,
+          reason: "investment_started",
+          relatedTaskId: investmentId,
+        })
+      );
+      tx.update(memberRef, { xpBalance: FieldValue.increment(-investment.principal) });
+      tx.update(investmentRef, { principalDeducted: true });
+    } else {
+      tx.set(
+        familyRef.collection("xpLedger").doc(),
+        buildLedgerEntry({
+          userId: investment.userId,
+          delta: investment.principal,
+          reason: "investment_withdrawn_early",
+          relatedTaskId: investmentId,
+        })
+      );
+      tx.update(memberRef, { xpBalance: FieldValue.increment(investment.principal) });
+      tx.update(investmentRef, { status: "withdrawn", payout: investment.principal });
+    }
+  });
+}
 
 export const onInvestmentWritten = onDocumentWritten(
   "families/{familyId}/investments/{investmentId}",
@@ -19,53 +76,34 @@ export const onInvestmentWritten = onDocumentWritten(
     const before = event.data?.before.data() as Investment | undefined;
     const after = event.data?.after.data() as Investment | undefined;
     if (!after) return;
+    if (before && before.status === after.status && before.principalDeducted === after.principalDeducted) return;
 
     const { familyId, investmentId } = event.params;
-    const db = getFirestore();
-    const familyRef = db.collection("families").doc(familyId);
-    const investmentRef = familyRef.collection("investments").doc(investmentId);
-    const memberRef = familyRef.collection("members").doc(after.userId);
-
-    if (!before && after.status === "active") {
-      await db.runTransaction(async (tx) => {
-        const memberSnap = await tx.get(memberRef);
-        const member = memberSnap.data() as Member | undefined;
-        if (!member || member.xpBalance < after.principal) {
-          tx.update(investmentRef, { status: "cancelled" });
-          return;
-        }
-
-        tx.set(
-          familyRef.collection("xpLedger").doc(),
-          buildLedgerEntry({
-            userId: after.userId,
-            delta: -after.principal,
-            reason: "investment_started",
-            relatedTaskId: investmentId,
-          })
-        );
-        tx.update(memberRef, { xpBalance: FieldValue.increment(-after.principal) });
-      });
-      return;
-    }
-
-    if (before?.status === "active" && after.status === "withdrawal_requested") {
-      await db.runTransaction(async (tx) => {
-        tx.set(
-          familyRef.collection("xpLedger").doc(),
-          buildLedgerEntry({
-            userId: after.userId,
-            delta: after.principal,
-            reason: "investment_withdrawn_early",
-            relatedTaskId: investmentId,
-          })
-        );
-        tx.update(memberRef, { xpBalance: FieldValue.increment(after.principal) });
-        tx.update(investmentRef, { status: "withdrawn", payout: after.principal });
-      });
-    }
+    await reconcileInvestment(getFirestore(), familyId, investmentId);
   }
 );
+
+/**
+ * Safety net: investments are rare enough (unlike dailyTasks) that
+ * scanning every family's full collection each run is cheap, so this
+ * doesn't bother scoping to a recent date range.
+ */
+export const reconcileInvestmentSweep = onSchedule({ schedule: "*/15 * * * *" }, async () => {
+  const db = getFirestore();
+  const familiesSnapshot = await db.collection("families").get();
+
+  for (const familyDoc of familiesSnapshot.docs) {
+    const investmentsSnapshot = await familyDoc.ref.collection("investments").get();
+    for (const investmentDoc of investmentsSnapshot.docs) {
+      const investment = investmentDoc.data() as Investment;
+      const needsDeduction = investment.status === "active" && !investment.principalDeducted;
+      const needsWithdrawal = investment.status === "withdrawal_requested";
+      if (needsDeduction || needsWithdrawal) {
+        await reconcileInvestment(db, familyDoc.id, investmentDoc.id);
+      }
+    }
+  }
+});
 
 export const maturedInvestmentsPayout = onSchedule(
   { schedule: "0 6 * * *", timeZone: "Europe/Prague" },

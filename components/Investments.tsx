@@ -4,12 +4,9 @@ import { useState } from "react";
 import { INVESTMENT_TERMS } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
-const STATUS_LABELS: Record<Investment["status"], string> = {
-  active: "Běží",
-  withdrawal_requested: "Vybírá se…",
+const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
   withdrawn: "Vybráno předčasně",
   matured: "Vyplaceno",
-  cancelled: "Zrušeno (nedostatek XP)",
 };
 
 function daysRemaining(maturesAt: number): number {
@@ -29,8 +26,16 @@ export default function Investments({ investments, xpBalance, onStart, onWithdra
   const [amount, setAmount] = useState(50);
   const [termDays, setTermDays] = useState(INVESTMENT_TERMS[0].days);
 
-  const active = investments.filter((i) => i.status === "active" || i.status === "withdrawal_requested");
-  const past = investments.filter((i) => i.status === "matured" || i.status === "withdrawn");
+  // Only show what's actually settled — an in-between state like
+  // "withdrawal_requested" is a brief server-processing moment, not
+  // something worth a distinct card; it just moves straight to "past"
+  // once resolved. Same for "cancelled" (an investment that failed its
+  // balance check at creation time never really existed from the user's
+  // point of view).
+  const active = investments.filter((i) => i.status === "active");
+  const past = investments.filter(
+    (i): i is Investment & { status: "withdrawn" | "matured" } => i.status === "matured" || i.status === "withdrawn"
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,20 +120,15 @@ export default function Investments({ investments, xpBalance, onStart, onWithdra
             >
               <div>
                 <p className="font-medium">{inv.principal} XP</p>
-                <p className="text-sm text-zinc-500">
-                  {STATUS_LABELS[inv.status]}
-                  {inv.status === "active" && ` · ještě ${daysRemaining(inv.maturesAt)} dní`}
-                </p>
+                <p className="text-sm text-zinc-500">Běží · ještě {daysRemaining(inv.maturesAt)} dní</p>
               </div>
-              {inv.status === "active" && (
-                <button
-                  type="button"
-                  onClick={() => onWithdrawEarly(inv)}
-                  className="shrink-0 rounded-full bg-surface-muted px-3 py-1.5 text-sm font-semibold"
-                >
-                  Vybrat předčasně
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => onWithdrawEarly(inv)}
+                className="shrink-0 rounded-full bg-surface-muted px-3 py-1.5 text-sm font-semibold"
+              >
+                Vybrat předčasně
+              </button>
             </div>
           ))}
         </div>
@@ -140,7 +140,7 @@ export default function Investments({ investments, xpBalance, onStart, onWithdra
             <div key={inv.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
               <p className="font-medium">{inv.principal} XP</p>
               <span className={`text-sm font-semibold ${inv.status === "matured" ? "text-success" : "text-zinc-500"}`}>
-                {STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
+                {PAST_STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
               </span>
             </div>
           ))}
