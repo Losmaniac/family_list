@@ -10,6 +10,7 @@ import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
 import XpGainCelebration from "@/components/XpGainCelebration";
+import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
 
 const NAV_ITEMS = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
@@ -26,6 +27,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { loading: familyLoading, member } = useFamily();
 
   const loading = authLoading || familyLoading;
+
+  function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    // Let modified clicks (open in new tab, etc.) and browsers without the
+    // View Transitions API fall through to Link's normal navigation.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    if (typeof document.startViewTransition !== "function") return;
+    e.preventDefault();
+    document.startViewTransition(() => router.push(href));
+  }
 
   useEffect(() => {
     if (!loading && (!user || !member)) {
@@ -44,6 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex flex-1 flex-col">
       <XpGainCelebration />
+      <TaskCompleteFireworks />
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />
@@ -77,6 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => handleNavClick(e, item.href)}
               className={`flex min-w-[44px] flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
                 active ? "text-accent" : "text-zinc-500"
               }`}

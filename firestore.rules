@@ -69,7 +69,7 @@ service cloud.firestore {
         allow update: if isFamilyMember(familyId) &&
           (isParent(familyId) ||
             (resource.data.assignedTo == request.auth.uid &&
-             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt']) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'photoUrl']) &&
              request.resource.data.status in ['submitted', 'pending']));
         allow create, delete: if isParent(familyId);
       }

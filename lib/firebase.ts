@@ -7,6 +7,7 @@ import {
   type Firestore,
 } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 import type { Messaging } from "firebase/messaging";
 
 export const firebaseConfig: FirebaseOptions = {
@@ -53,6 +54,12 @@ let functionsInstance: Functions | null = null;
 export function getFirebaseFunctions(): Functions {
   if (!functionsInstance) functionsInstance = getFunctions(getFirebaseApp());
   return functionsInstance;
+}
+
+let storageInstance: FirebaseStorage | null = null;
+export function getFirebaseStorage(): FirebaseStorage {
+  if (!storageInstance) storageInstance = getStorage(getFirebaseApp());
+  return storageInstance;
 }
 
 let messagingInstance: Messaging | null = null;

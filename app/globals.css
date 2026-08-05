@@ -102,3 +102,59 @@ a {
 .animate-xp-gain-pop {
   animation: xp-gain-pop 2.2s ease-out forwards;
 }
+
+@keyframes firework-particle {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--distance)) scale(0.4);
+  }
+}
+
+.animate-firework-particle {
+  animation: firework-particle var(--duration) cubic-bezier(0.15, 0.6, 0.4, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-xp-gain-pop,
+  .animate-firework-particle {
+    animation: none;
+  }
+}
+
+/* Bottom-nav taps between /today, /family, /assign, /chat, /shop use the
+   View Transitions API (see (dashboard)/layout.tsx) — this is the actual
+   transition, a quick fade+scale instead of the default hard cut/crossfade.
+   No-ops entirely on browsers without the API (nothing calls
+   startViewTransition there), and reduced-motion users get a plain cut. */
+@keyframes view-transition-fade-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes view-transition-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+::view-transition-old(root) {
+  animation: view-transition-fade-out 0.18s ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: view-transition-fade-in 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

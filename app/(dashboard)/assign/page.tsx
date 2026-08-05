@@ -30,6 +30,7 @@ function emptyForm() {
     date: todayKey(),
     dayOfMonth: 1,
     assignedTo: [] as string[],
+    photoRequired: false,
   };
 }
 
@@ -88,6 +89,7 @@ export default function AssignPage() {
       date: template.date ?? todayKey(),
       dayOfMonth: template.dayOfMonth ?? 1,
       assignedTo: template.assignedTo,
+      photoRequired: template.photoRequired ?? false,
     });
     setShowForm(true);
   }
@@ -126,6 +128,7 @@ export default function AssignPage() {
         date: form.recurrence === "once" ? form.date : null,
         dayOfMonth: form.recurrence === "monthly" ? form.dayOfMonth : null,
         active: true,
+        photoRequired: form.photoRequired,
       };
 
       if (editingId) {
@@ -292,6 +295,15 @@ export default function AssignPage() {
               className="w-24 rounded-lg border border-border bg-surface px-4 py-2"
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.photoRequired}
+              onChange={(e) => setForm((prev) => ({ ...prev, photoRequired: e.target.checked }))}
+            />
+            Vyžaduje foto při splnění
+          </label>
 
           <select
             value={form.recurrence}
