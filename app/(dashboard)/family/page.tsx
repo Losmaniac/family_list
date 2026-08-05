@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { Users } from "lucide-react";
+import { CheckCircle2, Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
-import { dayOfWeekInFamilyZone } from "@/lib/date-utils";
+import { dateKeyInFamilyZone, dayOfWeekInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
-import type { Member, Recurrence, TaskCategory, TaskProposal, TaskTemplate } from "@/lib/types";
+import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskTemplate } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
@@ -52,6 +52,7 @@ export default function FamilyPage() {
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [proposalForm, setProposalForm] = useState(emptyProposalForm);
   const [submittingProposal, setSubmittingProposal] = useState(false);
+  const [dailyTasksForDay, setDailyTasksForDay] = useState<DailyTask[]>([]);
 
   useEffect(() => {
     if (!familyId) return;
@@ -77,6 +78,20 @@ export default function FamilyPage() {
       setProposals(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskProposal));
     });
   }, [familyId]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    const monday = startOfWeek(new Date());
+    const selected = new Date(monday);
+    selected.setDate(selected.getDate() + selectedIndex);
+    const dailyTasksQuery = query(
+      collection(getDb(), "families", familyId, "dailyTasks"),
+      where("date", "==", dateKeyInFamilyZone(selected))
+    );
+    return onSnapshot(dailyTasksQuery, (snapshot) => {
+      setDailyTasksForDay(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask));
+    });
+  }, [familyId, selectedIndex]);
 
   function toggleProposalDay(day: number) {
     setProposalForm((prev) => ({
@@ -345,18 +360,30 @@ export default function FamilyPage() {
                 <h2 className="font-medium">{member.name}</h2>
               </div>
               <div className="flex flex-col gap-2">
-                {tasks.map((template) => (
-                  <div
-                    key={template.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
-                  >
-                    <p className="min-w-0 truncate font-medium">
-                      {template.category && `${categoryInfo(template.category).icon} `}
-                      {template.title}
-                    </p>
-                    <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
-                  </div>
-                ))}
+                {tasks.map((template) => {
+                  const isDone = dailyTasksForDay.some(
+                    (t) => t.templateId === template.id && t.assignedTo === member.id && t.status === "done"
+                  );
+                  return (
+                    <div
+                      key={template.id}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
+                        isDone ? "border-success/30 bg-success/10" : "border-border bg-surface"
+                      }`}
+                    >
+                      {isDone && <CheckCircle2 size={18} className="shrink-0 text-success" />}
+                      <p
+                        className={`min-w-0 flex-1 truncate font-medium ${
+                          isDone ? "text-zinc-400 line-through" : ""
+                        }`}
+                      >
+                        {template.category && `${categoryInfo(template.category).icon} `}
+                        {template.title}
+                      </p>
+                      <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))}
