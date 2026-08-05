@@ -43,10 +43,33 @@
   border-color: var(--border);
 }
 
+html {
+  /* Prevents iOS Safari from auto-inflating text past our own sizing when
+     the phone is rotated, which otherwise breaks fixed-width layouts. */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* No pull-to-refresh/rubber-banding on the body — this is an installed
+     PWA, not a browser tab, so that gesture reads as broken rather than
+     "how browsers work". Individual scroll containers (chat, week grids)
+     opt back into their own scrolling via their own overflow-y/x-auto. */
+  overscroll-behavior-y: none;
+  /* Keeps page content (the header, in-flow content) clear of the iPhone
+     notch/Dynamic Island/status bar in standalone PWA mode, where there's
+     no browser chrome to do this for us. */
+  padding-top: env(safe-area-inset-top);
+}
+
+button,
+a {
+  /* Kills the grey flash on tap and the double-tap-to-zoom delay on
+     buttons/links — both read as laggy/broken on a touch device. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 ::selection {

@@ -35,6 +35,10 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: "#f59e0b",
+  // Lets content use env(safe-area-inset-*) to avoid the iPhone notch/Dynamic
+  // Island and home-indicator area — essential in standalone PWA mode, where
+  // there's no browser chrome to naturally push content out of the way.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -59,7 +63,7 @@ export default function RootLayout({
             </DialogProvider>
           </ToastProvider>
         </ThemeProvider>
-        <AppVersion className="pointer-events-none fixed top-1 right-2 z-50 text-[10px] text-zinc-400" />
+        <AppVersion className="pointer-events-none fixed top-[calc(env(safe-area-inset-top)+4px)] right-2 z-50 text-[10px] text-zinc-400" />
       </body>
     </html>
   );
