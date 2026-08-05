@@ -82,6 +82,7 @@ export interface LedgerEntryInput {
   delta: number;
   reason: string;
   relatedTaskId?: string;
+  note?: string;
 }
 
 export function buildLedgerEntry(input: LedgerEntryInput): Omit<XpLedgerEntry, "id"> {
@@ -90,6 +91,17 @@ export function buildLedgerEntry(input: LedgerEntryInput): Omit<XpLedgerEntry, "
     delta: input.delta,
     reason: input.reason,
     relatedTaskId: input.relatedTaskId,
+    note: input.note,
     timestamp: Date.now(),
   };
+}
+
+/**
+ * A manual XP adjustment always needs a second parent's approval before it
+ * takes effect — one parent can't unilaterally move XP. The exception is a
+ * family with only one parent: there's no second parent who could ever
+ * approve it, so it auto-approves instead of sitting stuck forever.
+ */
+export function xpAdjustmentNeedsApproval(parentCount: number): boolean {
+  return parentCount > 1;
 }

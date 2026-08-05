@@ -7,6 +7,7 @@ import {
   levelProgress,
   levelTitle,
   sumLedger,
+  xpAdjustmentNeedsApproval,
   xpForLevel,
 } from "./xp-engine";
 
@@ -111,5 +112,22 @@ describe("buildLedgerEntry", () => {
     expect(entry.reason).toBe("task_completed");
     expect(entry.relatedTaskId).toBe("t1");
     expect(entry.timestamp).toBeGreaterThanOrEqual(before);
+  });
+
+  it("carries through an optional note", () => {
+    const entry = buildLedgerEntry({ userId: "u1", delta: -20, reason: "manual_adjustment", note: "Za drzost" });
+    expect(entry.note).toBe("Za drzost");
+  });
+});
+
+describe("xpAdjustmentNeedsApproval", () => {
+  it("requires a second parent's approval when there is one", () => {
+    expect(xpAdjustmentNeedsApproval(2)).toBe(true);
+    expect(xpAdjustmentNeedsApproval(3)).toBe(true);
+  });
+
+  it("auto-approves when there is no second parent to ever approve it", () => {
+    expect(xpAdjustmentNeedsApproval(1)).toBe(false);
+    expect(xpAdjustmentNeedsApproval(0)).toBe(false);
   });
 });
