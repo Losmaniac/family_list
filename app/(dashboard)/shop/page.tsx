@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import RewardShop from "@/components/RewardShop";
+import SavingsProgress from "@/components/SavingsProgress";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
 import type { Member, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
 
@@ -208,6 +209,8 @@ export default function ShopPage() {
       ) : (
         <RewardShop rewards={rewards} xpBalance={member?.xpBalance ?? 0} onRedeem={handleRedeem} />
       )}
+
+      <SavingsProgress rewards={rewards} xpBalance={member?.xpBalance ?? 0} />
 
       {myRedemptions.length > 0 && (
         <section className="flex flex-col gap-2">

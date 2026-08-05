@@ -6,6 +6,7 @@ interface TaskCardProps {
   task: DailyTask;
   template: TaskTemplate;
   onToggle?: (task: DailyTask) => void;
+  disabled?: boolean;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -14,14 +15,15 @@ const STATUS_STYLES: Record<string, string> = {
   returned: "border-danger/30 bg-danger/10",
 };
 
-export default function TaskCard({ task, template, onToggle }: TaskCardProps) {
+export default function TaskCard({ task, template, onToggle, disabled }: TaskCardProps) {
   const categoryIcon = template.category ? categoryInfo(template.category).icon : null;
 
   return (
     <button
       type="button"
       onClick={() => onToggle?.(task)}
-      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${
         STATUS_STYLES[task.status] ?? "border-border bg-surface"
       }`}
     >

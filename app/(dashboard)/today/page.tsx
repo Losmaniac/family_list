@@ -28,6 +28,7 @@ export default function TodayPage() {
   const [templates, setTemplates] = useState<Record<string, TaskTemplate>>({});
   const [members, setMembers] = useState<Record<string, Member>>({});
   const [loading, setLoading] = useState(true);
+  const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -80,9 +81,10 @@ export default function TodayPage() {
   // own task always goes through 'submitted' — only a parent action ever
   // reaches 'done', which is what actually awards XP (see onTaskCompleted).
   async function handleOwnToggle(task: DailyTask) {
-    if (!familyId) return;
+    if (!familyId || pendingTaskIds.has(task.id)) return;
     const ref = doc(getDb(), "families", familyId, "dailyTasks", task.id);
 
+    setPendingTaskIds((prev) => new Set(prev).add(task.id));
     try {
       if (member?.role === "parent") {
         const nextStatus = task.status === "done" ? "pending" : "done";
@@ -101,6 +103,12 @@ export default function TodayPage() {
       }
     } catch {
       toast.error("Úkol se nepodařilo aktualizovat.");
+    } finally {
+      setPendingTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
     }
   }
 
@@ -134,7 +142,13 @@ export default function TodayPage() {
   }
 
   if (loading) {
-    return <p className="text-zinc-500">Načítání…</p>;
+    return (
+      <div className="flex flex-col gap-2" aria-label="Načítání…">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-[60px] animate-pulse rounded-xl bg-surface-muted" />
+        ))}
+      </div>
+    );
   }
 
   const active = tasks.filter((t) => t.status !== "done");
@@ -199,7 +213,15 @@ export default function TodayPage() {
                 {active.map((task) => {
                   const template = templates[task.templateId];
                   if (!template) return null;
-                  return <TaskCard key={task.id} task={task} template={template} onToggle={handleOwnToggle} />;
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      template={template}
+                      onToggle={handleOwnToggle}
+                      disabled={pendingTaskIds.has(task.id)}
+                    />
+                  );
                 })}
               </div>
             )}
@@ -209,7 +231,15 @@ export default function TodayPage() {
                 {done.map((task) => {
                   const template = templates[task.templateId];
                   if (!template) return null;
-                  return <TaskCard key={task.id} task={task} template={template} onToggle={handleOwnToggle} />;
+                  return (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      template={template}
+                      onToggle={handleOwnToggle}
+                      disabled={pendingTaskIds.has(task.id)}
+                    />
+                  );
                 })}
               </div>
             )}

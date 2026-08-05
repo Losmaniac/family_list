@@ -1,6 +1,11 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 import type { Messaging } from "firebase/messaging";
 
@@ -32,7 +37,15 @@ export function getFirebaseAuth(): Auth {
 
 let dbInstance: Firestore | null = null;
 export function getDb(): Firestore {
-  if (!dbInstance) dbInstance = getFirestore(getFirebaseApp());
+  if (!dbInstance) {
+    // Cached reads + queued writes while offline — the target device is a
+    // kid's phone on unreliable wifi, so a dead zone shouldn't mean a dead
+    // app. Multi-tab manager avoids a second open tab silently losing cache
+    // access. Must be set on the very first getFirestore() call for the app.
+    dbInstance = initializeFirestore(getFirebaseApp(), {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  }
   return dbInstance;
 }
 
