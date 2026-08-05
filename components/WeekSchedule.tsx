@@ -13,6 +13,7 @@ import {
 import { GripVertical } from "lucide-react";
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo } from "@/lib/categories";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import type { Member, TaskTemplate } from "@/lib/types";
 import Avatar from "./Avatar";
 
@@ -114,7 +115,7 @@ export default function WeekSchedule({ templates, members, onReassignDay }: Week
   );
 
   const monday = startOfWeek(new Date());
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = dateKeyInFamilyZone(new Date());
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
@@ -141,7 +142,7 @@ export default function WeekSchedule({ templates, members, onReassignDay }: Week
       <div className="grid grid-cols-7 gap-1.5 overflow-x-auto">
         {weekDates.map((date, displayIndex) => {
           const dayIndex = DISPLAY_TO_JS_DAY[displayIndex];
-          const dateKey = date.toISOString().slice(0, 10);
+          const dateKey = dateKeyInFamilyZone(date);
           const dueTemplates = activeTemplates.filter((t) => isDue(t, date));
 
           return (

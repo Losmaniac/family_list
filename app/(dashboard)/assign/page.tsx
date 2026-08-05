@@ -8,6 +8,7 @@ import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
 import { TASK_CATEGORIES, categoryInfo } from "@/lib/categories";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import WeekSchedule from "@/components/WeekSchedule";
 import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types";
@@ -15,7 +16,7 @@ import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dateKeyInFamilyZone(new Date());
 }
 
 function emptyForm() {

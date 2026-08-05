@@ -72,6 +72,19 @@ describe("isDue", () => {
   });
 });
 
+describe("time zone handling (Europe/Prague, not the host/UTC zone)", () => {
+  it("resolves just-after-midnight Prague instants to the Prague calendar day, not the UTC day", () => {
+    // 2026-08-05 00:05 CEST (Prague, UTC+2) is still 2026-08-04 in UTC — the
+    // date/weekday must follow Prague, not whatever zone the process runs in.
+    const justAfterPragueMidnight = new Date("2026-08-04T22:05:00Z");
+    const template = baseTemplate({ recurrence: "weekly", daysOfWeek: [3] }); // Wednesday
+    expect(isDue(template, justAfterPragueMidnight)).toBe(true);
+    expect(generateDailyTasks([template], justAfterPragueMidnight)).toEqual([
+      { templateId: "t1", assignedTo: "u1", date: "2026-08-05", status: "pending" },
+    ]);
+  });
+});
+
 describe("generateDailyTasks", () => {
   it("generates one task per assignee for each due template", () => {
     const templates: TaskTemplate[] = [

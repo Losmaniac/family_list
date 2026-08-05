@@ -1,0 +1,60 @@
+/**
+ * Calendar-date helpers pinned to the family's time zone (Europe/Prague),
+ * not the running process's zone. `Date#toISOString()`/`getDate()`/`getDay()`
+ * read UTC or the host machine's local zone — for a browser that's usually
+ * Prague, but Cloud Functions run in UTC, so the two disagree by a day for
+ * part of every evening. Every "what date/weekday is it" check goes through
+ * here instead so client and server always land on the same calendar day.
+ */
+const FAMILY_TIME_ZONE = "Europe/Prague";
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function familyZoneParts(date: Date): { year: number; month: number; day: number; weekday: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: FAMILY_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return {
+    year: Number(byType.year),
+    month: Number(byType.month),
+    day: Number(byType.day),
+    weekday: WEEKDAY_INDEX[byType.weekday],
+  };
+}
+
+/** YYYY-MM-DD for the given instant, as a calendar date in Europe/Prague. */
+export function dateKeyInFamilyZone(date: Date): string {
+  const { year, month, day } = familyZoneParts(date);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** Day of week (0=Sun..6=Sat) for the given instant, in Europe/Prague. */
+export function dayOfWeekInFamilyZone(date: Date): number {
+  return familyZoneParts(date).weekday;
+}
+
+/** Day of month (1-31) for the given instant, in Europe/Prague. */
+export function dayOfMonthInFamilyZone(date: Date): number {
+  return familyZoneParts(date).day;
+}
+
+/** Last day of the given instant's month (28-31), in Europe/Prague. */
+export function lastDayOfMonthInFamilyZone(date: Date): number {
+  const { year, month } = familyZoneParts(date);
+  // Pure calendar arithmetic — day 0 of the next month is the last day of
+  // this one. UTC methods here just avoid another host-zone dependency.
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}

@@ -6,6 +6,7 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore } from "firebase-admin/firestore";
 import { generateDailyTasks, dailyTaskId } from "../../lib/task-scheduler";
+import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import type { TaskTemplate } from "../../lib/types";
 
 export const dailyTaskGenerator = onSchedule(
@@ -13,7 +14,11 @@ export const dailyTaskGenerator = onSchedule(
   async () => {
     const db = getFirestore();
     const now = new Date();
-    const dateKey = now.toISOString().slice(0, 10);
+    // Cloud Functions run in UTC regardless of the schedule's timeZone —
+    // toISOString() here would give the previous UTC day for the first two
+    // hours after Prague midnight, so every date computation needs to go
+    // through the family-zone helpers instead.
+    const dateKey = dateKeyInFamilyZone(now);
 
     const familiesSnapshot = await db.collection("families").get();
 
