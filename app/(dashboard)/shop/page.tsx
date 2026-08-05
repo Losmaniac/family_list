@@ -20,7 +20,13 @@ import { useToast } from "@/lib/toast-context";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
-import type { Member, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
+import type {
+  Member,
+  PooledContribution,
+  Reward,
+  RewardRedemption,
+  RewardRedemptionStatus,
+} from "@/lib/types";
 
 const STATUS_LABELS: Record<RewardRedemptionStatus, string> = {
   requested: "Čeká na schválení",
@@ -45,6 +51,7 @@ export default function ShopPage() {
   const [awaitingFulfillment, setAwaitingFulfillment] = useState<RewardRedemption[]>([]);
   const [myRedemptions, setMyRedemptions] = useState<RewardRedemption[]>([]);
   const [members, setMembers] = useState<Record<string, Member>>({});
+  const [pools, setPools] = useState<PooledContribution[]>([]);
 
   const [title, setTitle] = useState("");
   const [xpCost, setXpCost] = useState(50);
@@ -52,6 +59,12 @@ export default function ShopPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showRewardForm, setShowRewardForm] = useState(false);
   const [bulkAddingTier, setBulkAddingTier] = useState<string | null>(null);
+
+  const [showPoolForm, setShowPoolForm] = useState(false);
+  const [poolRewardId, setPoolRewardId] = useState("");
+  const [poolInvitees, setPoolInvitees] = useState<string[]>([]);
+  const [submittingPool, setSubmittingPool] = useState(false);
+  const [pledgeAmounts, setPledgeAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!familyId) return;
@@ -96,7 +109,7 @@ export default function ShopPage() {
   }, [familyId, user]);
 
   useEffect(() => {
-    if (!familyId || member?.role !== "parent") return;
+    if (!familyId) return;
     return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
       const next: Record<string, Member> = {};
       for (const memberDoc of snapshot.docs) {
@@ -104,7 +117,40 @@ export default function ShopPage() {
       }
       setMembers(next);
     });
-  }, [familyId, member?.role]);
+  }, [familyId]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    const poolsQuery = query(
+      collection(getDb(), "families", familyId, "pooledContributions"),
+      where("status", "==", "collecting")
+    );
+    return onSnapshot(poolsQuery, (snapshot) => {
+      setPools(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as PooledContribution));
+    });
+  }, [familyId]);
+
+  async function handleToggleGoal(reward: Reward) {
+    if (!familyId || !user) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
+        savingsGoalRewardId: member?.savingsGoalRewardId === reward.id ? null : reward.id,
+      });
+    } catch {
+      toast.error("Cíl se nepodařilo nastavit.");
+    }
+  }
+
+  async function handleClearGoal() {
+    if (!familyId || !user) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
+        savingsGoalRewardId: null,
+      });
+    } catch {
+      toast.error("Cíl se nepodařilo zrušit.");
+    }
+  }
 
   async function handleRedeem(reward: Reward) {
     if (!familyId || !user) return;
@@ -141,6 +187,71 @@ export default function ShopPage() {
       toast.success("Odměna označena jako vyřízená.");
     } catch {
       toast.error("Nepodařilo se označit odměnu jako vyřízenou.");
+    }
+  }
+
+  function togglePoolInvitee(userId: string) {
+    setPoolInvitees((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
+  }
+
+  async function handleCreatePool(e: React.FormEvent) {
+    e.preventDefault();
+    if (!familyId || !poolRewardId || poolInvitees.length === 0) return;
+    setSubmittingPool(true);
+    try {
+      await addDoc(collection(getDb(), "families", familyId, "pooledContributions"), {
+        rewardId: poolRewardId,
+        createdBy: user?.uid,
+        invitedUserIds: poolInvitees,
+        contributions: {},
+        status: "collecting",
+        timestamp: Date.now(),
+      });
+      toast.success("Sbírka založena.");
+      setPoolRewardId("");
+      setPoolInvitees([]);
+      setShowPoolForm(false);
+    } catch {
+      toast.error("Sbírku se nepodařilo založit.");
+    } finally {
+      setSubmittingPool(false);
+    }
+  }
+
+  async function handlePledge(pool: PooledContribution) {
+    if (!familyId || !user) return;
+    const amount = Number(pledgeAmounts[pool.id]);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
+        [`contributions.${user.uid}`]: amount,
+      });
+      toast.success("Příspěvek uložen.");
+    } catch {
+      toast.error("Příspěvek se nepodařilo uložit.");
+    }
+  }
+
+  async function handleFulfillPool(pool: PooledContribution) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
+        status: "fulfilled",
+      });
+      toast.success("Sbírka vyřízena, XP strženo přispěvatelům.");
+    } catch {
+      toast.error("Sbírku se nepodařilo vyřídit.");
+    }
+  }
+
+  async function handleCancelPool(pool: PooledContribution) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
+        status: "cancelled",
+      });
+    } catch {
+      toast.error("Sbírku se nepodařilo zrušit.");
     }
   }
 
@@ -207,10 +318,21 @@ export default function ShopPage() {
       {rewards.length === 0 ? (
         <p className="text-zinc-500">Zatím žádné odměny.</p>
       ) : (
-        <RewardShop rewards={rewards} xpBalance={member?.xpBalance ?? 0} onRedeem={handleRedeem} />
+        <RewardShop
+          rewards={rewards}
+          xpBalance={member?.xpBalance ?? 0}
+          onRedeem={handleRedeem}
+          goalRewardId={member?.savingsGoalRewardId}
+          onToggleGoal={handleToggleGoal}
+        />
       )}
 
-      <SavingsProgress rewards={rewards} xpBalance={member?.xpBalance ?? 0} />
+      <SavingsProgress
+        rewards={rewards}
+        xpBalance={member?.xpBalance ?? 0}
+        goalReward={rewards.find((r) => r.id === member?.savingsGoalRewardId)}
+        onClearGoal={handleClearGoal}
+      />
 
       {myRedemptions.length > 0 && (
         <section className="flex flex-col gap-2">
@@ -230,6 +352,145 @@ export default function ShopPage() {
             );
           })}
         </section>
+      )}
+
+      {pools.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium">Sbírky na odměnu</h2>
+          {pools.map((pool) => {
+            const reward = rewards.find((r) => r.id === pool.rewardId);
+            const total = Object.values(pool.contributions).reduce((sum, v) => sum + v, 0);
+            const progress = reward ? Math.min(100, Math.round((total / reward.xpCost) * 100)) : 0;
+            const myPledge = user ? pool.contributions[user.uid] : undefined;
+            const iAmInvited = user ? pool.invitedUserIds.includes(user.uid) : false;
+            return (
+              <div key={pool.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
+                <div className="flex items-center justify-between text-sm">
+                  <p className="font-medium">{reward?.title ?? pool.rewardId}</p>
+                  <p className="text-zinc-500">
+                    {total}/{reward?.xpCost ?? "?"} XP
+                  </p>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="flex flex-wrap gap-1.5 text-xs text-zinc-500">
+                  {pool.invitedUserIds.map((userId) => {
+                    const pledge = pool.contributions[userId];
+                    return (
+                      <span key={userId} className="rounded-full bg-surface-muted px-2 py-0.5">
+                        {members[userId]?.name ?? userId}: {pledge !== undefined ? `${pledge} XP` : "čeká"}
+                      </span>
+                    );
+                  })}
+                </div>
+                {iAmInvited && (
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder={myPledge !== undefined ? String(myPledge) : "Kolik XP dáš?"}
+                      value={pledgeAmounts[pool.id] ?? ""}
+                      onChange={(e) => setPledgeAmounts((prev) => ({ ...prev, [pool.id]: e.target.value }))}
+                      className="w-32 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handlePledge(pool)}
+                      className="rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground"
+                    >
+                      {myPledge !== undefined ? "Upravit" : "Přispět"}
+                    </button>
+                  </div>
+                )}
+                {member?.role === "parent" && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleFulfillPool(pool)}
+                      className="rounded-full bg-success px-3 py-1.5 text-sm font-semibold text-white"
+                    >
+                      Vyřídit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCancelPool(pool)}
+                      className="rounded-full bg-surface-muted px-3 py-1.5 text-sm font-semibold"
+                    >
+                      Zrušit
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {member?.role === "parent" && (
+        <>
+          {!showPoolForm ? (
+            <button
+              type="button"
+              onClick={() => setShowPoolForm(true)}
+              className="self-start rounded-full border border-border px-4 py-2 text-sm font-semibold"
+            >
+              + Sbírka na odměnu
+            </button>
+          ) : (
+            <form onSubmit={handleCreatePool} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+              <h2 className="font-medium">Nová sbírka na odměnu</h2>
+              <p className="text-xs text-zinc-500">
+                Kdo přispívá a na co se domluvte doopravdy — tady jen zapíšeš výsledek.
+              </p>
+              <select
+                value={poolRewardId}
+                onChange={(e) => setPoolRewardId(e.target.value)}
+                required
+                className="rounded-lg border border-border bg-surface px-4 py-2"
+              >
+                <option value="">Vyber odměnu…</option>
+                {rewards
+                  .filter((r) => r.active)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title} ({r.xpCost} XP)
+                    </option>
+                  ))}
+              </select>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(members).map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => togglePoolInvitee(m.id)}
+                    className={`rounded-full px-3 py-1.5 text-sm ${
+                      poolInvitees.includes(m.id) ? "bg-accent text-accent-foreground" : "border border-border"
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submittingPool}
+                  className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                >
+                  Založit sbírku
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPoolForm(false)}
+                  className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+                >
+                  Zrušit
+                </button>
+              </div>
+            </form>
+          )}
+        </>
       )}
 
       {member?.role === "parent" && (

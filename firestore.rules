@@ -51,7 +51,7 @@ service cloud.firestore {
           (isParent(familyId) &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'role'])) ||
           (isSignedIn() && request.auth.uid == userId &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'fcmToken']));
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId']));
       }
 
       match /taskTemplates/{templateId} {
@@ -108,6 +108,36 @@ service cloud.firestore {
           (
             (resource.data.status == 'requested' && request.resource.data.status in ['approved', 'rejected']) ||
             (resource.data.status == 'approved' && request.resource.data.status == 'fulfilled')
+          );
+        allow delete: if false;
+      }
+
+      match /pooledContributions/{poolId} {
+        allow read: if isFamilyMember(familyId);
+        // A parent starts the pool — the family has already agreed in
+        // person who's participating, so this is just bookkeeping. Always
+        // starts 'collecting' with no pledges yet.
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.status == 'collecting' &&
+          request.resource.data.contributions.size() == 0 &&
+          request.resource.data.invitedUserIds is list &&
+          request.resource.data.invitedUserIds.size() > 0;
+        allow update: if isFamilyMember(familyId) && resource.data.status == 'collecting' &&
+          (
+            // An invited member sets exactly their own pledge — never
+            // anyone else's — capped at what they currently have.
+            (request.auth.uid in resource.data.invitedUserIds &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions']) &&
+              request.resource.data.contributions.diff(resource.data.contributions).affectedKeys().hasOnly([request.auth.uid]) &&
+              request.resource.data.contributions[request.auth.uid] is number &&
+              request.resource.data.contributions[request.auth.uid] >= 0 &&
+              request.resource.data.contributions[request.auth.uid] <=
+                get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid)).data.xpBalance) ||
+            // A parent finalizes (deducts every pledge) or calls it off.
+            (isParent(familyId) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+              request.resource.data.status in ['fulfilled', 'cancelled'])
           );
         allow delete: if false;
       }

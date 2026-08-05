@@ -24,6 +24,8 @@ export interface Member {
   streakFreezeWeek?: string;
   /** Web Push (FCM) registration token for evening reminders. */
   fcmToken?: string;
+  /** rewards/{id} this member is currently saving toward — drives the progress bar on /shop. */
+  savingsGoalRewardId?: string;
 }
 
 export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";
@@ -148,6 +150,26 @@ export interface TaskProposal {
   /** userIds who've approved so far. */
   approvals: string[];
   status: TaskProposalStatus;
+  timestamp: number;
+}
+
+/**
+ * A parent creates the pool after the family has already agreed in person
+ * who's chipping in — the app just tracks pledges and executes them, it
+ * doesn't referee the negotiation. collecting -> fulfilled (a parent
+ * deducts each contributor's pledge) | cancelled (a parent calls it off,
+ * nothing is deducted).
+ */
+export type PooledContributionStatus = "collecting" | "fulfilled" | "cancelled";
+
+export interface PooledContribution {
+  id: string;
+  rewardId: string;
+  createdBy: string;
+  invitedUserIds: string[];
+  /** userId -> XP pledged. Only present once that member has set their pledge. */
+  contributions: Record<string, number>;
+  status: PooledContributionStatus;
   timestamp: number;
 }
 

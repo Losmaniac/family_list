@@ -10,3 +10,4 @@ export { onRedemptionApproved } from "./onRedemptionApproved";
 export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
 export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
 export { onTaskProposalWritten } from "./taskProposals";
+export { onPooledContributionWritten } from "./pooledContributions";
