@@ -26,6 +26,9 @@ const REASON_LABELS: Record<string, string> = {
   reward_redeemed: "Uplatněná odměna",
   manual_adjustment: "Ruční úprava XP",
   pooled_contribution: "Příspěvek do sbírky",
+  investment_started: "Investice založena",
+  investment_matured: "Investice vyplacena",
+  investment_withdrawn_early: "Investice vybrána předčasně",
 };
 
 interface ProfilePageProps {

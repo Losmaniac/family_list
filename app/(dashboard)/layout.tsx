@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, Users } from "lucide-react";
+import { CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import Avatar from "@/components/Avatar";
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/assign", label: "Zadat", icon: ListChecks, parentOnly: true },
   { href: "/chat", label: "Chat", icon: MessageCircle, parentOnly: false },
   { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
+  { href: "/investments", label: "Investice", icon: TrendingUp, parentOnly: false },
 ] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     if (typeof document.startViewTransition !== "function") return;
     e.preventDefault();
+
+    // Slide toward whichever side the target tab sits on relative to the
+    // current one in the nav order — read by the --vt-direction-driven
+    // keyframes in globals.css, scoped to the "page-content" transition
+    // name below so only the content area moves, not the static chrome.
+    const currentIndex = NAV_ITEMS.findIndex((item) => pathname?.startsWith(item.href));
+    const targetIndex = NAV_ITEMS.findIndex((item) => item.href === href);
+    const direction = targetIndex >= currentIndex ? 1 : -1;
+    document.documentElement.style.setProperty("--vt-direction", String(direction));
+
     document.startViewTransition(() => router.push(href));
   }
 
@@ -75,10 +86,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Link>
       </header>
 
-      <main className="flex-1 p-4 pb-28">{children}</main>
+      <main className="flex-1 p-4 pb-28" style={{ viewTransitionName: "page-content" }}>
+        {children}
+      </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 flex justify-around border-t border-border bg-surface pt-2"
+        className="fixed inset-x-0 bottom-0 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain border-t border-border bg-surface pt-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent").map((item) => {
@@ -89,7 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key={item.href}
               href={item.href}
               onClick={(e) => handleNavClick(e, item.href)}
-              className={`flex min-w-[44px] flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
+              className={`flex w-1/5 min-w-[64px] shrink-0 snap-start flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium ${
                 active ? "text-accent" : "text-zinc-500"
               }`}
             >
