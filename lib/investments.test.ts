@@ -8,6 +8,20 @@ describe("INVESTMENT_TERMS", () => {
       expect(sorted[i].rate).toBeGreaterThan(sorted[i - 1].rate);
     }
   });
+
+  it("beats rolling over every shorter term for the same total duration", () => {
+    // Otherwise the "rational" strategy is always the shortest term,
+    // reinvested — which defeats the point of rewarding commitment.
+    const sorted = [...INVESTMENT_TERMS].sort((a, b) => a.days - b.days);
+    for (let i = 1; i < sorted.length; i++) {
+      const longer = sorted[i];
+      for (let j = 0; j < i; j++) {
+        const shorter = sorted[j];
+        const rolloverReturn = Math.pow(1 + shorter.rate, longer.days / shorter.days) - 1;
+        expect(longer.rate).toBeGreaterThan(rolloverReturn);
+      }
+    }
+  });
 });
 
 describe("findInvestmentTerm", () => {
@@ -22,8 +36,8 @@ describe("findInvestmentTerm", () => {
 
 describe("maturityPayout", () => {
   it("adds the rate's fraction on top of the principal", () => {
-    expect(maturityPayout(100, 0.08)).toBe(108);
-    expect(maturityPayout(100, 0.3)).toBe(130);
+    expect(maturityPayout(100, 0.12)).toBe(112);
+    expect(maturityPayout(100, 0.5)).toBe(150);
   });
 
   it("rounds to a whole XP", () => {
