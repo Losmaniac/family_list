@@ -76,7 +76,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100dvh-13rem)] flex-col gap-3">
       <h1 className="text-xl font-semibold">Rodinný chat</h1>
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-xl border border-border p-3">
         {messages.length === 0 && <p className="text-sm text-zinc-500">Zatím žádné zprávy.</p>}
         {messages.map((message, index) => {
           const sender = members[message.userId];

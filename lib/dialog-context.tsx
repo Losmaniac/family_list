@@ -59,7 +59,10 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     <DialogContext.Provider value={{ confirm, promptText }}>
       {children}
       {state.kind !== "none" && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
           <div className="w-full max-w-sm rounded-2xl bg-surface p-5 shadow-xl">
             <h2 className="text-lg font-semibold">{state.options.title}</h2>
             {state.options.description && (

@@ -31,7 +31,7 @@ export default function PersonalWeekAhead({ templates, userId }: PersonalWeekAhe
   });
 
   return (
-    <div className="grid grid-cols-7 gap-1.5 overflow-x-auto">
+    <div className="grid grid-cols-7 gap-1.5 overflow-x-auto overscroll-x-contain">
       {weekDates.map((date, displayIndex) => {
         const dateKey = dateKeyInFamilyZone(date);
         const dueTemplates = myTemplates.filter((t) => isDue(t, date));

@@ -57,16 +57,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <Link
           href="/settings"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-surface-muted"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-surface-muted"
           aria-label="Nastavení"
         >
           <Settings size={20} />
         </Link>
       </header>
 
-      <main className="flex-1 p-4 pb-24">{children}</main>
+      <main className="flex-1 p-4 pb-28">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 flex justify-around border-t border-border bg-surface py-2">
+      <nav
+        className="fixed inset-x-0 bottom-0 flex justify-around border-t border-border bg-surface pt-2"
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
         {NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent").map((item) => {
           const Icon = item.icon;
           const active = pathname?.startsWith(item.href);
@@ -74,7 +77,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
+              className={`flex min-w-[44px] flex-col items-center gap-1 rounded-lg px-4 py-1.5 text-xs font-medium ${
                 active ? "text-accent" : "text-zinc-500"
               }`}
             >

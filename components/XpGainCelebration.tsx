@@ -20,7 +20,8 @@ export default function XpGainCelebration() {
   return (
     <div
       key={xpGain.key}
-      className="animate-xp-gain-pop pointer-events-none fixed top-16 left-1/2 z-50 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-bold text-accent-foreground shadow-lg"
+      className="animate-xp-gain-pop pointer-events-none fixed left-1/2 z-50 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-bold text-accent-foreground shadow-lg"
+      style={{ top: "calc(env(safe-area-inset-top) + 4rem)" }}
     >
       <Sparkles size={16} />+{xpGain.delta} XP
     </div>

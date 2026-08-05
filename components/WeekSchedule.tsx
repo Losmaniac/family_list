@@ -139,7 +139,7 @@ export default function WeekSchedule({ templates, members, onReassignDay }: Week
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-7 gap-1.5 overflow-x-auto">
+      <div className="grid grid-cols-7 gap-1.5 overflow-x-auto overscroll-x-contain">
         {weekDates.map((date, displayIndex) => {
           const dayIndex = DISPLAY_TO_JS_DAY[displayIndex];
           const dateKey = dateKeyInFamilyZone(date);
