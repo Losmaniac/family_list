@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
 import WeekSchedule from "@/components/WeekSchedule";
 import type { Member, TaskTemplate } from "@/lib/types";
 
 export default function FamilyPage() {
   const { familyId, member } = useFamily();
+  const toast = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
 
@@ -29,9 +31,13 @@ export default function FamilyPage() {
   async function handleReassignDay(template: TaskTemplate, fromDay: number, toDay: number) {
     if (!familyId) return;
     const nextDays = Array.from(new Set([...template.daysOfWeek.filter((d) => d !== fromDay), toDay]));
-    await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
-      daysOfWeek: nextDays,
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
+        daysOfWeek: nextDays,
+      });
+    } catch {
+      toast.error("Den se nepodařilo změnit.");
+    }
   }
 
   return (

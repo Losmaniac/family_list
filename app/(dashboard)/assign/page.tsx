@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
 import { TASK_CATEGORIES, categoryInfo } from "@/lib/categories";
 import Avatar from "@/components/Avatar";
@@ -32,6 +34,8 @@ function emptyForm() {
 
 export default function AssignPage() {
   const { familyId, member } = useFamily();
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -125,10 +129,14 @@ export default function AssignPage() {
 
       if (editingId) {
         await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", editingId), payload);
+        toast.success("Úkol byl upraven.");
       } else {
         await addDoc(collection(getDb(), "families", familyId, "taskTemplates"), payload);
+        toast.success("Úkol byl přidán.");
       }
       cancelEdit();
+    } catch {
+      toast.error("Úkol se nepodařilo uložit.");
     } finally {
       setSubmitting(false);
     }
@@ -136,24 +144,43 @@ export default function AssignPage() {
 
   async function toggleActive(template: TaskTemplate) {
     if (!familyId) return;
-    await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
-      active: !template.active,
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
+        active: !template.active,
+      });
+    } catch {
+      toast.error("Nepodařilo se změnit stav úkolu.");
+    }
   }
 
   async function removeTemplate(template: TaskTemplate) {
     if (!familyId) return;
-    if (!confirm(`Smazat úkol „${template.title}“?`)) return;
-    await deleteDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id));
-    if (editingId === template.id) cancelEdit();
+    const ok = await confirm({
+      title: `Smazat úkol „${template.title}“?`,
+      description: "Tuto akci nelze vrátit zpět.",
+      confirmLabel: "Smazat",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id));
+      toast.success("Úkol byl smazán.");
+      if (editingId === template.id) cancelEdit();
+    } catch {
+      toast.error("Úkol se nepodařilo smazat.");
+    }
   }
 
   async function handleReassignDay(template: TaskTemplate, fromDay: number, toDay: number) {
     if (!familyId) return;
     const nextDays = Array.from(new Set([...template.daysOfWeek.filter((d) => d !== fromDay), toDay]));
-    await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
-      daysOfWeek: nextDays,
-    });
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id), {
+        daysOfWeek: nextDays,
+      });
+    } catch {
+      toast.error("Den se nepodařilo změnit.");
+    }
   }
 
   function recurrenceLabel(template: TaskTemplate): string {
