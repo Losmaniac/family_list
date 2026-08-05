@@ -173,6 +173,28 @@ export interface PooledContribution {
   timestamp: number;
 }
 
+/**
+ * active -> matured (held to term, principal + interest credited by a
+ * scheduled Cloud Function) | withdrawal_requested -> withdrawn (cashed out
+ * early, principal only — interest forfeited) | cancelled (balance no
+ * longer covered the principal by the time the server processed it).
+ */
+export type InvestmentStatus = "active" | "withdrawal_requested" | "withdrawn" | "matured" | "cancelled";
+
+export interface Investment {
+  id: string;
+  userId: string;
+  principal: number;
+  /** Fractional return at maturity, copied from the chosen InvestmentTerm at creation time. */
+  rate: number;
+  termDays: number;
+  startedAt: number;
+  maturesAt: number;
+  status: InvestmentStatus;
+  /** Final XP credited back — principal+interest if matured, principal only if withdrawn early. */
+  payout?: number;
+}
+
 export interface ChatMessage {
   id: string;
   userId: string;

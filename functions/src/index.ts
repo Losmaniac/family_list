@@ -11,3 +11,4 @@ export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
 export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
 export { onTaskProposalWritten } from "./taskProposals";
 export { onPooledContributionWritten } from "./pooledContributions";
+export { onInvestmentWritten, maturedInvestmentsPayout } from "./investments";

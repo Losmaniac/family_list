@@ -112,6 +112,29 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /investments/{investmentId} {
+        allow read: if isFamilyMember(familyId);
+        // A member locks up their own XP — the Cloud Function that
+        // processes this re-checks their live balance and cancels it if it
+        // no longer covers the principal, so this is a soft client-side
+        // check, not the actual guarantee.
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.status == 'active' &&
+          request.resource.data.principal is number && request.resource.data.principal > 0 &&
+          request.resource.data.termDays is number &&
+          request.resource.data.rate is number;
+        // Only the owner may request early withdrawal, only while active —
+        // the actual XP return (principal only, interest forfeited) is
+        // handled server-side.
+        allow update: if isFamilyMember(familyId) &&
+          resource.data.userId == request.auth.uid &&
+          resource.data.status == 'active' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status == 'withdrawal_requested';
+        allow delete: if false;
+      }
+
       match /pooledContributions/{poolId} {
         allow read: if isFamilyMember(familyId);
         // A parent starts the pool — the family has already agreed in

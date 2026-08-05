@@ -20,13 +20,7 @@ import { useToast } from "@/lib/toast-context";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
-import type {
-  Member,
-  PooledContribution,
-  Reward,
-  RewardRedemption,
-  RewardRedemptionStatus,
-} from "@/lib/types";
+import type { Member, PooledContribution, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
 
 const STATUS_LABELS: Record<RewardRedemptionStatus, string> = {
   requested: "Čeká na schválení",
