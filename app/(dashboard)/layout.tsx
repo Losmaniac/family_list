@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
@@ -28,14 +28,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { loading: familyLoading, member } = useFamily();
 
   const loading = authLoading || familyLoading;
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
-    // Let modified clicks (open in new tab, etc.) and browsers without the
-    // View Transitions API fall through to Link's normal navigation.
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    if (typeof document.startViewTransition !== "function") return;
-    e.preventDefault();
-
+  function navigateToTab(href: string) {
     // Slide toward whichever side the target tab sits on relative to the
     // current one in the nav order — read by the --vt-direction-driven
     // keyframes in globals.css, scoped to the "page-content" transition
@@ -43,9 +38,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const currentIndex = NAV_ITEMS.findIndex((item) => pathname?.startsWith(item.href));
     const targetIndex = NAV_ITEMS.findIndex((item) => item.href === href);
     const direction = targetIndex >= currentIndex ? 1 : -1;
-    document.documentElement.style.setProperty("--vt-direction", String(direction));
 
+    if (typeof document.startViewTransition !== "function") {
+      router.push(href);
+      return;
+    }
+    document.documentElement.style.setProperty("--vt-direction", String(direction));
     document.startViewTransition(() => router.push(href));
+  }
+
+  function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    // Let modified clicks (open in new tab, etc.) fall through to Link's
+    // normal navigation.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    navigateToTab(href);
+  }
+
+  function isInsideHorizontalScroller(el: EventTarget | null): boolean {
+    let node = el instanceof Element ? el : null;
+    while (node && node !== document.body) {
+      const style = getComputedStyle(node);
+      if ((style.overflowX === "auto" || style.overflowX === "scroll") && node.scrollWidth > node.clientWidth) {
+        return true;
+      }
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    // Don't hijack swipes that belong to a horizontally-scrolling element
+    // (the day-selector strips, the week schedule grid, the nav itself) —
+    // let those scroll natively instead of also triggering a tab change.
+    if (isInsideHorizontalScroller(e.target)) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || !member) return;
+
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    const visibleItems = NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent");
+    const currentIndex = visibleItems.findIndex((item) => pathname?.startsWith(item.href));
+    if (currentIndex === -1) return;
+    // Swipe left (negative dx) advances to the next tab, like turning a page.
+    const targetIndex = currentIndex + (dx < 0 ? 1 : -1);
+    if (targetIndex < 0 || targetIndex >= visibleItems.length) return;
+
+    navigateToTab(visibleItems[targetIndex].href);
   }
 
   useEffect(() => {
@@ -86,7 +134,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Link>
       </header>
 
-      <main className="flex-1 p-4 pb-28" style={{ viewTransitionName: "page-content" }}>
+      <main
+        className="flex-1 p-4 pb-28"
+        style={{ viewTransitionName: "page-content" }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {children}
       </main>
 
