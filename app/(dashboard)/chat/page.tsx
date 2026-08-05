@@ -7,8 +7,16 @@ import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { dateKeyInFamilyZone, formatTimeInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import type { ChatMessage, Member } from "@/lib/types";
+
+const dayDividerFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  timeZone: "Europe/Prague",
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+});
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -70,20 +78,31 @@ export default function ChatPage() {
       <h1 className="text-xl font-semibold">Rodinný chat</h1>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-border p-3">
         {messages.length === 0 && <p className="text-sm text-zinc-500">Zatím žádné zprávy.</p>}
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const sender = members[message.userId];
           const isOwn = message.userId === user?.uid;
+          const sentAt = new Date(message.timestamp);
+          const dayKey = dateKeyInFamilyZone(sentAt);
+          const previousDayKey = index > 0 ? dateKeyInFamilyZone(new Date(messages[index - 1].timestamp)) : null;
+          const showDayDivider = dayKey !== previousDayKey;
+
           return (
-            <div key={message.id} className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
-              <Avatar name={sender?.name ?? "?"} avatarUrl={sender?.avatarUrl} size="sm" />
-              <div className={`flex max-w-[75%] flex-col gap-0.5 ${isOwn ? "items-end" : "items-start"}`}>
-                <p className="text-xs text-zinc-500">{sender?.name ?? "Neznámý"}</p>
-                <div
-                  className={`rounded-2xl px-3 py-2 text-sm ${
-                    isOwn ? "bg-accent text-accent-foreground" : "bg-surface-muted"
-                  }`}
-                >
-                  {message.text}
+            <div key={message.id} className="flex flex-col gap-2">
+              {showDayDivider && (
+                <p className="my-1 text-center text-xs text-zinc-500">{dayDividerFormatter.format(sentAt)}</p>
+              )}
+              <div className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
+                <Avatar name={sender?.name ?? "?"} avatarUrl={sender?.avatarUrl} size="sm" />
+                <div className={`flex max-w-[75%] flex-col gap-0.5 ${isOwn ? "items-end" : "items-start"}`}>
+                  <p className="text-xs text-zinc-500">{sender?.name ?? "Neznámý"}</p>
+                  <div
+                    className={`rounded-2xl px-3 py-2 text-sm ${
+                      isOwn ? "bg-accent text-accent-foreground" : "bg-surface-muted"
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                  <p className="text-[10px] text-zinc-400">{formatTimeInFamilyZone(sentAt)}</p>
                 </div>
               </div>
             </div>

@@ -58,3 +58,28 @@ export function lastDayOfMonthInFamilyZone(date: Date): number {
   // this one. UTC methods here just avoid another host-zone dependency.
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  timeZone: FAMILY_TIME_ZONE,
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const timeFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  timeZone: FAMILY_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "5. 8. 2026 8:23" — full date + time for the given instant, in Europe/Prague. */
+export function formatDateTimeInFamilyZone(date: Date): string {
+  return dateTimeFormatter.format(date);
+}
+
+/** "8:23" — time only for the given instant, in Europe/Prague. */
+export function formatTimeInFamilyZone(date: Date): string {
+  return timeFormatter.format(date);
+}
