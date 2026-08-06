@@ -48,14 +48,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     document.startViewTransition(() => router.push(href));
   }
 
-  function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
-    // Let modified clicks (open in new tab, etc.) fall through to Link's
-    // normal navigation.
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    e.preventDefault();
-    navigateToTab(href);
-  }
-
   function isInsideHorizontalScroller(el: EventTarget | null): boolean {
     let node = el instanceof Element ? el : null;
     while (node && node !== document.body) {
@@ -153,17 +145,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const Icon = item.icon;
           const active = pathname?.startsWith(item.href);
           return (
-            <Link
+            <button
               key={item.href}
-              href={item.href}
-              onClick={(e) => handleNavClick(e, item.href)}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              // A plain button calling navigateToTab directly — routed through
+              // the exact same imperative path as the swipe gesture below, so
+              // a tap gets the identical view-transition slide instead of
+              // whatever timing next/link's own click handling would add.
+              onClick={() => navigateToTab(item.href)}
               className={`flex w-1/5 min-w-[64px] shrink-0 snap-start flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium ${
                 active ? "text-accent" : "text-zinc-500"
               }`}
             >
               <Icon size={22} />
               {item.label}
-            </Link>
+            </button>
           );
         })}
       </nav>
