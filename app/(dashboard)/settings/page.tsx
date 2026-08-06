@@ -16,22 +16,19 @@ import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
 import ThemeToggle from "@/components/ThemeToggle";
+import AccentColorPicker from "@/components/AccentColorPicker";
+import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
+import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
 import type { Member, XpAdjustmentRequest } from "@/lib/types";
 
-interface FamilyInfo {
-  name: string;
-  inviteCode: string;
-}
-
 export default function SettingsPage() {
   const router = useRouter();
   const { user, signOutUser } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
   const toast = useToast();
   const { confirm } = useDialog();
-  const [family, setFamily] = useState<FamilyInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingAdjustments, setPendingAdjustments] = useState<XpAdjustmentRequest[]>([]);
   const [adjustingMemberId, setAdjustingMemberId] = useState<string | null>(null);
@@ -49,14 +46,6 @@ export default function SettingsPage() {
 
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!familyId) return;
-    return onSnapshot(doc(getDb(), "families", familyId), (snap) => {
-      const data = snap.data();
-      if (data) setFamily({ name: data.name, inviteCode: data.inviteCode });
-    });
-  }, [familyId]);
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
@@ -274,7 +263,31 @@ export default function SettingsPage() {
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Vzhled</h2>
         <ThemeToggle />
+        {familyId && member.role === "parent" && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-sm text-zinc-500">Barva zvýraznění (pro celou rodinu)</p>
+            <AccentColorPicker familyId={familyId} currentColor={family?.accentColor} />
+          </div>
+        )}
       </section>
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Investice</h2>
+          <InvestmentSettingsPanel
+            familyId={familyId}
+            enabled={family?.investmentsEnabled !== false}
+            customTerms={family?.investmentTerms}
+          />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Obchod</h2>
+          <ShopAdminPanel familyId={familyId} members={members} />
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Notifikace</h2>

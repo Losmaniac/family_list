@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INVESTMENT_TERMS, findInvestmentTerm, maturityPayout } from "./investments";
+import { INVESTMENT_TERMS, effectiveInvestmentTerms, findInvestmentTerm, findTermInList, maturityPayout } from "./investments";
 
 describe("INVESTMENT_TERMS", () => {
   it("pays a higher rate for a longer term, like a real bond yield curve", () => {
@@ -31,6 +31,29 @@ describe("findInvestmentTerm", () => {
 
   it("returns undefined for an unknown term", () => {
     expect(findInvestmentTerm(999)).toBeUndefined();
+  });
+});
+
+describe("findTermInList", () => {
+  it("finds a term in a custom list by day count", () => {
+    const custom = [{ days: 14, rate: 0.05, label: "2 týdny" }];
+    expect(findTermInList(custom, 14)?.label).toBe("2 týdny");
+  });
+
+  it("returns undefined for an unknown term", () => {
+    expect(findTermInList(INVESTMENT_TERMS, 999)).toBeUndefined();
+  });
+});
+
+describe("effectiveInvestmentTerms", () => {
+  it("falls back to the built-in defaults when a family hasn't set any", () => {
+    expect(effectiveInvestmentTerms(undefined)).toBe(INVESTMENT_TERMS);
+    expect(effectiveInvestmentTerms([])).toBe(INVESTMENT_TERMS);
+  });
+
+  it("uses the family's own terms when set", () => {
+    const custom = [{ days: 14, rate: 0.05, label: "2 týdny" }];
+    expect(effectiveInvestmentTerms(custom)).toBe(custom);
   });
 });
 

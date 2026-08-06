@@ -12,6 +12,7 @@ import StreakBadge from "@/components/StreakBadge";
 import XpGainCelebration from "@/components/XpGainCelebration";
 import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
 import OfflineBanner from "@/components/OfflineBanner";
+import AccentColorSync from "@/components/AccentColorSync";
 
 const NAV_ITEMS = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
@@ -26,10 +27,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
-  const { loading: familyLoading, member } = useFamily();
+  const { loading: familyLoading, member, family } = useFamily();
 
   const loading = authLoading || familyLoading;
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  function visibleNavItems() {
+    return NAV_ITEMS.filter((item) => {
+      if (item.parentOnly && member?.role !== "parent") return false;
+      if (item.href === "/investments" && family?.investmentsEnabled === false) return false;
+      return true;
+    });
+  }
 
   function navigateToTab(href: string) {
     // Slide toward whichever side the target tab sits on relative to the
@@ -79,7 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const dy = touch.clientY - start.y;
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
 
-    const visibleItems = NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent");
+    const visibleItems = visibleNavItems();
     const currentIndex = visibleItems.findIndex((item) => pathname?.startsWith(item.href));
     if (currentIndex === -1) return;
     // Swipe left (negative dx) advances to the next tab, like turning a page.
@@ -108,6 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <XpGainCelebration />
       <TaskCompleteFireworks />
       <OfflineBanner />
+      <AccentColorSync />
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />
@@ -141,7 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className="fixed inset-x-0 bottom-0 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain border-t border-border bg-surface pt-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        {NAV_ITEMS.filter((item) => !item.parentOnly || member.role === "parent").map((item) => {
+        {visibleNavItems().map((item) => {
           const Icon = item.icon;
           const active = pathname?.startsWith(item.href);
           return (

@@ -28,6 +28,15 @@ export function findInvestmentTerm(days: number): InvestmentTerm | undefined {
   return INVESTMENT_TERMS.find((t) => t.days === days);
 }
 
+/** Same lookup, but against a family's own configured terms (falls back to the built-in defaults when a family hasn't set any) — used wherever a parent may have overridden the term list in Settings. */
+export function findTermInList(terms: InvestmentTerm[], days: number): InvestmentTerm | undefined {
+  return terms.find((t) => t.days === days);
+}
+
+export function effectiveInvestmentTerms(customTerms: InvestmentTerm[] | undefined): InvestmentTerm[] {
+  return customTerms && customTerms.length > 0 ? customTerms : INVESTMENT_TERMS;
+}
+
 /** Principal + interest at maturity, rounded to a whole XP. */
 export function maturityPayout(principal: number, rate: number): number {
   return Math.round(principal * (1 + rate));

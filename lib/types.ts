@@ -7,6 +7,31 @@ export interface UserFamilyMapping {
   familyId: string;
 }
 
+/** A parent-configured investment term, overriding the built-in defaults in lib/investments.ts. */
+export interface InvestmentTermConfig {
+  days: number;
+  /** Fractional return over the full term — 0.08 = principal grows by 8%. */
+  rate: number;
+  label: string;
+}
+
+/**
+ * families/{familyId} — the family document itself, holding invite info and
+ * parent-configured app-wide settings (appearance, feature toggles).
+ * Client-writable only by a parent (see firestore.rules), matching the rest
+ * of this tier of settings (not XP, not a security boundary beyond that).
+ */
+export interface Family {
+  name: string;
+  inviteCode: string;
+  /** Hex accent color chosen by a parent in Settings; absent = the app's default amber. */
+  accentColor?: string;
+  /** Whether the Investments tab is shown at all; absent = enabled. */
+  investmentsEnabled?: boolean;
+  /** Custom investment terms replacing the built-in defaults; absent/empty = defaults apply. */
+  investmentTerms?: InvestmentTermConfig[];
+}
+
 export type MemberRole = "parent" | "child";
 
 export interface Member {

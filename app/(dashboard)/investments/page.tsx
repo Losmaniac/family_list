@@ -7,13 +7,14 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import InvestmentsSection from "@/components/Investments";
-import { findInvestmentTerm } from "@/lib/investments";
+import { effectiveInvestmentTerms, findTermInList } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
 export default function InvestmentsPage() {
   const { user } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
   const toast = useToast();
+  const terms = effectiveInvestmentTerms(family?.investmentTerms);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,7 +33,7 @@ export default function InvestmentsPage() {
 
   async function handleStartInvestment(principal: number, termDays: number) {
     if (!familyId || !user) return;
-    const term = findInvestmentTerm(termDays);
+    const term = findTermInList(terms, termDays);
     if (!term) return;
     setSubmitting(true);
     try {
@@ -66,12 +67,22 @@ export default function InvestmentsPage() {
     }
   }
 
+  if (family?.investmentsEnabled === false) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold">Investice</h1>
+        <p className="text-zinc-500">Investice jsou v této rodině vypnuté. Zapnout je může rodič v Nastavení.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Investice</h1>
       <InvestmentsSection
         investments={investments}
         xpBalance={member?.xpBalance ?? 0}
+        terms={terms}
         onStart={handleStartInvestment}
         onWithdrawEarly={handleWithdrawEarly}
         submitting={submitting}
