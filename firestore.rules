@@ -24,6 +24,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/families/$(familyId)/rewards/$(rewardId)).data.approvalRequired;
     }
 
+    function templatePhotoRequired(familyId, templateId) {
+      return get(/databases/$(database)/documents/families/$(familyId)/taskTemplates/$(templateId)).data.get('photoRequired', false) == true;
+    }
+
+    // If the task's template requires a photo, the resulting document must
+    // already carry one — enforced server-side so a photo-required task
+    // can't be marked complete via a raw API call that skips the upload.
+    function photoRequirementMet(familyId, templateId, data) {
+      return !templatePhotoRequired(familyId, templateId) || (data.photoUrl is string && data.photoUrl.size() > 0);
+    }
+
     // users/{userId} maps a signed-in user to their familyId so the client can
     // resolve family membership after login. Only ever written by trusted
     // server code (Cloud Functions using the Admin SDK) — see createFamily /
@@ -66,11 +77,25 @@ service cloud.firestore {
         // may only submit their own task for approval or pull it back to
         // pending — never award themselves 'done' directly; that always
         // requires a parent action, which is what actually triggers XP.
+        // Either path, if the template requires a photo, it must already be
+        // on the resulting doc before the task can move toward completion —
+        // submitted for a child, done for a parent self-completing their own
+        // task directly (approving someone else's already-submitted task
+        // doesn't need this check again: the photo requirement was already
+        // enforced at submission time, and this update won't touch photoUrl).
         allow update: if isFamilyMember(familyId) &&
-          (isParent(familyId) ||
+          (
+            (isParent(familyId) &&
+              (!(resource.data.assignedTo == request.auth.uid &&
+                  resource.data.status != 'done' &&
+                  request.resource.data.status == 'done') ||
+                photoRequirementMet(familyId, resource.data.templateId, request.resource.data))) ||
             (resource.data.assignedTo == request.auth.uid &&
              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'photoUrl']) &&
-             request.resource.data.status in ['submitted', 'pending']));
+             request.resource.data.status in ['submitted', 'pending'] &&
+             (request.resource.data.status != 'submitted' ||
+               photoRequirementMet(familyId, resource.data.templateId, request.resource.data)))
+          );
         allow create, delete: if isParent(familyId);
       }
 

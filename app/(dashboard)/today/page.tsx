@@ -85,12 +85,16 @@ export default function TodayPage() {
   // A parent completing their own task self-approves immediately. A child's
   // own task always goes through 'submitted' — only a parent action ever
   // reaches 'done', which is what actually awards XP (see onTaskCompleted).
+  // A photo-required template needs the photo on the way *toward*
+  // completion regardless of role — pulling a submission back (child) or
+  // un-toggling a self-approved task (parent) never needs one.
   async function handleOwnToggle(task: DailyTask) {
     if (!familyId || pendingTaskIds.has(task.id)) return;
     const ref = doc(getDb(), "families", familyId, "dailyTasks", task.id);
     const template = templates[task.templateId];
 
-    if (member?.role !== "parent" && template?.photoRequired && task.status !== "submitted") {
+    const movingTowardCompletion = member?.role === "parent" ? task.status !== "done" : task.status !== "submitted";
+    if (template?.photoRequired && movingTowardCompletion) {
       setPhotoTask(task);
       photoInputRef.current?.click();
       return;
@@ -136,12 +140,13 @@ export default function TodayPage() {
       const photoRef = storageRef(getFirebaseStorage(), `families/${familyId}/taskPhotos/${task.id}`);
       await uploadBytes(photoRef, file, { contentType: file.type });
       const photoUrl = await getDownloadURL(photoRef);
+      const isParentTask = member?.role === "parent";
       await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
-        status: "submitted",
+        status: isParentTask ? "done" : "submitted",
         completedAt: Date.now(),
         photoUrl,
       });
-      toast.success("Foto nahráno, úkol odeslán ke schválení.");
+      toast.success(isParentTask ? "Foto nahráno, úkol splněn." : "Foto nahráno, úkol odeslán ke schválení.");
     } catch {
       toast.error("Foto se nepodařilo nahrát.");
     } finally {
