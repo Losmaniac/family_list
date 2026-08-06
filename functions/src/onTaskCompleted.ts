@@ -10,6 +10,16 @@
  * and the streak XP bonus live here too, alongside the award, so they can
  * never drift out of sync with it.
  *
+ * A streak day only locks in once *every* task assigned to that member on
+ * that date is 'done' — completing one of three doesn't count yet. Each
+ * task completed during a still-partial day is awarded using the
+ * *prospective* streak (what it would become if the day finishes complete)
+ * without persisting it, so every task that day gets the same bonus rate;
+ * only the completion that makes the day fully done actually writes
+ * currentStreak/lastActiveDate. Reverting a task after the day was already
+ * locked in does not roll the streak back — a known, accepted gap, same as
+ * longestStreak already not decreasing on revert.
+ *
  * reconcileTaskXp is intentionally idempotent and self-contained: it looks
  * only at a task's *current* state (status vs xpAwarded), never at what
  * triggered the call. That's what lets the same function serve both the
@@ -90,22 +100,32 @@ async function reconcileTaskXp(db: Firestore, familyId: string, taskId: string):
       const familySnap = await tx.get(familyRef);
       const family = familySnap.data() as Family | undefined;
 
-      const { streak, freezeWeek } = computeStreak(member, task.date);
-      const delta = applyStreakBonus(template.xpValue, streak, family?.streakBonusPerDay, family?.streakBonusCap);
-      const longestStreak = Math.max(member?.longestStreak ?? 0, streak);
+      // "Prospective" — reflects what the streak becomes *if* today ends up
+      // fully done, computed off the member's last *locked-in* day, not
+      // reduced by partial progress made so far today.
+      const { streak: prospectiveStreak, freezeWeek } = computeStreak(member, task.date);
+      const delta = applyStreakBonus(template.xpValue, prospectiveStreak, family?.streakBonusPerDay, family?.streakBonusCap);
 
       tx.set(
         familyRef.collection("xpLedger").doc(),
         buildLedgerEntry({ userId: task.assignedTo, delta, reason: "task_completed", relatedTaskId: taskId })
       );
-      tx.update(memberRef, {
-        xpBalance: FieldValue.increment(delta),
-        currentStreak: streak,
-        longestStreak,
-        lastActiveDate: task.date,
-        streakFreezeWeek: freezeWeek,
-      });
+      tx.update(memberRef, { xpBalance: FieldValue.increment(delta) });
       tx.update(taskRef, { xpAwarded: delta });
+
+      const dayTasksSnap = await tx.get(
+        familyRef.collection("dailyTasks").where("assignedTo", "==", task.assignedTo).where("date", "==", task.date)
+      );
+      const dayFullyDone = dayTasksSnap.docs.every((d) => d.data().status === "done");
+      if (dayFullyDone) {
+        const longestStreak = Math.max(member?.longestStreak ?? 0, prospectiveStreak);
+        tx.update(memberRef, {
+          currentStreak: prospectiveStreak,
+          longestStreak,
+          lastActiveDate: task.date,
+          streakFreezeWeek: freezeWeek,
+        });
+      }
     } else {
       const awarded = task.xpAwarded as number;
       tx.set(

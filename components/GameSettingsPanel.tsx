@@ -106,9 +106,9 @@ export default function GameSettingsPanel({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <p className="text-sm text-zinc-500">
-          Streak = po sobě jdoucí dny, kdy má člen alespoň jeden schválený úkol. Jeden vynechaný den v týdnu se
-          odpouští (streak se nezruší), déle vynechané dny streak vynulují. Bonus se přičítá k XP za úkol, ne k
-          celkovému zůstatku.
+          Streak = po sobě jdoucí dny, kdy má člen splněné úplně všechny své denní úkoly (jeden hotový úkol z
+          více nestačí). Jeden vynechaný den v týdnu se odpouští (streak se nezruší), déle vynechané dny streak
+          vynulují. Bonus se přičítá k XP za úkol, ne k celkovému zůstatku.
         </p>
         <div className="flex items-center gap-2">
           <label className="text-sm text-zinc-500" htmlFor="perDay">

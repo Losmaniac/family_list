@@ -252,6 +252,11 @@ export default function TodayPage() {
 
   const active = tasks.filter((t) => t.status !== "done");
   const done = tasks.filter((t) => t.status === "done");
+  // A child's own tasks sit at 'submitted' awaiting parent approval — that's
+  // not something *they* can act on, so the "want another task" prompt goes
+  // by what's still on the member's own plate (pending/returned), not by
+  // whether a parent has gotten around to approving everything yet.
+  const awaitingMyAction = tasks.some((t) => t.status === "pending" || t.status === "returned");
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
@@ -381,7 +386,7 @@ export default function TodayPage() {
               </div>
             )}
 
-            {active.length === 0 && (
+            {!awaitingMyAction && (
               <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
                 {myRequest?.status === "open" ? (
                   <>
