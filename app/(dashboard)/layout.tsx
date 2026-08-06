@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { Camera, CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import Avatar from "@/components/Avatar";
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: MessageCircle, parentOnly: false },
   { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
   { href: "/investments", label: "Investice", icon: TrendingUp, parentOnly: false },
+  { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
 ] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
