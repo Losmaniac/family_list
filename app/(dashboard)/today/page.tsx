@@ -25,7 +25,7 @@ export default function TodayPage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
   const toast = useToast();
-  const { promptText } = useDialog();
+  const { promptText, confirm } = useDialog();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [pendingApproval, setPendingApproval] = useState<DailyTask[]>([]);
   const [templates, setTemplates] = useState<Record<string, TaskTemplate>>({});
@@ -104,6 +104,15 @@ export default function TodayPage() {
     try {
       if (member?.role === "parent") {
         const nextStatus = task.status === "done" ? "pending" : "done";
+        if (nextStatus === "pending") {
+          const ok = await confirm({
+            title: `Vrátit „${template?.title ?? "úkol"}“ mezi nesplněné?`,
+            description: "XP za tento úkol se odečte.",
+            confirmLabel: "Vrátit zpět",
+            danger: true,
+          });
+          if (!ok) return;
+        }
         await updateDoc(ref, { status: nextStatus, completedAt: nextStatus === "done" ? Date.now() : null });
         return;
       }
