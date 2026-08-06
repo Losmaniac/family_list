@@ -176,6 +176,30 @@ export interface TaskProposal {
   approvals: string[];
   status: TaskProposalStatus;
   timestamp: number;
+  /**
+   * Set when this proposal is a response to another member's TaskRequest
+   * (same value as that request's doc ID, which is the requester's own
+   * uid) — forces assignedTo to just them, since the task is meant for
+   * the requester, not whoever proposed it. Once one linked proposal for
+   * a request reaches unanimous approval, the Cloud Function auto-rejects
+   * any other still-pending proposals for the same request.
+   */
+  requestId?: string;
+}
+
+export type TaskRequestStatus = "open" | "fulfilled" | "cancelled";
+
+/**
+ * A member's ask for a new task once they've run out of things to do.
+ * Doc ID is the requester's own uid, so there's naturally at most one
+ * open request per member — reopening after fulfilled/cancelled reuses
+ * the same doc rather than creating a new one.
+ */
+export interface TaskRequest {
+  id: string;
+  requestedBy: string;
+  status: TaskRequestStatus;
+  timestamp: number;
 }
 
 /**
@@ -242,6 +266,7 @@ export type AuditAction =
   | "xp_adjustment_decided"
   | "task_approved"
   | "task_returned"
+  | "task_completion_reverted"
   | "task_template_deleted"
   | "reward_redemption_decided"
   | "pooled_contribution_decided";

@@ -55,6 +55,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "maturesAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "taskProposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requestId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

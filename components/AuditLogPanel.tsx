@@ -12,6 +12,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   xp_adjustment_decided: "Rozhodnutí o úpravě XP",
   task_approved: "Schválení úkolu",
   task_returned: "Vrácení úkolu",
+  task_completion_reverted: "Odebrání XP za úkol",
   task_template_deleted: "Smazání úkolu",
   reward_redemption_decided: "Rozhodnutí o odměně",
   pooled_contribution_decided: "Rozhodnutí o sbírce",
