@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getDb } from "./firebase";
 import { useAuth } from "./auth-context";
-import type { Member, UserFamilyMapping } from "./types";
+import type { Family, Member, UserFamilyMapping } from "./types";
 
 export interface XpGain {
   delta: number;
@@ -15,6 +15,8 @@ interface FamilyContextValue {
   loading: boolean;
   familyId: string | null;
   member: Member | null;
+  /** The family document (invite code, parent-configured settings). Loads independently of `loading` — consumers should treat null as "not yet known" and fall back to defaults rather than blocking on it. */
+  family: Family | null;
   /** Set whenever xpBalance ticks up (Cloud Function awarded XP); cleared by whoever renders the celebration. Purely an observation of an already-computed field, not XP math — that all still lives server-side. */
   xpGain: XpGain | null;
   clearXpGain: () => void;
@@ -26,6 +28,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [member, setMember] = useState<Member | null>(null);
+  const [family, setFamily] = useState<Family | null>(null);
   const [mappingLoaded, setMappingLoaded] = useState(false);
   const [memberLoaded, setMemberLoaded] = useState(false);
   const [xpGain, setXpGain] = useState<XpGain | null>(null);
@@ -56,6 +59,13 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user, familyId]);
 
+  useEffect(() => {
+    if (!user || !familyId) return;
+    return onSnapshot(doc(getDb(), "families", familyId), (snap) => {
+      setFamily(snap.exists() ? (snap.data() as Family) : null);
+    });
+  }, [user, familyId]);
+
   const effectiveFamilyId = user ? familyId : null;
   const effectiveMember = user && effectiveFamilyId ? member : null;
   const loading = !user ? false : !effectiveFamilyId ? !mappingLoaded : !memberLoaded;
@@ -66,6 +76,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
         loading,
         familyId: effectiveFamilyId,
         member: effectiveMember,
+        family: effectiveFamilyId ? family : null,
         xpGain,
         clearXpGain: () => setXpGain(null),
       }}

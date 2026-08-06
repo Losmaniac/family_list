@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { INVESTMENT_TERMS } from "@/lib/investments";
+import type { InvestmentTerm } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
 const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
@@ -16,15 +16,16 @@ function daysRemaining(maturesAt: number): number {
 interface InvestmentsProps {
   investments: Investment[];
   xpBalance: number;
+  terms: InvestmentTerm[];
   onStart: (principal: number, termDays: number) => void;
   onWithdrawEarly: (investment: Investment) => void;
   submitting?: boolean;
 }
 
-export default function Investments({ investments, xpBalance, onStart, onWithdrawEarly, submitting }: InvestmentsProps) {
+export default function Investments({ investments, xpBalance, terms, onStart, onWithdrawEarly, submitting }: InvestmentsProps) {
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState(50);
-  const [termDays, setTermDays] = useState(INVESTMENT_TERMS[0].days);
+  const [termDays, setTermDays] = useState(terms[0]?.days ?? 0);
 
   // Only show what's actually settled — an in-between state like
   // "withdrawal_requested" is a brief server-processing moment, not
@@ -78,7 +79,7 @@ export default function Investments({ investments, xpBalance, onStart, onWithdra
             <span className="text-xs text-zinc-500">máš {xpBalance} XP</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {INVESTMENT_TERMS.map((term) => (
+            {terms.map((term) => (
               <button
                 key={term.days}
                 type="button"
