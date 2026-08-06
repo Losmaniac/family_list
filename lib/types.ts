@@ -203,3 +203,29 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
 }
+
+/**
+ * A visibility log for actions parents can take on other members' behalf or
+ * that change family-wide state — not a security boundary (entries are
+ * self-attested by the client, same trust tier as `messages`), just an
+ * answer to "kdo to udělal a kdy" when something looks off. Read-only for
+ * parents; append-only, never edited or deleted.
+ */
+export type AuditAction =
+  | "member_role_changed"
+  | "member_removed"
+  | "xp_adjustment_decided"
+  | "task_approved"
+  | "task_returned"
+  | "task_template_deleted"
+  | "reward_redemption_decided"
+  | "pooled_contribution_decided";
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string;
+  action: AuditAction;
+  /** Human-readable detail, e.g. the affected member's or task's name. */
+  detail: string;
+  timestamp: number;
+}

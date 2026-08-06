@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
+import { logAction } from "@/lib/audit-log";
 import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
 import { TASK_CATEGORIES, categoryInfo } from "@/lib/categories";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
@@ -35,6 +37,7 @@ function emptyForm() {
 }
 
 export default function AssignPage() {
+  const { user } = useAuth();
   const { familyId, member } = useFamily();
   const toast = useToast();
   const { confirm } = useDialog();
@@ -168,6 +171,7 @@ export default function AssignPage() {
     if (!ok) return;
     try {
       await deleteDoc(doc(getDb(), "families", familyId, "taskTemplates", template.id));
+      if (user) logAction(familyId, user.uid, "task_template_deleted", template.title);
       toast.success("Úkol byl smazán.");
       if (editingId === template.id) cancelEdit();
     } catch {

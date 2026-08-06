@@ -15,10 +15,21 @@ import { use } from "react";
 import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { computeAchievements } from "@/lib/achievements";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
-import type { Member, XpLedgerEntry } from "@/lib/types";
+import type { DailyTask, Member, XpLedgerEntry } from "@/lib/types";
+
+const STATS_DAYS = 14;
+
+function lastNDays(n: number): string[] {
+  const days: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    days.push(dateKeyInFamilyZone(new Date(Date.now() - i * 24 * 60 * 60 * 1000)));
+  }
+  return days;
+}
 
 const REASON_LABELS: Record<string, string> = {
   task_completed: "Splněný úkol",
@@ -41,6 +52,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [profile, setProfile] = useState<Member | null>(null);
   const [ledger, setLedger] = useState<XpLedgerEntry[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
+  const [statsLedger, setStatsLedger] = useState<XpLedgerEntry[]>([]);
+  const [statsTasks, setStatsTasks] = useState<DailyTask[]>([]);
 
   useEffect(() => {
     if (!familyId) return;
@@ -72,12 +85,52 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     getCountFromServer(countQuery).then((snap) => setCompletedCount(snap.data().count));
   }, [familyId, userId, ledger.length]);
 
+  useEffect(() => {
+    if (!familyId) return;
+    const cutoff = Date.now() - STATS_DAYS * 24 * 60 * 60 * 1000;
+    const statsQuery = query(
+      collection(getDb(), "families", familyId, "xpLedger"),
+      where("userId", "==", userId),
+      where("timestamp", ">=", cutoff),
+      orderBy("timestamp", "desc")
+    );
+    return onSnapshot(statsQuery, (snapshot) => {
+      setStatsLedger(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as XpLedgerEntry));
+    });
+  }, [familyId, userId]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    const cutoffDate = lastNDays(STATS_DAYS)[0];
+    const tasksQuery = query(
+      collection(getDb(), "families", familyId, "dailyTasks"),
+      where("assignedTo", "==", userId),
+      where("date", ">=", cutoffDate)
+    );
+    return onSnapshot(tasksQuery, (snapshot) => {
+      setStatsTasks(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask));
+    });
+  }, [familyId, userId]);
+
   if (!profile) {
     return <p className="text-zinc-500">Načítání…</p>;
   }
 
   const achievements = computeAchievements(profile.longestStreak ?? 0, completedCount);
   const unlockedAchievements = achievements.filter((a) => a.unlocked);
+
+  const days = lastNDays(STATS_DAYS);
+  const dailyXp = days.map((day) =>
+    statsLedger
+      .filter((entry) => dateKeyInFamilyZone(new Date(entry.timestamp)) === day)
+      .reduce((sum, entry) => sum + entry.delta, 0)
+  );
+  const maxDailyXp = Math.max(1, ...dailyXp.map((xp) => Math.abs(xp)));
+
+  const doneCount = statsTasks.filter((t) => t.status === "done").length;
+  const missedCount = statsTasks.filter((t) => t.status === "missed").length;
+  const settledCount = doneCount + missedCount;
+  const completionRate = settledCount > 0 ? Math.round((doneCount / settledCount) * 100) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,6 +165,32 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="font-medium">Statistiky (posledních {STATS_DAYS} dní)</h2>
+        <div className="flex items-end gap-1 rounded-xl border border-border px-4 py-3">
+          {days.map((day, i) => {
+            const xp = dailyXp[i];
+            const heightPct = xp === 0 ? 2 : Math.max(6, Math.round((Math.abs(xp) / maxDailyXp) * 100));
+            return (
+              <div key={day} className="flex flex-1 flex-col items-center gap-1" title={`${day}: ${xp >= 0 ? "+" : ""}${xp} XP`}>
+                <div className="flex h-20 w-full items-end">
+                  <div
+                    className={`w-full rounded-t-sm ${xp < 0 ? "bg-danger" : "bg-accent"}`}
+                    style={{ height: `${heightPct}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-zinc-500">{day.slice(8)}</span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-sm text-zinc-500">
+          {completionRate === null
+            ? "Zatím žádné vyhodnocené úkoly v tomto období."
+            : `Splněnost úkolů: ${completionRate} % (${doneCount} splněno, ${missedCount} propásnuto).`}
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
