@@ -36,6 +36,8 @@ export interface Family {
   streakBonusCap?: number;
   /** Custom names for levels 1-10 (and beyond, via the last one); absent/empty = the built-in Czech titles. */
   levelTitles?: string[];
+  /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
+  taskRequestsEnabled?: boolean;
 }
 
 export type MemberRole = "parent" | "child";

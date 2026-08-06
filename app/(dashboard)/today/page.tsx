@@ -22,7 +22,7 @@ function todayKey(): string {
 
 export default function TodayPage() {
   const { user } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
   const toast = useToast();
   const { promptText, confirm } = useDialog();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
@@ -255,8 +255,36 @@ export default function TodayPage() {
   // A child's own tasks sit at 'submitted' awaiting parent approval — that's
   // not something *they* can act on, so the "want another task" prompt goes
   // by what's still on the member's own plate (pending/returned), not by
-  // whether a parent has gotten around to approving everything yet.
+  // whether a parent has gotten around to approving everything yet. Applies
+  // equally to a parent with nothing assigned today at all (tasks.length
+  // === 0) — "nothing left to do" either way, not just "finished it all".
   const awaitingMyAction = tasks.some((t) => t.status === "pending" || t.status === "returned");
+  const requestsEnabled = family?.taskRequestsEnabled !== false;
+
+  const requestCta = requestsEnabled && !awaitingMyAction && (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
+      {myRequest?.status === "open" ? (
+        <>
+          <p className="text-sm text-zinc-500">Čekáš na návrh nového úkolu od rodiny.</p>
+          <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
+            <X size={14} /> Zrušit žádost
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-zinc-500">Nemáš žádné nesplněné úkoly. Chceš další?</p>
+          <button
+            type="button"
+            onClick={handleRequestTask}
+            disabled={submittingRequest}
+            className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            <Star size={14} /> Chci nový úkol
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
@@ -344,9 +372,10 @@ export default function TodayPage() {
             </div>
           )
         ) : tasks.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-zinc-500">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-zinc-500">
             <PartyPopper size={40} />
             <p className="text-lg">Na dnes nemáš žádné úkoly.</p>
+            {requestCta}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -386,34 +415,7 @@ export default function TodayPage() {
               </div>
             )}
 
-            {!awaitingMyAction && (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
-                {myRequest?.status === "open" ? (
-                  <>
-                    <p className="text-sm text-zinc-500">Čekáš na návrh nového úkolu od rodiny.</p>
-                    <button
-                      type="button"
-                      onClick={handleCancelRequest}
-                      className="flex items-center gap-1 text-sm text-zinc-500"
-                    >
-                      <X size={14} /> Zrušit žádost
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-zinc-500">Všechno máš hotové. Chceš další úkol?</p>
-                    <button
-                      type="button"
-                      onClick={handleRequestTask}
-                      disabled={submittingRequest}
-                      className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-                    >
-                      <Star size={14} /> Chci nový úkol
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+            {requestCta}
           </div>
         )}
       </section>

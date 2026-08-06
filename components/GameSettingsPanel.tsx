@@ -11,13 +11,28 @@ export default function GameSettingsPanel({
   streakBonusPerDay,
   streakBonusCap,
   levelTitles,
+  taskRequestsEnabled,
 }: {
   familyId: string;
   streakBonusPerDay?: number;
   streakBonusCap?: number;
   levelTitles?: string[];
+  taskRequestsEnabled?: boolean;
 }) {
   const toast = useToast();
+  const [savingRequestsToggle, setSavingRequestsToggle] = useState(false);
+
+  async function handleToggleRequestsEnabled() {
+    setSavingRequestsToggle(true);
+    try {
+      await updateDoc(doc(getDb(), "families", familyId), { taskRequestsEnabled: !(taskRequestsEnabled !== false) });
+    } catch {
+      toast.error("Nepodařilo se změnit nastavení žádostí o úkoly.");
+    } finally {
+      setSavingRequestsToggle(false);
+    }
+  }
+
   const [perDayPercent, setPerDayPercent] = useState(String(Math.round((streakBonusPerDay ?? DEFAULT_STREAK_BONUS_PER_DAY) * 1000) / 10));
   const [capPercent, setCapPercent] = useState(String(Math.round((streakBonusCap ?? DEFAULT_STREAK_BONUS_CAP) * 1000) / 10));
   const [titles, setTitles] = useState<string[]>(() => {
@@ -104,6 +119,16 @@ export default function GameSettingsPanel({
 
   return (
     <div className="flex flex-col gap-6">
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={taskRequestsEnabled !== false}
+          disabled={savingRequestsToggle}
+          onChange={handleToggleRequestsEnabled}
+        />
+        Povolit žádosti o nový úkol (člen rodiny si může vyžádat úkol, až nemá co dělat)
+      </label>
+
       <div className="flex flex-col gap-2">
         <p className="text-sm text-zinc-500">
           Streak = po sobě jdoucí dny, kdy má člen splněné úplně všechny své denní úkoly (jeden hotový úkol z

@@ -280,6 +280,7 @@ export default function SettingsPage() {
             streakBonusPerDay={family?.streakBonusPerDay}
             streakBonusCap={family?.streakBonusCap}
             levelTitles={family?.levelTitles}
+            taskRequestsEnabled={family?.taskRequestsEnabled}
           />
         </section>
       )}
