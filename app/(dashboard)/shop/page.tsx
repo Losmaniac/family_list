@@ -17,6 +17,7 @@ import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { logAction } from "@/lib/audit-log";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
@@ -167,6 +168,16 @@ export default function ShopPage() {
       await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
         status,
       });
+      if (user) {
+        const reward = rewards.find((r) => r.id === redemption.rewardId);
+        const requester = members[redemption.userId];
+        logAction(
+          familyId,
+          user.uid,
+          "reward_redemption_decided",
+          `${reward?.title ?? redemption.rewardId} — ${requester?.name ?? redemption.userId}: ${status === "approved" ? "schváleno" : "zamítnuto"}`
+        );
+      }
     } catch {
       toast.error("Nepodařilo se uložit rozhodnutí.");
     }
@@ -178,6 +189,16 @@ export default function ShopPage() {
       await updateDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id), {
         status: "fulfilled",
       });
+      if (user) {
+        const reward = rewards.find((r) => r.id === redemption.rewardId);
+        const requester = members[redemption.userId];
+        logAction(
+          familyId,
+          user.uid,
+          "reward_redemption_decided",
+          `${reward?.title ?? redemption.rewardId} — ${requester?.name ?? redemption.userId}: vyřízeno`
+        );
+      }
       toast.success("Odměna označena jako vyřízená.");
     } catch {
       toast.error("Nepodařilo se označit odměnu jako vyřízenou.");
@@ -232,6 +253,10 @@ export default function ShopPage() {
       await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
         status: "fulfilled",
       });
+      if (user) {
+        const reward = rewards.find((r) => r.id === pool.rewardId);
+        logAction(familyId, user.uid, "pooled_contribution_decided", `${reward?.title ?? pool.rewardId}: vyřízeno`);
+      }
       toast.success("Sbírka vyřízena, XP strženo přispěvatelům.");
     } catch {
       toast.error("Sbírku se nepodařilo vyřídit.");
@@ -244,6 +269,10 @@ export default function ShopPage() {
       await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
         status: "cancelled",
       });
+      if (user) {
+        const reward = rewards.find((r) => r.id === pool.rewardId);
+        logAction(familyId, user.uid, "pooled_contribution_decided", `${reward?.title ?? pool.rewardId}: zrušeno`);
+      }
     } catch {
       toast.error("Sbírku se nepodařilo zrušit.");
     }

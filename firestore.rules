@@ -210,6 +210,20 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // Visibility log for parent-facing actions — append-only, self-attested
+      // by the client (same trust tier as `messages`, not a security
+      // boundary; the real authorization for each action is enforced by that
+      // action's own rules above). Only parents read it.
+      match /auditLog/{entryId} {
+        allow read: if isParent(familyId);
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.actorId == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['actorId', 'action', 'detail', 'timestamp']) &&
+          request.resource.data.detail is string &&
+          request.resource.data.detail.size() <= 300;
+        allow update, delete: if false;
+      }
+
       // Family chat — an immutable, append-only log. Anyone in the family
       // can read and post as themselves; nothing can be edited or deleted.
       match /messages/{messageId} {

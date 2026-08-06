@@ -10,8 +10,11 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
+import { logAction } from "@/lib/audit-log";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import type { DailyTask, Member, TaskTemplate } from "@/lib/types";
 
 function todayKey(): string {
@@ -154,6 +157,11 @@ export default function TodayPage() {
     if (!familyId) return;
     try {
       await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), { status: "done" });
+      if (user) {
+        const template = templates[task.templateId];
+        const requester = members[task.assignedTo];
+        logAction(familyId, user.uid, "task_approved", `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`);
+      }
       toast.success("Úkol schválen.");
     } catch {
       toast.error("Úkol se nepodařilo schválit.");
@@ -173,6 +181,11 @@ export default function TodayPage() {
         status: "returned",
         returnComment: comment,
       });
+      if (user) {
+        const template = templates[task.templateId];
+        const requester = members[task.assignedTo];
+        logAction(familyId, user.uid, "task_returned", `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`);
+      }
       toast.success("Úkol vrácen.");
     } catch {
       toast.error("Úkol se nepodařilo vrátit.");
@@ -256,7 +269,28 @@ export default function TodayPage() {
 
       <section className="flex flex-1 flex-col gap-4">
         <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
-        {tasks.length === 0 ? (
+        {tasks.length === 0 && Object.keys(templates).length === 0 ? (
+          member?.role === "parent" ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-zinc-500">
+              <Sparkles size={40} />
+              <p className="text-lg text-foreground">Vítej! Rodina ještě nemá žádné úkoly.</p>
+              <p className="max-w-xs text-sm">
+                Založ první úkoly na kartě Zadat — vyber si z připravených šablon nebo si vytvoř vlastní.
+              </p>
+              <Link
+                href="/assign"
+                className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground"
+              >
+                Nastavit první úkoly
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-zinc-500">
+              <PartyPopper size={40} />
+              <p className="text-lg">Rodiče ještě nenastavili žádné úkoly.</p>
+            </div>
+          )
+        ) : tasks.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-zinc-500">
             <PartyPopper size={40} />
             <p className="text-lg">Na dnes nemáš žádné úkoly.</p>

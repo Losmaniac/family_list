@@ -12,3 +12,4 @@ export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
 export { onTaskProposalWritten } from "./taskProposals";
 export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
+export { onTaskStatusNotify } from "./taskNotifications";

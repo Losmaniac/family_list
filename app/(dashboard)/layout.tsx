@@ -11,6 +11,7 @@ import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
 import XpGainCelebration from "@/components/XpGainCelebration";
 import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const NAV_ITEMS = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
@@ -114,6 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex flex-1 flex-col">
       <XpGainCelebration />
       <TaskCompleteFireworks />
+      <OfflineBanner />
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />

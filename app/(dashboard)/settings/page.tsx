@@ -13,8 +13,11 @@ import { setupPushNotifications } from "@/lib/push";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { generateInviteCode } from "@/lib/invite-code";
 import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
+import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
 import ThemeToggle from "@/components/ThemeToggle";
+import AuditLogPanel from "@/components/AuditLogPanel";
+import AntiGamingPanel from "@/components/AntiGamingPanel";
 import type { Member, XpAdjustmentRequest } from "@/lib/types";
 
 interface FamilyInfo {
@@ -134,10 +137,19 @@ export default function SettingsPage() {
       toast.error("Rodina musí mít alespoň jednoho rodiče.");
       return;
     }
+    const nextRole = target.role === "parent" ? "child" : "parent";
     try {
       await updateDoc(doc(getDb(), "families", familyId, "members", target.id), {
-        role: target.role === "parent" ? "child" : "parent",
+        role: nextRole,
       });
+      if (user) {
+        logAction(
+          familyId,
+          user.uid,
+          "member_role_changed",
+          `${target.name}: ${target.role === "parent" ? "rodič" : "dítě"} → ${nextRole === "parent" ? "rodič" : "dítě"}`
+        );
+      }
     } catch {
       toast.error("Roli se nepodařilo změnit.");
     }
@@ -154,6 +166,7 @@ export default function SettingsPage() {
     if (!ok) return;
     try {
       await deleteDoc(doc(getDb(), "families", familyId, "members", target.id));
+      if (user) logAction(familyId, user.uid, "member_removed", target.name);
       toast.success(`„${target.name}“ byl odebrán.`);
     } catch {
       toast.error("Člena se nepodařilo odebrat.");
@@ -196,6 +209,15 @@ export default function SettingsPage() {
     if (!familyId) return;
     try {
       await updateDoc(doc(getDb(), "families", familyId, "xpAdjustmentRequests", request.id), { status });
+      if (user) {
+        const target = members.find((m) => m.id === request.targetUserId);
+        logAction(
+          familyId,
+          user.uid,
+          "xp_adjustment_decided",
+          `${target?.name ?? request.targetUserId}: ${request.delta >= 0 ? "+" : ""}${request.delta} XP ${status === "approved" ? "schváleno" : "zamítnuto"}`
+        );
+      }
     } catch {
       toast.error("Nepodařilo se uložit rozhodnutí.");
     }
@@ -431,6 +453,10 @@ export default function SettingsPage() {
           </div>
         </section>
       )}
+
+      {member.role === "parent" && familyId && <AntiGamingPanel familyId={familyId} members={members} />}
+
+      {member.role === "parent" && familyId && <AuditLogPanel familyId={familyId} members={members} />}
 
       <section>
         <button
