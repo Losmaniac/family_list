@@ -43,7 +43,7 @@ function todayDisplayIndex(): number {
 
 export default function FamilyPage() {
   const { user } = useAuth();
-  const { familyId } = useFamily();
+  const { familyId, family } = useFamily();
   const toast = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -216,7 +216,7 @@ export default function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Leaderboard members={members} />
+      <Leaderboard members={members} levelTitles={family?.levelTitles} />
 
       <div className="flex items-center justify-between">
         <div>
