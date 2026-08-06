@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { ImageOff } from "lucide-react";
+import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { ImageOff, Undo2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
+import { logAction } from "@/lib/audit-log";
 import { dateKeyInFamilyZone, formatDateTimeInFamilyZone } from "@/lib/date-utils";
 import { categoryInfo } from "@/lib/categories";
 import Avatar from "@/components/Avatar";
@@ -31,7 +35,10 @@ function daysAgoKey(days: number): string {
 }
 
 export default function PhotosPage() {
+  const { user } = useAuth();
   const { familyId, member } = useFamily();
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [templates, setTemplates] = useState<Record<string, TaskTemplate>>({});
   const [members, setMembers] = useState<Member[]>([]);
@@ -87,6 +94,36 @@ export default function PhotosPage() {
     );
     return [...ids].map((id) => templates[id]).filter((t): t is TaskTemplate => Boolean(t));
   }, [tasks, memberFilter, templates]);
+
+  async function handleRevert(task: DailyTask) {
+    if (!familyId) return;
+    const template = templates[task.templateId];
+    const assignee = membersById[task.assignedTo];
+    const ok = await confirm({
+      title: `Vrátit „${template?.title ?? "úkol"}“ mezi nesplněné?`,
+      description: `${assignee?.name ?? "Člen"} o XP za tento úkol přijde.`,
+      confirmLabel: "Vrátit zpět",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
+        status: "pending",
+        completedAt: null,
+      });
+      if (user) {
+        logAction(
+          familyId,
+          user.uid,
+          "task_completion_reverted",
+          `${template?.title ?? task.templateId} — ${assignee?.name ?? task.assignedTo}`
+        );
+      }
+      toast.success("Úkol vrácen mezi nesplněné, XP odebráno.");
+    } catch {
+      toast.error("Nepodařilo se vrátit úkol.");
+    }
+  }
 
   if (member?.role !== "parent") {
     return <p className="text-zinc-500">Dostupné pouze pro rodiče.</p>;
@@ -173,15 +210,11 @@ export default function PhotosPage() {
             const template = templates[task.templateId];
             const assignee = membersById[task.assignedTo];
             return (
-              <a
-                key={task.id}
-                href={task.photoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-surface"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
-                <img src={task.photoUrl} alt={template?.title ?? "Foto úkolu"} className="aspect-square w-full object-cover" />
+              <div key={task.id} className="flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-surface">
+                <a href={task.photoUrl} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
+                  <img src={task.photoUrl} alt={template?.title ?? "Foto úkolu"} className="aspect-square w-full object-cover" />
+                </a>
                 <div className="flex flex-col gap-0.5 px-2 pb-2">
                   <div className="flex items-center gap-1.5">
                     {assignee && <Avatar name={assignee.name} avatarUrl={assignee.avatarUrl} size="sm" />}
@@ -191,8 +224,17 @@ export default function PhotosPage() {
                     {assignee?.name ?? task.assignedTo} · {task.completedAt ? formatDateTimeInFamilyZone(new Date(task.completedAt)) : task.date}
                   </p>
                   <p className={`text-xs font-medium ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</p>
+                  {task.status === "done" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRevert(task)}
+                      className="mt-1 flex items-center gap-1 self-start rounded-full border border-danger/30 px-2 py-1 text-xs font-semibold text-danger"
+                    >
+                      <Undo2 size={12} /> Odebrat XP
+                    </button>
+                  )}
                 </div>
-              </a>
+              </div>
             );
           })}
         </div>

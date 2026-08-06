@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { CheckCircle2, Users } from "lucide-react";
+import { CheckCircle2, Star, Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -12,7 +12,7 @@ import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
 import { dateKeyInFamilyZone, dayOfWeekInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
-import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskTemplate } from "@/lib/types";
+import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
@@ -53,6 +53,9 @@ export default function FamilyPage() {
   const [proposalForm, setProposalForm] = useState(emptyProposalForm);
   const [submittingProposal, setSubmittingProposal] = useState(false);
   const [dailyTasksForDay, setDailyTasksForDay] = useState<DailyTask[]>([]);
+  const [openRequests, setOpenRequests] = useState<TaskRequest[]>([]);
+  const [requestProposalDrafts, setRequestProposalDrafts] = useState<Record<string, { title: string; xpValue: string }>>({});
+  const [submittingRequestProposal, setSubmittingRequestProposal] = useState<string | null>(null);
 
   useEffect(() => {
     if (!familyId) return;
@@ -76,6 +79,17 @@ export default function FamilyPage() {
     );
     return onSnapshot(proposalsQuery, (snapshot) => {
       setProposals(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskProposal));
+    });
+  }, [familyId]);
+
+  useEffect(() => {
+    if (!familyId) return;
+    const requestsQuery = query(
+      collection(getDb(), "families", familyId, "taskRequests"),
+      where("status", "==", "open")
+    );
+    return onSnapshot(requestsQuery, (snapshot) => {
+      setOpenRequests(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskRequest));
     });
   }, [familyId]);
 
@@ -126,6 +140,40 @@ export default function FamilyPage() {
       toast.error("Návrh se nepodařilo odeslat.");
     } finally {
       setSubmittingProposal(false);
+    }
+  }
+
+  async function handleSubmitRequestProposal(request: TaskRequest) {
+    if (!familyId || !user) return;
+    const draft = requestProposalDrafts[request.id];
+    const xpValue = Number(draft?.xpValue);
+    if (!draft?.title.trim() || !Number.isFinite(xpValue) || xpValue <= 0) return;
+
+    setSubmittingRequestProposal(request.id);
+    try {
+      await addDoc(collection(getDb(), "families", familyId, "taskProposals"), {
+        title: draft.title.trim(),
+        category: "household",
+        xpValue,
+        recurrence: "daily",
+        daysOfWeek: [],
+        assignedTo: [request.requestedBy],
+        proposedBy: user.uid,
+        approvals: [],
+        status: "pending",
+        timestamp: Date.now(),
+        requestId: request.id,
+      });
+      toast.success("Návrh odeslán, čeká na schválení zbytkem rodiny.");
+      setRequestProposalDrafts((prev) => {
+        const next = { ...prev };
+        delete next[request.id];
+        return next;
+      });
+    } catch {
+      toast.error("Návrh se nepodařilo odeslat.");
+    } finally {
+      setSubmittingRequestProposal(null);
     }
   }
 
@@ -280,11 +328,67 @@ export default function FamilyPage() {
         </form>
       )}
 
+      {openRequests.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="flex items-center gap-1.5 font-medium">
+            <Star size={16} className="text-accent" /> Žádosti o nový úkol
+          </h2>
+          {openRequests.map((request) => {
+            const requester = members.find((m) => m.id === request.requestedBy);
+            if (request.requestedBy === user?.uid) {
+              return (
+                <div key={request.id} className="rounded-xl border border-border px-4 py-3 text-sm text-zinc-500">
+                  Čekáš na návrh úkolu od rodiny.
+                </div>
+              );
+            }
+            const draft = requestProposalDrafts[request.id] ?? { title: "", xpValue: "10" };
+            return (
+              <div key={request.id} className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
+                  <p className="font-medium">{requester?.name ?? request.requestedBy} chce nový úkol</p>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Návrh úkolu"
+                    value={draft.title}
+                    onChange={(e) =>
+                      setRequestProposalDrafts((prev) => ({ ...prev, [request.id]: { ...draft, title: e.target.value } }))
+                    }
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={draft.xpValue}
+                    onChange={(e) =>
+                      setRequestProposalDrafts((prev) => ({ ...prev, [request.id]: { ...draft, xpValue: e.target.value } }))
+                    }
+                    className="w-20 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitRequestProposal(request)}
+                    disabled={submittingRequestProposal === request.id || !draft.title.trim()}
+                    className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                  >
+                    Navrhnout
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
       {proposals.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-medium">Návrhy úkolů</h2>
           {proposals.map((proposal) => {
             const proposer = members.find((m) => m.id === proposal.proposedBy);
+            const target = proposal.requestId ? members.find((m) => m.id === proposal.assignedTo[0]) : null;
             const needed = Math.max(members.length - 1, 0);
             const isOwn = proposal.proposedBy === user?.uid;
             const alreadyVoted = user ? proposal.approvals.includes(user.uid) : false;
@@ -296,7 +400,8 @@ export default function FamilyPage() {
                       {categoryInfo(proposal.category).icon} {proposal.title} · +{proposal.xpValue} XP
                     </p>
                     <p className="truncate text-sm text-zinc-500">
-                      Navrhl(a) {proposer?.name ?? proposal.proposedBy} · schváleno {proposal.approvals.length}/{needed}
+                      Navrhl(a) {proposer?.name ?? proposal.proposedBy}
+                      {target && ` pro ${target.name}`} · schváleno {proposal.approvals.length}/{needed}
                     </p>
                   </div>
                   {!isOwn && !alreadyVoted && (

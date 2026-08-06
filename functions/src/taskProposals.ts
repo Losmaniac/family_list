@@ -2,12 +2,17 @@
  * Any family member — including a child — can propose a new task with a
  * suggested XP value. It only becomes a real, active taskTemplate once
  * every *other* member has approved it (unanimous — a task everyone lives
- * with should have everyone's buy-in); any single rejection kills it.
+ * with should have everyone's buy-in, and for a request-linked proposal
+ * this naturally includes the requester); any single rejection kills it.
  * Firestore rules already stop the proposer from voting on their own
  * proposal and stop anyone from adding someone else's uid to `approvals` —
  * this just watches for "everyone else has approved" and does the
  * conversion, which needs the Admin SDK since taskTemplates writes are
  * parent-only in rules.
+ *
+ * When the winning proposal is a response to a TaskRequest, this also
+ * marks that request 'fulfilled' and auto-rejects any other still-pending
+ * proposal for the same request — once one wins, the rest are moot.
  */
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
@@ -42,6 +47,21 @@ export const onTaskProposalWritten = onDocumentWritten(
       active: true,
     });
     batch.update(proposalRef, { status: "approved" });
+
+    if (after.requestId) {
+      batch.update(familyRef.collection("taskRequests").doc(after.requestId), { status: "fulfilled" });
+
+      const rivalProposals = await familyRef
+        .collection("taskProposals")
+        .where("requestId", "==", after.requestId)
+        .where("status", "==", "pending")
+        .get();
+      for (const rival of rivalProposals.docs) {
+        if (rival.id === proposalId) continue;
+        batch.update(rival.ref, { status: "rejected" });
+      }
+    }
+
     await batch.commit();
   }
 );

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { PartyPopper } from "lucide-react";
+import { PartyPopper, Sparkles, Star, X } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -14,8 +14,7 @@ import { logAction } from "@/lib/audit-log";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
-import type { DailyTask, Member, TaskTemplate } from "@/lib/types";
+import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
 function todayKey(): string {
   return dateKeyInFamilyZone(new Date());
@@ -34,6 +33,8 @@ export default function TodayPage() {
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
   const [photoTask, setPhotoTask] = useState<DailyTask | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [myRequest, setMyRequest] = useState<TaskRequest | null>(null);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -81,6 +82,13 @@ export default function TodayPage() {
       setMembers(next);
     });
   }, [familyId, member?.role]);
+
+  useEffect(() => {
+    if (!familyId || !user) return;
+    return onSnapshot(doc(getDb(), "families", familyId, "taskRequests", user.uid), (snap) => {
+      setMyRequest(snap.exists() ? ({ id: snap.id, ...snap.data() } as TaskRequest) : null);
+    });
+  }, [familyId, user]);
 
   // A parent completing their own task self-approves immediately. A child's
   // own task always goes through 'submitted' — only a parent action ever
@@ -203,6 +211,32 @@ export default function TodayPage() {
       toast.success("Úkol vrácen.");
     } catch {
       toast.error("Úkol se nepodařilo vrátit.");
+    }
+  }
+
+  async function handleRequestTask() {
+    if (!familyId || !user) return;
+    setSubmittingRequest(true);
+    try {
+      await setDoc(doc(getDb(), "families", familyId, "taskRequests", user.uid), {
+        requestedBy: user.uid,
+        status: "open",
+        timestamp: Date.now(),
+      });
+      toast.success("Žádost odeslána rodině — mohou ti navrhnout nový úkol.");
+    } catch {
+      toast.error("Žádost se nepodařilo odeslat.");
+    } finally {
+      setSubmittingRequest(false);
+    }
+  }
+
+  async function handleCancelRequest() {
+    if (!familyId || !myRequest) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskRequests", myRequest.id), { status: "cancelled" });
+    } catch {
+      toast.error("Žádost se nepodařilo zrušit.");
     }
   }
 
@@ -344,6 +378,35 @@ export default function TodayPage() {
                     />
                   );
                 })}
+              </div>
+            )}
+
+            {active.length === 0 && (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
+                {myRequest?.status === "open" ? (
+                  <>
+                    <p className="text-sm text-zinc-500">Čekáš na návrh nového úkolu od rodiny.</p>
+                    <button
+                      type="button"
+                      onClick={handleCancelRequest}
+                      className="flex items-center gap-1 text-sm text-zinc-500"
+                    >
+                      <X size={14} /> Zrušit žádost
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-zinc-500">Všechno máš hotové. Chceš další úkol?</p>
+                    <button
+                      type="button"
+                      onClick={handleRequestTask}
+                      disabled={submittingRequest}
+                      className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                    >
+                      <Star size={14} /> Chci nový úkol
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

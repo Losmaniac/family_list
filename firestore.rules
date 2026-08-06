@@ -35,6 +35,15 @@ service cloud.firestore {
       return !templatePhotoRequired(familyId, templateId) || (data.photoUrl is string && data.photoUrl.size() > 0);
     }
 
+    // A proposal responding to someone else's TaskRequest must target an
+    // open request that isn't the proposer's own, and must be assigned to
+    // the requester (not the proposer) — the whole point is other members
+    // suggesting a task *for* the person who asked.
+    function validRequestProposal(familyId, requestId, proposedBy, assignedTo) {
+      let req = get(/databases/$(database)/documents/families/$(familyId)/taskRequests/$(requestId)).data;
+      return req.status == 'open' && req.requestedBy != proposedBy && assignedTo == [req.requestedBy];
+    }
+
     // users/{userId} maps a signed-in user to their familyId so the client can
     // resolve family membership after login. Only ever written by trusted
     // server code (Cloud Functions using the Admin SDK) — see createFamily /
@@ -193,16 +202,23 @@ service cloud.firestore {
       match /taskProposals/{proposalId} {
         allow read: if isFamilyMember(familyId);
         // Any family member — including a child — can propose a task for
-        // themselves. Always starts 'pending' with no approvals yet.
+        // themselves, always starting 'pending' with no approvals yet. If
+        // this is a response to another member's TaskRequest (requestId
+        // set), it must target that open request and be assigned to the
+        // requester instead of self.
         allow create: if isFamilyMember(familyId) &&
           request.resource.data.proposedBy == request.auth.uid &&
           request.resource.data.status == 'pending' &&
           request.resource.data.approvals.size() == 0 &&
-          request.resource.data.xpValue is number && request.resource.data.xpValue > 0;
+          request.resource.data.xpValue is number && request.resource.data.xpValue > 0 &&
+          (!('requestId' in request.resource.data) ||
+            validRequestProposal(familyId, request.resource.data.requestId, request.resource.data.proposedBy, request.resource.data.assignedTo));
         // Voting: any *other* member may add exactly their own uid to
         // approvals (never someone else's, never more than one at a time),
         // or reject the proposal outright — one veto kills it. Only while
         // still 'pending'; the proposer never votes on their own proposal.
+        // For a request-linked proposal this naturally includes the
+        // requester, who gets a say over what lands on their own list.
         allow update: if isFamilyMember(familyId) &&
           resource.data.status == 'pending' &&
           request.auth.uid != resource.data.proposedBy &&
@@ -211,6 +227,30 @@ service cloud.firestore {
               request.resource.data.approvals == resource.data.approvals.concat([request.auth.uid])) ||
             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
               request.resource.data.status == 'rejected')
+          );
+        allow delete: if false;
+      }
+
+      match /taskRequests/{requesterId} {
+        allow read: if isFamilyMember(familyId);
+        // Doc ID is the requester's own uid, so this only ever fires the
+        // first time they ever ask — reopening a closed one goes through
+        // update below instead.
+        allow create: if isFamilyMember(familyId) &&
+          requesterId == request.auth.uid &&
+          request.resource.data.requestedBy == request.auth.uid &&
+          request.resource.data.status == 'open';
+        // Self-cancel an open request, or start a new round after the last
+        // one was fulfilled/cancelled. The open -> fulfilled transition is
+        // never listed here — only the onTaskProposalWritten Cloud
+        // Function (Admin SDK) performs that, when a linked proposal wins
+        // unanimous approval.
+        allow update: if isFamilyMember(familyId) &&
+          requesterId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'timestamp']) &&
+          (
+            (resource.data.status == 'open' && request.resource.data.status == 'cancelled') ||
+            (resource.data.status != 'open' && request.resource.data.status == 'open')
           );
         allow delete: if false;
       }
