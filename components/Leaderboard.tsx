@@ -7,9 +7,10 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 
 interface LeaderboardProps {
   members: Member[];
+  levelTitles?: string[];
 }
 
-export default function Leaderboard({ members }: LeaderboardProps) {
+export default function Leaderboard({ members, levelTitles }: LeaderboardProps) {
   const ranked = [...members].sort((a, b) => b.xpBalance - a.xpBalance);
   if (ranked.length === 0) return null;
 
@@ -21,7 +22,7 @@ export default function Leaderboard({ members }: LeaderboardProps) {
       </h2>
       <div className="flex flex-col gap-1.5">
         {ranked.map((member, i) => {
-          const { title } = levelProgress(member.xpBalance);
+          const { title } = levelProgress(member.xpBalance, levelTitles);
           return (
             <div
               key={member.id}

@@ -26,7 +26,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, type Firestore } from "firebase-admin/firestore";
 import { applyStreakBonus, buildLedgerEntry } from "../../lib/xp-engine";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
-import type { DailyTask, Member, TaskTemplate } from "../../lib/types";
+import type { DailyTask, Family, Member, TaskTemplate } from "../../lib/types";
 
 function previousDate(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -87,8 +87,11 @@ async function reconcileTaskXp(db: Firestore, familyId: string, taskId: string):
       const template = templateSnap.data() as TaskTemplate | undefined;
       if (!template) return;
 
+      const familySnap = await tx.get(familyRef);
+      const family = familySnap.data() as Family | undefined;
+
       const { streak, freezeWeek } = computeStreak(member, task.date);
-      const delta = applyStreakBonus(template.xpValue, streak);
+      const delta = applyStreakBonus(template.xpValue, streak, family?.streakBonusPerDay, family?.streakBonusCap);
       const longestStreak = Math.max(member?.longestStreak ?? 0, streak);
 
       tx.set(

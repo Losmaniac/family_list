@@ -30,6 +30,12 @@ export interface Family {
   investmentsEnabled?: boolean;
   /** Custom investment terms replacing the built-in defaults; absent/empty = defaults apply. */
   investmentTerms?: InvestmentTermConfig[];
+  /** Fractional XP bonus per consecutive streak day; absent = the built-in 0.1 (+10%/day). */
+  streakBonusPerDay?: number;
+  /** Fractional cap on the streak bonus; absent = the built-in 0.5 (+50% max). */
+  streakBonusCap?: number;
+  /** Custom names for levels 1-10 (and beyond, via the last one); absent/empty = the built-in Czech titles. */
+  levelTitles?: string[];
 }
 
 export type MemberRole = "parent" | "child";

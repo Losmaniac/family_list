@@ -18,6 +18,7 @@ import Avatar from "@/components/Avatar";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
+import GameSettingsPanel from "@/components/GameSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
@@ -270,6 +271,18 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Herní nastavení</h2>
+          <GameSettingsPanel
+            familyId={familyId}
+            streakBonusPerDay={family?.streakBonusPerDay}
+            streakBonusCap={family?.streakBonusCap}
+            levelTitles={family?.levelTitles}
+          />
+        </section>
+      )}
 
       {member.role === "parent" && familyId && (
         <section className="flex flex-col gap-3">

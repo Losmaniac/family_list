@@ -48,7 +48,7 @@ interface ProfilePageProps {
 
 export default function ProfilePage({ params }: ProfilePageProps) {
   const { userId } = use(params);
-  const { familyId } = useFamily();
+  const { familyId, family } = useFamily();
   const [profile, setProfile] = useState<Member | null>(null);
   const [ledger, setLedger] = useState<XpLedgerEntry[]>([]);
   const [completedCount, setCompletedCount] = useState(0);
@@ -145,7 +145,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         </div>
       </div>
 
-      <XPBar xpBalance={profile.xpBalance} />
+      <XPBar xpBalance={profile.xpBalance} levelTitles={family?.levelTitles} />
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Odznaky</h2>

@@ -14,12 +14,23 @@ export function canAffordReward(xpBalance: number, rewardXpCost: number): boolea
   return xpBalance >= rewardXpCost;
 }
 
-const STREAK_BONUS_PER_DAY = 0.1;
-const STREAK_BONUS_CAP = 0.5;
+export const DEFAULT_STREAK_BONUS_PER_DAY = 0.1;
+export const DEFAULT_STREAK_BONUS_CAP = 0.5;
 
-/** +10 % XP per consecutive streak day, capped at +50 % (1.5x base). No penalties — this only ever adds. */
-export function applyStreakBonus(baseXp: number, streak: number): number {
-  const bonus = Math.min(STREAK_BONUS_CAP, STREAK_BONUS_PER_DAY * Math.max(0, streak - 1));
+/**
+ * +10 % XP per consecutive streak day, capped at +50 % (1.5x base) by
+ * default — no penalties, this only ever adds. A parent can override both
+ * numbers per family (Settings → Herní nastavení, stored on the family doc
+ * as streakBonusPerDay/streakBonusCap); callers that don't pass them get
+ * the defaults, which is also what every existing test exercises.
+ */
+export function applyStreakBonus(
+  baseXp: number,
+  streak: number,
+  perDay: number = DEFAULT_STREAK_BONUS_PER_DAY,
+  cap: number = DEFAULT_STREAK_BONUS_CAP
+): number {
+  const bonus = Math.min(cap, perDay * Math.max(0, streak - 1));
   return Math.round(baseXp * (1 + bonus));
 }
 
@@ -29,7 +40,7 @@ export function applyStreakBonus(baseXp: number, streak: number): number {
 const LEVEL_THRESHOLDS = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2500];
 const XP_PER_LEVEL_BEYOND_TABLE = 500;
 
-const LEVEL_TITLES = [
+export const DEFAULT_LEVEL_TITLES = [
   "Nováček",
   "Snaživec",
   "Bojovník",
@@ -59,8 +70,15 @@ export function levelForXp(xpBalance: number): number {
   return level;
 }
 
-export function levelTitle(level: number): string {
-  return LEVEL_TITLES[Math.min(level, LEVEL_TITLES.length) - 1] ?? "Legenda rodiny";
+/**
+ * A parent can rename the ten level titles per family (Settings → Herní
+ * nastavení, stored as family.levelTitles); an absent/short/empty array
+ * falls back to the defaults, so a family that's only renamed a few levels
+ * still gets sensible titles for the rest.
+ */
+export function levelTitle(level: number, customTitles?: string[]): string {
+  const titles = customTitles && customTitles.length > 0 ? customTitles : DEFAULT_LEVEL_TITLES;
+  return titles[Math.min(level, titles.length) - 1] ?? "Legenda rodiny";
 }
 
 export interface LevelProgress {
@@ -70,11 +88,11 @@ export interface LevelProgress {
   span: number;
 }
 
-export function levelProgress(xpBalance: number): LevelProgress {
+export function levelProgress(xpBalance: number, customTitles?: string[]): LevelProgress {
   const level = levelForXp(xpBalance);
   const floor = xpForLevel(level);
   const nextFloor = xpForLevel(level + 1);
-  return { level, title: levelTitle(level), intoLevel: xpBalance - floor, span: nextFloor - floor };
+  return { level, title: levelTitle(level, customTitles), intoLevel: xpBalance - floor, span: nextFloor - floor };
 }
 
 export interface LedgerEntryInput {
