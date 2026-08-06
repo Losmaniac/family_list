@@ -154,3 +154,30 @@ Service accounts → Keys), nebo GCP org policy vynucuje max. stáří klíče �
 v tom případě je potřeba nový klíč. Klíč samotný (obsah JSON) se nikdy
 neukládá do repa ani do tohoto souboru — je to secret, jen se dočasně
 uloží na disk session pro dobu trvání deploy příkazu a pak smaže.
+
+**Firebase Storage — CORS:** `firebase deploy --only storage` nasadí jen
+`storage.rules` (kdo smí co číst/zapisovat), ale **ne** CORS politiku bucketu —
+to je vlastnost samotného GCS bucketu, ne něco, co Firebase CLI deployuje.
+Nově založený bucket (po kliknutí na "Get Started" ve Firebase konzoli) má CORS
+prázdné, což se projeví jako nahrávání souborů z prohlížeče tiše selhávající
+(Firebase JS SDK dělá cross-origin request na `firebasestorage.googleapis.com`,
+prohlížeč bez CORS hlaviček zablokuje čtení odpovědi) — přesně tohle způsobilo
+"foto se nepodařilo nahrát" u task photos. Zdrojová konfigurace je
+`storage-cors.json` v rootu repa; nasadit/opravit:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=<cesta k service account JSON>
+node -e '
+import("firebase-admin/app").then(async ({ initializeApp, applicationDefault }) => {
+  const { getStorage } = await import("firebase-admin/storage");
+  initializeApp({ credential: applicationDefault(), projectId: "familylist-70e9b", storageBucket: "familylist-70e9b.firebasestorage.app" });
+  const cors = JSON.parse(require("fs").readFileSync("storage-cors.json", "utf8"));
+  await getStorage().bucket().setMetadata({ cors });
+  console.log("CORS nastaveno.");
+});'
+```
+
+(Pozn.: `gsutil cors set storage-cors.json gs://familylist-70e9b.firebasestorage.app`
+dělá totéž, pokud je `gsutil`/`gcloud` k dispozici — v této session není.) Tohle
+se nastavuje jednou za bucket, ne při každém deployi — kontrolovat jen po
+založení nového bucketu nebo když se nahrávání fotek znovu tiše rozbije.
