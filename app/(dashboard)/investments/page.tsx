@@ -7,8 +7,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import InvestmentsSection from "@/components/Investments";
+import FamilyInvestmentsOverview from "@/components/FamilyInvestmentsOverview";
 import { effectiveInvestmentTerms, findTermInList } from "@/lib/investments";
-import type { Investment } from "@/lib/types";
+import type { Investment, Member } from "@/lib/types";
 
 export default function InvestmentsPage() {
   const { user } = useAuth();
@@ -17,6 +18,8 @@ export default function InvestmentsPage() {
   const terms = effectiveInvestmentTerms(family?.investmentTerms);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [familyInvestments, setFamilyInvestments] = useState<Investment[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -30,6 +33,24 @@ export default function InvestmentsPage() {
       setInvestments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Investment));
     });
   }, [familyId, user]);
+
+  // Overview of every member's investments, for parents — everyone's
+  // investments docs are already readable by any family member (see
+  // firestore.rules), this just surfaces them in one place instead of each
+  // parent only ever seeing their own.
+  useEffect(() => {
+    if (!familyId || member?.role !== "parent") return;
+    return onSnapshot(collection(getDb(), "families", familyId, "investments"), (snapshot) => {
+      setFamilyInvestments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Investment));
+    });
+  }, [familyId, member?.role]);
+
+  useEffect(() => {
+    if (!familyId || member?.role !== "parent") return;
+    return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
+      setMembers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Member));
+    });
+  }, [familyId, member?.role]);
 
   async function handleStartInvestment(principal: number, termDays: number) {
     if (!familyId || !user) return;
@@ -87,6 +108,9 @@ export default function InvestmentsPage() {
         onWithdrawEarly={handleWithdrawEarly}
         submitting={submitting}
       />
+      {member?.role === "parent" && (
+        <FamilyInvestmentsOverview members={members} investments={familyInvestments} />
+      )}
     </div>
   );
 }
