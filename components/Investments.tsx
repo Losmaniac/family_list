@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MIN_INVESTMENT_AMOUNT, type InvestmentTerm } from "@/lib/investments";
+import { MIN_INVESTMENT_AMOUNT, maturityPayout, type InvestmentTerm } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
 const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
@@ -37,6 +37,9 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
   const past = investments.filter(
     (i): i is Investment & { status: "withdrawn" | "matured" } => i.status === "matured" || i.status === "withdrawn"
   );
+
+  const selectedTerm = terms.find((t) => t.days === termDays);
+  const payout = selectedTerm ? maturityPayout(Math.max(amount, 0), selectedTerm.rate) : 0;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +98,12 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
             ))}
           </div>
           <p className="text-xs text-zinc-500">XP se zamkne na celou dobu — čím delší doba, tím vyšší výnos.</p>
+          {selectedTerm && amount > 0 && (
+            <p className="text-sm">
+              Výnos: <span className="font-semibold text-success">+{payout - amount} XP</span> · Vrátí se celkem:{" "}
+              <span className="font-semibold text-accent">{payout} XP</span>
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="submit"
@@ -124,6 +133,10 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
               <div>
                 <p className="font-medium">{inv.principal} XP</p>
                 <p className="text-sm text-zinc-500">Běží · ještě {daysRemaining(inv.maturesAt)} dní</p>
+                <p className="text-sm text-zinc-500">
+                  Při dokončení: <span className="font-semibold text-success">+{maturityPayout(inv.principal, inv.rate) - inv.principal} XP</span>
+                  {" "}· vrátí se {maturityPayout(inv.principal, inv.rate)} XP
+                </p>
               </div>
               <button
                 type="button"
