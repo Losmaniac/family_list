@@ -1,6 +1,14 @@
 import { Camera, CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
 import { categoryInfo } from "@/lib/categories";
+import InfoButton from "@/components/InfoButton";
 import type { DailyTask, TaskTemplate } from "@/lib/types";
+
+const STATUS_EXPLANATIONS: Record<string, string> = {
+  pending: "Úkol čeká na splnění.",
+  submitted: "Úkol byl odeslán ke schválení rodiči — XP se připíše až po schválení.",
+  done: "Úkol je hotový a XP už bylo připsáno.",
+  returned: "Rodič úkol vrátil zpět — podívej se na jeho poznámku a zkus to znovu.",
+};
 
 interface TaskCardProps {
   task: DailyTask;
@@ -19,33 +27,43 @@ export default function TaskCard({ task, template, onToggle, disabled }: TaskCar
   const categoryIcon = template.category ? categoryInfo(template.category).icon : null;
 
   return (
-    <button
-      type="button"
-      onClick={() => onToggle?.(task)}
-      disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${
+    <div
+      className={`flex w-full items-center gap-2 rounded-xl border px-4 py-3 transition-colors ${
         STATUS_STYLES[task.status] ?? "border-border bg-surface"
       }`}
     >
-      <StatusIcon status={task.status} />
-      <div className="min-w-0 flex-1">
-        <p className={`flex items-center gap-1 font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
-          {categoryIcon && <span>{categoryIcon}</span>}
-          {template.title}
-          {template.photoRequired && (task.status === "pending" || task.status === "returned") && (
-            <Camera size={14} className="shrink-0 text-zinc-400" aria-label="Vyžaduje foto" />
+      <button
+        type="button"
+        onClick={() => onToggle?.(task)}
+        disabled={disabled}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-60"
+      >
+        <StatusIcon status={task.status} />
+        <div className="min-w-0 flex-1">
+          <p className={`flex items-center gap-1 font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
+            {categoryIcon && <span>{categoryIcon}</span>}
+            {template.title}
+            {template.photoRequired && (task.status === "pending" || task.status === "returned") && (
+              <Camera size={14} className="shrink-0 text-zinc-400" aria-label="Vyžaduje foto" />
+            )}
+          </p>
+          {task.status === "returned" && task.returnComment ? (
+            <p className="truncate text-sm text-danger">Vráceno: {task.returnComment}</p>
+          ) : task.status === "submitted" ? (
+            <p className="text-sm text-accent">Čeká na schválení</p>
+          ) : (
+            template.description && <p className="truncate text-sm text-zinc-500">{template.description}</p>
           )}
-        </p>
-        {task.status === "returned" && task.returnComment ? (
-          <p className="truncate text-sm text-danger">Vráceno: {task.returnComment}</p>
-        ) : task.status === "submitted" ? (
-          <p className="text-sm text-accent">Čeká na schválení</p>
-        ) : (
-          template.description && <p className="truncate text-sm text-zinc-500">{template.description}</p>
-        )}
-      </div>
-      <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
-    </button>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
+      </button>
+      <InfoButton
+        title={template.title}
+        description={`${STATUS_EXPLANATIONS[task.status] ?? ""} Splněním získáš +${template.xpValue} XP.${
+          template.photoRequired ? " Tento úkol vyžaduje přiložit foto jako důkaz." : ""
+        }`}
+      />
+    </div>
   );
 }
 

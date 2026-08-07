@@ -1,4 +1,5 @@
 import { Star } from "lucide-react";
+import InfoButton from "@/components/InfoButton";
 import type { Reward } from "@/lib/types";
 import { canAffordReward } from "@/lib/xp-engine";
 
@@ -37,7 +38,17 @@ export default function RewardShop({ rewards, xpBalance, onRedeem, goalRewardId,
                   </button>
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium">{reward.title}</p>
+                  <p className="flex items-center gap-1 font-medium">
+                    {reward.title}
+                    <InfoButton
+                      title={reward.title}
+                      description={`Stojí ${reward.xpCost.toLocaleString("cs-CZ")} XP. ${
+                        reward.approvalRequired
+                          ? "Po požádání musí odměnu ještě schválit rodič, teprve pak se XP strhne."
+                          : "Uplatní se rovnou — XP se strhne okamžitě, bez schvalování."
+                      }`}
+                    />
+                  </p>
                   <p className="text-sm text-zinc-500">{reward.xpCost.toLocaleString("cs-CZ")} XP</p>
                 </div>
               </div>

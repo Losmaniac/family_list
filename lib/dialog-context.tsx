@@ -19,14 +19,21 @@ interface PromptOptions {
   required?: boolean;
 }
 
+interface InfoOptions {
+  title: string;
+  description: string;
+}
+
 type DialogState =
   | { kind: "none" }
   | { kind: "confirm"; options: ConfirmOptions }
-  | { kind: "prompt"; options: PromptOptions; value: string };
+  | { kind: "prompt"; options: PromptOptions; value: string }
+  | { kind: "info"; options: InfoOptions };
 
 interface DialogContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   promptText: (options: PromptOptions) => Promise<string | null>;
+  info: (options: InfoOptions) => Promise<void>;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -49,6 +56,13 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const info = useCallback((options: InfoOptions) => {
+    return new Promise<void>((resolve) => {
+      resolverRef.current = resolve as (value: never) => void;
+      setState({ kind: "info", options });
+    });
+  }, []);
+
   function close<T>(result: T) {
     resolverRef.current?.(result as never);
     resolverRef.current = null;
@@ -56,7 +70,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <DialogContext.Provider value={{ confirm, promptText }}>
+    <DialogContext.Provider value={{ confirm, promptText, info }}>
       {children}
       {state.kind !== "none" && (
         <div
@@ -81,24 +95,26 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
             )}
 
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => close(state.kind === "confirm" ? false : null)}
-                className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
-              >
-                {state.options.cancelLabel ?? "Zrušit"}
-              </button>
+              {state.kind !== "info" && (
+                <button
+                  type="button"
+                  onClick={() => close(state.kind === "confirm" ? false : null)}
+                  className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+                >
+                  {state.options.cancelLabel ?? "Zrušit"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   if (state.kind === "prompt" && state.options.required && !state.value.trim()) return;
-                  close(state.kind === "confirm" ? true : state.value);
+                  close(state.kind === "confirm" ? true : state.kind === "prompt" ? state.value : undefined);
                 }}
                 className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${
                   state.kind === "confirm" && state.options.danger ? "bg-danger" : "bg-accent text-accent-foreground"
                 }`}
               >
-                {state.options.confirmLabel ?? "Potvrdit"}
+                {state.kind === "info" ? "Rozumím" : (state.options.confirmLabel ?? "Potvrdit")}
               </button>
             </div>
           </div>
