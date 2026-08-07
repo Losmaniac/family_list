@@ -44,6 +44,8 @@ export interface Family {
   photoMaxDimension?: number;
   /** Whether the 19:00 "nedokončené úkoly" push reminder is sent at all; absent = enabled. */
   eveningReminderEnabled?: boolean;
+  /** Whether one missed day per week is forgiven instead of resetting the streak; absent = enabled. */
+  streakFreezeEnabled?: boolean;
 }
 
 export type MemberRole = "parent" | "child";

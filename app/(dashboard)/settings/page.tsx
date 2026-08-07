@@ -3,7 +3,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where, writeBatch } from "firebase/firestore";
-import { LogOut, RefreshCw, Sparkles, Trash2, Zap } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -12,19 +11,21 @@ import { useDialog } from "@/lib/dialog-context";
 import { setupPushNotifications, isIosNotStandalone } from "@/lib/push";
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
-import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { generateInviteCode } from "@/lib/invite-code";
 import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
+import AvatarPicker from "@/components/AvatarPicker";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
+import StreakSettingsPanel from "@/components/StreakSettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
+import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, Zap } from "lucide-react";
 import type { Member, XpAdjustmentRequest } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -328,23 +329,7 @@ export default function SettingsPage() {
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Profil</h2>
         <form onSubmit={handleSaveProfile} className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <Avatar name={name || member.name} avatarUrl={avatarUrl} size="lg" />
-            <div className="flex flex-wrap gap-1.5">
-              {AVATAR_OPTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setAvatarUrl(emoji)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full text-lg ${
-                    avatarUrl === emoji ? "bg-accent/20 ring-2 ring-accent" : "bg-surface-muted"
-                  }`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AvatarPicker value={avatarUrl} onChange={setAvatarUrl} />
           <input
             type="text"
             value={name}
@@ -378,10 +363,20 @@ export default function SettingsPage() {
           <h2 className="font-medium">Herní nastavení</h2>
           <GameSettingsPanel
             familyId={familyId}
-            streakBonusPerDay={family?.streakBonusPerDay}
-            streakBonusCap={family?.streakBonusCap}
             levelTitles={family?.levelTitles}
             taskRequestsEnabled={family?.taskRequestsEnabled}
+          />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Streak</h2>
+          <StreakSettingsPanel
+            familyId={familyId}
+            streakBonusPerDay={family?.streakBonusPerDay}
+            streakBonusCap={family?.streakBonusCap}
+            streakFreezeEnabled={family?.streakFreezeEnabled}
           />
         </section>
       )}
@@ -562,7 +557,19 @@ export default function SettingsPage() {
                     <Avatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
                     <div>
                       <p className="font-medium">{m.name}</p>
-                      <p className="text-sm text-zinc-500">{m.role === "parent" ? "Rodič" : "Dítě"}</p>
+                      <p className="flex items-center gap-1 text-sm text-zinc-500">
+                        {m.role === "parent" ? "Rodič" : "Dítě"}
+                        <span
+                          className="flex items-center gap-0.5"
+                          title={m.fcmToken ? "Notifikace zapnuté" : "Notifikace nejsou zapnuté"}
+                        >
+                          {m.fcmToken ? (
+                            <Bell size={12} className="text-success" />
+                          ) : (
+                            <BellOff size={12} className="text-zinc-400" />
+                          )}
+                        </span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
