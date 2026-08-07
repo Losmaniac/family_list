@@ -73,8 +73,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   function handleTouchStart(e: React.TouchEvent) {
     // Don't hijack swipes that belong to a horizontally-scrolling element
-    // (the day-selector strips, the week schedule grid, the nav itself) —
-    // let those scroll natively instead of also triggering a tab change.
+    // (the day-selector strips, the week schedule grid) — let those scroll
+    // natively instead of also triggering a tab change.
     if (isInsideHorizontalScroller(e.target)) return;
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
@@ -151,7 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain border-t border-border bg-surface pt-2"
+        className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {visibleNavItems().map((item) => {
@@ -167,12 +167,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               // a tap gets the identical view-transition slide instead of
               // whatever timing next/link's own click handling would add.
               onClick={() => navigateToTab(item.href)}
-              className={`flex w-1/5 min-w-[64px] shrink-0 snap-start flex-col items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium ${
+              className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
                 active ? "text-accent" : "text-zinc-500"
               }`}
             >
-              <Icon size={22} />
-              {item.label}
+              <Icon size={20} />
+              <span className="max-w-full truncate">{item.label}</span>
             </button>
           );
         })}
