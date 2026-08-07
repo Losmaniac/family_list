@@ -1,7 +1,7 @@
 "use client";
 
 import { doc, updateDoc } from "firebase/firestore";
-import { firebaseConfig, getDb, getFirebaseMessaging } from "./firebase";
+import { getDb, getFirebaseMessaging } from "./firebase";
 
 export type PushSetupResult = "granted" | "denied" | "unsupported";
 
@@ -41,7 +41,6 @@ export async function setupPushNotifications(
 
   await navigator.serviceWorker.register("/sw.js");
   const registration = await navigator.serviceWorker.ready;
-  registration.active?.postMessage({ type: "FIREBASE_CONFIG", config: firebaseConfig });
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return "denied";
