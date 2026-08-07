@@ -1,4 +1,5 @@
 import Avatar from "@/components/Avatar";
+import { maturityPayout } from "@/lib/investments";
 import type { Investment, Member } from "@/lib/types";
 
 function daysRemaining(maturesAt: number): number {
@@ -43,7 +44,9 @@ export default function FamilyInvestmentsOverview({ members, investments }: Fami
               {memberActive.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between text-sm">
                   <span>{inv.principal} XP</span>
-                  <span className="text-zinc-500">ještě {daysRemaining(inv.maturesAt)} dní</span>
+                  <span className="text-zinc-500">
+                    ještě {daysRemaining(inv.maturesAt)} dní · vrátí se {maturityPayout(inv.principal, inv.rate)} XP
+                  </span>
                 </div>
               ))}
             </div>
