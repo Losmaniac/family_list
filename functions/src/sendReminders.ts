@@ -16,6 +16,8 @@ export const sendReminders = onSchedule(
     const familiesSnapshot = await db.collection("families").get();
 
     for (const familyDoc of familiesSnapshot.docs) {
+      if (familyDoc.data().eveningReminderEnabled === false) continue;
+
       const pendingSnapshot = await familyDoc.ref
         .collection("dailyTasks")
         .where("date", "==", today)

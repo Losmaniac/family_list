@@ -38,6 +38,12 @@ export interface Family {
   levelTitles?: string[];
   /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
   taskRequestsEnabled?: boolean;
+  /** JPEG quality (0-1) task proof photos are compressed to before upload; absent = 0.7. */
+  photoCompressionQuality?: number;
+  /** Longer edge (px) task proof photos are downscaled to before upload; absent = 1600. */
+  photoMaxDimension?: number;
+  /** Whether the 19:00 "nedokončené úkoly" push reminder is sent at all; absent = enabled. */
+  eveningReminderEnabled?: boolean;
 }
 
 export type MemberRole = "parent" | "child";
@@ -278,7 +284,9 @@ export type AuditAction =
   | "task_template_deleted"
   | "reward_redemption_decided"
   | "pooled_contribution_decided"
-  | "chat_cleared";
+  | "chat_cleared"
+  | "photos_cleared"
+  | "audit_log_cleared";
 
 export interface AuditLogEntry {
   id: string;

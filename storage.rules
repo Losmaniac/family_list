@@ -12,18 +12,24 @@ service firebase.storage {
         firestore.exists(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid));
     }
 
+    function isParent(familyId) {
+      return isFamilyMember(familyId) &&
+        firestore.get(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid)).data.role == 'parent';
+    }
+
     // Task proof photos: families/{familyId}/taskPhotos/{taskId}.jpg — only
     // the member the daily task is assigned to may upload the proof photo
     // for it (checked against Firestore, the source of truth for
     // assignment); any family member can view it once uploaded, same as
-    // the daily task itself in Firestore.
+    // the daily task itself in Firestore. Only a parent may delete —
+    // Settings' "Vymazat všechny fotky" bulk-clears them.
     match /families/{familyId}/taskPhotos/{taskId} {
       allow read: if isFamilyMember(familyId);
       allow write: if isFamilyMember(familyId) &&
         firestore.get(/databases/(default)/documents/families/$(familyId)/dailyTasks/$(taskId)).data.assignedTo == request.auth.uid &&
         request.resource.size < 8 * 1024 * 1024 &&
         request.resource.contentType.matches('image/.*');
-      allow delete: if false;
+      allow delete: if isParent(familyId);
     }
   }
 }

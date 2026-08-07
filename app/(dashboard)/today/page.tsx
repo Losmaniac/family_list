@@ -11,6 +11,7 @@ import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { logAction } from "@/lib/audit-log";
+import { compressImage } from "@/lib/image-compress";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
@@ -154,8 +155,12 @@ export default function TodayPage() {
 
     setPendingTaskIds((prev) => new Set(prev).add(task.id));
     try {
+      const compressed = await compressImage(file, {
+        quality: family?.photoCompressionQuality,
+        maxDimension: family?.photoMaxDimension,
+      });
       const photoRef = storageRef(getFirebaseStorage(), `families/${familyId}/taskPhotos/${task.id}`);
-      await uploadBytes(photoRef, file, { contentType: file.type });
+      await uploadBytes(photoRef, compressed, { contentType: compressed.type || file.type });
       const photoUrl = await getDownloadURL(photoRef);
       const isParentTask = member?.role === "parent";
       await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {

@@ -21,6 +21,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
+import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
@@ -60,6 +61,8 @@ export default function SettingsPage() {
   const iosNotStandalone = mounted && isIosNotStandalone();
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [clearingChat, setClearingChat] = useState(false);
+  const [clearingAuditLog, setClearingAuditLog] = useState(false);
+  const [savingReminderToggle, setSavingReminderToggle] = useState(false);
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
@@ -171,6 +174,50 @@ export default function SettingsPage() {
       toast.error("Historii chatu se nepodařilo vymazat.");
     } finally {
       setClearingChat(false);
+    }
+  }
+
+  async function handleClearAuditLog() {
+    if (!familyId) return;
+    const ok = await confirm({
+      title: "Vymazat historii akcí?",
+      description: "Celý log rodičovských akcí se nenávratně smaže. Tuto akci nelze vrátit zpět.",
+      confirmLabel: "Vymazat historii",
+      danger: true,
+    });
+    if (!ok) return;
+    setClearingAuditLog(true);
+    try {
+      const snapshot = await getDocs(collection(getDb(), "families", familyId, "auditLog"));
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = writeBatch(getDb());
+        for (const d of docs.slice(i, i + 400)) batch.delete(d.ref);
+        await batch.commit();
+      }
+      // Logged after the wipe, not before — so it's the one entry that
+      // survives, a record that a clear happened without keeping what
+      // was cleared.
+      if (user) logAction(familyId, user.uid, "audit_log_cleared", `${docs.length} záznamů smazáno`);
+      toast.success("Historie akcí byla vymazána.");
+    } catch {
+      toast.error("Historii akcí se nepodařilo vymazat.");
+    } finally {
+      setClearingAuditLog(false);
+    }
+  }
+
+  async function handleToggleEveningReminder() {
+    if (!familyId) return;
+    setSavingReminderToggle(true);
+    try {
+      await updateDoc(doc(getDb(), "families", familyId), {
+        eveningReminderEnabled: family?.eveningReminderEnabled === false,
+      });
+    } catch {
+      toast.error("Nepodařilo se změnit nastavení připomínky.");
+    } finally {
+      setSavingReminderToggle(false);
     }
   }
 
@@ -391,6 +438,17 @@ export default function SettingsPage() {
             {pushStatus && <p className="text-sm text-zinc-500">{pushStatus}</p>}
           </>
         )}
+        {member.role === "parent" && familyId && (
+          <label className="mt-1 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={family?.eveningReminderEnabled !== false}
+              onChange={handleToggleEveningReminder}
+              disabled={savingReminderToggle}
+            />
+            Posílat večerní připomínku nedokončených úkolů (19:00)
+          </label>
+        )}
       </section>
 
       {member.role === "parent" && familyId && (
@@ -404,6 +462,17 @@ export default function SettingsPage() {
           >
             <Trash2 size={16} /> {clearingChat ? "Mažu…" : "Vymazat historii chatu"}
           </button>
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Fotky</h2>
+          <PhotoSettingsPanel
+            familyId={familyId}
+            photoCompressionQuality={family?.photoCompressionQuality}
+            photoMaxDimension={family?.photoMaxDimension}
+          />
         </section>
       )}
 
@@ -572,7 +641,19 @@ export default function SettingsPage() {
 
       {member.role === "parent" && familyId && <AntiGamingPanel familyId={familyId} members={members} />}
 
-      {member.role === "parent" && familyId && <AuditLogPanel familyId={familyId} members={members} />}
+      {member.role === "parent" && familyId && (
+        <>
+          <AuditLogPanel familyId={familyId} members={members} />
+          <button
+            type="button"
+            onClick={handleClearAuditLog}
+            disabled={clearingAuditLog}
+            className="flex items-center gap-1.5 self-start rounded-full border border-danger/30 px-5 py-2 text-sm font-semibold text-danger disabled:opacity-50"
+          >
+            <Trash2 size={16} /> {clearingAuditLog ? "Mažu…" : "Vymazat historii akcí"}
+          </button>
+        </>
+      )}
 
       {member.role === "parent" && (
         <section className="flex flex-col gap-3">
