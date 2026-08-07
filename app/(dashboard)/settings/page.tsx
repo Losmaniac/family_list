@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where, writeBatch } from "firebase/firestore";
-import { LogOut, RefreshCw, Trash2, Zap } from "lucide-react";
+import { LogOut, RefreshCw, Sparkles, Trash2, Zap } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -573,6 +573,24 @@ export default function SettingsPage() {
       {member.role === "parent" && familyId && <AntiGamingPanel familyId={familyId} members={members} />}
 
       {member.role === "parent" && familyId && <AuditLogPanel familyId={familyId} members={members} />}
+
+      {member.role === "parent" && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Vývoj</h2>
+          <p className="text-sm text-zinc-500">
+            Odkaz na Claude Code session, ve které appka vzniká — otevře se v nové záložce (přihlášení
+            ke svému Anthropic účtu je potřeba zvlášť, appka ho nijak nesdílí).
+          </p>
+          <a
+            href="https://claude.ai/code/session_01SP1aoS2nWYPNndd7EA96kM"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 self-start rounded-full border border-border px-5 py-2 text-sm font-semibold"
+          >
+            <Sparkles size={16} /> Otevřít Claude Code
+          </a>
+        </section>
+      )}
 
       <section>
         <button
