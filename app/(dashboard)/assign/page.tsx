@@ -47,6 +47,7 @@ export default function AssignPage() {
   const [form, setForm] = useState(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [quickAddSchedule, setQuickAddSchedule] = useState<"daily" | "weekdays" | "weekend">("daily");
 
   useEffect(() => {
     if (!familyId) return;
@@ -98,13 +99,17 @@ export default function AssignPage() {
   }
 
   function applyPreset(preset: TaskPreset) {
+    // Only "Denní" presets (recurrence: daily) are affected by the
+    // pracovní dny/víkend toggle — weekly/once presets already carry
+    // their own fixed days and shouldn't be reinterpreted.
+    const useCustomDays = preset.recurrence === "daily" && quickAddSchedule !== "daily";
     setForm((prev) => ({
       ...prev,
       title: preset.title,
       category: preset.category,
       xpValue: preset.xpValue,
-      recurrence: preset.recurrence,
-      daysOfWeek: preset.daysOfWeek,
+      recurrence: useCustomDays ? "custom" : preset.recurrence,
+      daysOfWeek: useCustomDays ? (quickAddSchedule === "weekdays" ? [1, 2, 3, 4, 5] : [6, 0]) : preset.daysOfWeek,
     }));
     setShowForm(true);
   }
@@ -226,6 +231,31 @@ export default function AssignPage() {
       {!showForm && (
         <section className="flex flex-col gap-3">
           <h2 className="font-medium">Rychlé přidání</h2>
+
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-zinc-500">Pro denní úkoly platí od</p>
+            <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
+              {(
+                [
+                  { value: "daily", label: "Denně" },
+                  { value: "weekdays", label: "Pracovní dny" },
+                  { value: "weekend", label: "Víkend" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setQuickAddSchedule(opt.value)}
+                  className={`rounded-full px-3 py-1 ${
+                    quickAddSchedule === opt.value ? "bg-accent text-accent-foreground" : "text-zinc-500"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {TASK_PRESET_CATEGORIES.map((presetGroup) => (
             <div key={presetGroup.label} className="flex flex-col gap-1.5">
               <p className="text-sm text-zinc-500">{presetGroup.label}</p>
