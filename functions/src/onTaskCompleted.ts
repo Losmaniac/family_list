@@ -101,6 +101,14 @@ async function reconcileTaskXp(db: Firestore, familyId: string, taskId: string):
       const familySnap = await tx.get(familyRef);
       const family = familySnap.data() as Family | undefined;
 
+      // Firestore transactions require every read to happen before any
+      // write — this read must stay up here, not after the tx.set/tx.update
+      // calls below (it used to come after them, which made the whole
+      // transaction throw and silently skip the XP award every time).
+      const dayTasksSnap = await tx.get(
+        familyRef.collection("dailyTasks").where("assignedTo", "==", task.assignedTo).where("date", "==", task.date)
+      );
+
       // "Prospective" — reflects what the streak becomes *if* today ends up
       // fully done, computed off the member's last *locked-in* day, not
       // reduced by partial progress made so far today.
@@ -118,9 +126,6 @@ async function reconcileTaskXp(db: Firestore, familyId: string, taskId: string):
       tx.update(memberRef, { xpBalance: FieldValue.increment(delta) });
       tx.update(taskRef, { xpAwarded: delta });
 
-      const dayTasksSnap = await tx.get(
-        familyRef.collection("dailyTasks").where("assignedTo", "==", task.assignedTo).where("date", "==", task.date)
-      );
       const dayFullyDone = dayTasksSnap.docs.every((d) => d.data().status === "done");
       if (dayFullyDone) {
         const longestStreak = Math.max(member?.longestStreak ?? 0, prospectiveStreak);
