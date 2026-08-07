@@ -58,7 +58,8 @@ interface StreakResult {
 
 function computeStreak(
   member: Pick<Member, "currentStreak" | "lastActiveDate" | "streakFreezeWeek"> | undefined,
-  date: string
+  date: string,
+  freezeEnabled: boolean = true
 ): StreakResult {
   const currentStreak = member?.currentStreak ?? 0;
   const freezeWeek = member?.streakFreezeWeek ?? null;
@@ -68,7 +69,7 @@ function computeStreak(
 
   const oneDaySkipped = member?.lastActiveDate === previousDate(previousDate(date));
   const week = mondayKey(date);
-  if (oneDaySkipped && currentStreak > 0 && freezeWeek !== week) {
+  if (freezeEnabled && oneDaySkipped && currentStreak > 0 && freezeWeek !== week) {
     return { streak: currentStreak + 1, freezeWeek: week };
   }
 
@@ -103,7 +104,11 @@ async function reconcileTaskXp(db: Firestore, familyId: string, taskId: string):
       // "Prospective" — reflects what the streak becomes *if* today ends up
       // fully done, computed off the member's last *locked-in* day, not
       // reduced by partial progress made so far today.
-      const { streak: prospectiveStreak, freezeWeek } = computeStreak(member, task.date);
+      const { streak: prospectiveStreak, freezeWeek } = computeStreak(
+        member,
+        task.date,
+        family?.streakFreezeEnabled !== false
+      );
       const delta = applyStreakBonus(template.xpValue, prospectiveStreak, family?.streakBonusPerDay, family?.streakBonusCap);
 
       tx.set(

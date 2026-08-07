@@ -1,4 +1,5 @@
-import { isKnownAvatar } from "@/lib/avatars";
+import { isAnimalAvatar, parseFaceAvatar } from "@/lib/avatars";
+import FaceAvatar from "@/components/FaceAvatar";
 
 interface AvatarProps {
   name: string;
@@ -22,13 +23,20 @@ function initials(name: string): string {
 }
 
 export default function Avatar({ name, avatarUrl, size = "md" }: AvatarProps) {
-  const showEmoji = isKnownAvatar(avatarUrl);
+  const faceConfig = parseFaceAvatar(avatarUrl);
+  const isAnimal = isAnimalAvatar(avatarUrl);
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent ${SIZE_CLASSES[size]}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent/15 font-semibold text-accent ${SIZE_CLASSES[size]}`}
     >
-      {showEmoji ? avatarUrl : initials(name) || "?"}
+      {faceConfig ? (
+        <FaceAvatar config={faceConfig} className="h-full w-full" />
+      ) : isAnimal ? (
+        avatarUrl
+      ) : (
+        initials(name) || "?"
+      )}
     </div>
   );
 }
