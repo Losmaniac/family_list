@@ -24,6 +24,9 @@ export const INVESTMENT_TERMS: InvestmentTerm[] = [
   { days: 90, rate: 0.5, label: "3 měsíce" },
 ];
 
+/** Smallest principal a new investment can start with — also enforced server-side, see firestore.rules. */
+export const MIN_INVESTMENT_AMOUNT = 100;
+
 export function findInvestmentTerm(days: number): InvestmentTerm | undefined {
   return INVESTMENT_TERMS.find((t) => t.days === days);
 }
