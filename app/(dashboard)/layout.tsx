@@ -13,6 +13,7 @@ import XpGainCelebration from "@/components/XpGainCelebration";
 import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
 import OfflineBanner from "@/components/OfflineBanner";
 import AccentColorSync from "@/components/AccentColorSync";
+import AppBadgeSync from "@/components/AppBadgeSync";
 
 const NAV_ITEMS = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
@@ -119,6 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <TaskCompleteFireworks />
       <OfflineBanner />
       <AccentColorSync />
+      <AppBadgeSync />
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />

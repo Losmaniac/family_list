@@ -8,19 +8,8 @@
  */
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
+import { sendToTokens } from "./notifyHelpers";
 import type { DailyTask, Member, TaskTemplate } from "../../lib/types";
-
-async function sendToTokens(tokens: string[], title: string, body: string): Promise<void> {
-  const messaging = getMessaging();
-  await Promise.all(
-    tokens.map((token) =>
-      messaging.send({ token, notification: { title, body } }).catch(() => {
-        // A stale/expired token shouldn't fail the whole batch.
-      })
-    )
-  );
-}
 
 export const onTaskStatusNotify = onDocumentUpdated(
   "families/{familyId}/dailyTasks/{taskId}",
