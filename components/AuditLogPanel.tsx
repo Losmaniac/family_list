@@ -16,6 +16,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   task_template_deleted: "Smazání úkolu",
   reward_redemption_decided: "Rozhodnutí o odměně",
   pooled_contribution_decided: "Rozhodnutí o sbírce",
+  chat_cleared: "Vymazání historie chatu",
 };
 
 export default function AuditLogPanel({ familyId, members }: { familyId: string; members: Member[] }) {
