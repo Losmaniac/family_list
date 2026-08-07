@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where, writeBatch } from "firebase/firestore";
 import { LogOut, RefreshCw, Trash2, Zap } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
-import { setupPushNotifications } from "@/lib/push";
+import { setupPushNotifications, isIosNotStandalone } from "@/lib/push";
+import { httpsCallable } from "firebase/functions";
+import { getFirebaseFunctions } from "@/lib/firebase";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { generateInviteCode } from "@/lib/invite-code";
 import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
@@ -46,7 +48,18 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [sendingTest, setSendingTest] = useState(false);
+  // useSyncExternalStore's server snapshot (false) always matches the first
+  // client render too, avoiding a hydration mismatch — navigator is only
+  // available client-side, so the real check only ever runs post-mount.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+  const iosNotStandalone = mounted && isIosNotStandalone();
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [clearingChat, setClearingChat] = useState(false);
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
@@ -95,6 +108,18 @@ export default function SettingsPage() {
     );
   }
 
+  async function handleSendTestNotification() {
+    setSendingTest(true);
+    try {
+      await httpsCallable(getFirebaseFunctions(), "sendTestNotification")();
+      toast.success("Testovací upozornění odesláno — mělo by dorazit během chvilky.");
+    } catch {
+      toast.error("Upozornění se nepodařilo odeslat. Zkus notifikace znovu povolit výše.");
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
   async function handleRegenerateInviteCode() {
     if (!familyId) return;
     const ok = await confirm({
@@ -118,6 +143,35 @@ export default function SettingsPage() {
     await navigator.clipboard.writeText(family.inviteCode);
     setCopyStatus("Zkopírováno!");
     setTimeout(() => setCopyStatus(null), 2000);
+  }
+
+  async function handleClearChat() {
+    if (!familyId) return;
+    const ok = await confirm({
+      title: "Vymazat celou historii chatu?",
+      description: "Všechny zprávy se nenávratně smažou. Tuto akci nelze vrátit zpět.",
+      confirmLabel: "Vymazat historii",
+      danger: true,
+    });
+    if (!ok) return;
+    setClearingChat(true);
+    try {
+      const snapshot = await getDocs(collection(getDb(), "families", familyId, "messages"));
+      // Firestore batches cap at 500 writes — chunk defensively even though
+      // a family chat is very unlikely to ever get that large.
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = writeBatch(getDb());
+        for (const d of docs.slice(i, i + 400)) batch.delete(d.ref);
+        await batch.commit();
+      }
+      if (user) logAction(familyId, user.uid, "chat_cleared", `${docs.length} zpráv smazáno`);
+      toast.success("Historie chatu byla vymazána.");
+    } catch {
+      toast.error("Historii chatu se nepodařilo vymazat.");
+    } finally {
+      setClearingChat(false);
+    }
   }
 
   async function handleRoleToggle(target: Member) {
@@ -305,18 +359,53 @@ export default function SettingsPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Notifikace</h2>
-        <p className="text-sm text-zinc-500">
-          {member.fcmToken ? "Notifikace jsou zapnuté na tomto zařízení." : "Notifikace nejsou zapnuté."}
-        </p>
-        <button
-          type="button"
-          onClick={handleEnableNotifications}
-          className="self-start rounded-full border border-border px-5 py-2 text-sm font-semibold"
-        >
-          {member.fcmToken ? "Aktualizovat" : "Povolit notifikace"}
-        </button>
-        {pushStatus && <p className="text-sm text-zinc-500">{pushStatus}</p>}
+        {iosNotStandalone ? (
+          <p className="text-sm text-zinc-500">
+            Na iPhonu notifikace fungují jen po přidání appky na plochu — nejdřív klepni na Sdílet →
+            „Přidat na plochu“, appku otevři odtud a pak se sem vrať.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-zinc-500">
+              {member.fcmToken ? "Notifikace jsou zapnuté na tomto zařízení." : "Notifikace nejsou zapnuté."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                className="self-start rounded-full border border-border px-5 py-2 text-sm font-semibold"
+              >
+                {member.fcmToken ? "Aktualizovat" : "Povolit notifikace"}
+              </button>
+              {member.fcmToken && (
+                <button
+                  type="button"
+                  onClick={handleSendTestNotification}
+                  disabled={sendingTest}
+                  className="self-start rounded-full border border-border px-5 py-2 text-sm font-semibold disabled:opacity-50"
+                >
+                  {sendingTest ? "Odesílám…" : "Odeslat testovací upozornění"}
+                </button>
+              )}
+            </div>
+            {pushStatus && <p className="text-sm text-zinc-500">{pushStatus}</p>}
+          </>
+        )}
       </section>
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Chat</h2>
+          <button
+            type="button"
+            onClick={handleClearChat}
+            disabled={clearingChat}
+            className="flex items-center gap-1.5 self-start rounded-full border border-danger/30 px-5 py-2 text-sm font-semibold text-danger disabled:opacity-50"
+          >
+            <Trash2 size={16} /> {clearingChat ? "Mažu…" : "Vymazat historii chatu"}
+          </button>
+        </section>
+      )}
 
       {family && (
         <section className="flex flex-col gap-3">

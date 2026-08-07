@@ -30,7 +30,8 @@ export const metadata: Metadata = {
     title: "Family Quest",
   },
   icons: {
-    apple: "/icons/icon-192.png",
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 

@@ -13,3 +13,4 @@ export { onTaskProposalWritten } from "./taskProposals";
 export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
 export { onTaskStatusNotify } from "./taskNotifications";
+export { sendTestNotification } from "./notifications";

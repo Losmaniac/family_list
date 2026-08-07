@@ -277,7 +277,8 @@ export type AuditAction =
   | "task_completion_reverted"
   | "task_template_deleted"
   | "reward_redemption_decided"
-  | "pooled_contribution_decided";
+  | "pooled_contribution_decided"
+  | "chat_cleared";
 
 export interface AuditLogEntry {
   id: string;
