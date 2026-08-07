@@ -155,7 +155,8 @@ service cloud.firestore {
         allow create: if isFamilyMember(familyId) &&
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.status == 'active' &&
-          request.resource.data.principal is number && request.resource.data.principal > 0 &&
+          // Mirrors lib/investments.ts's MIN_INVESTMENT_AMOUNT — update both if it ever changes.
+          request.resource.data.principal is number && request.resource.data.principal >= 100 &&
           request.resource.data.termDays is number &&
           request.resource.data.rate is number;
         // Only the owner may request early withdrawal, only while active —

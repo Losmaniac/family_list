@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { InvestmentTerm } from "@/lib/investments";
+import { MIN_INVESTMENT_AMOUNT, type InvestmentTerm } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
 const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
@@ -24,7 +24,7 @@ interface InvestmentsProps {
 
 export default function Investments({ investments, xpBalance, terms, onStart, onWithdrawEarly, submitting }: InvestmentsProps) {
   const [showForm, setShowForm] = useState(false);
-  const [amount, setAmount] = useState(50);
+  const [amount, setAmount] = useState(MIN_INVESTMENT_AMOUNT);
   const [termDays, setTermDays] = useState(terms[0]?.days ?? 0);
 
   // Only show what's actually settled — an in-between state like
@@ -40,10 +40,10 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (amount <= 0 || amount > xpBalance) return;
+    if (amount < MIN_INVESTMENT_AMOUNT || amount > xpBalance) return;
     onStart(amount, termDays);
     setShowForm(false);
-    setAmount(50);
+    setAmount(MIN_INVESTMENT_AMOUNT);
   }
 
   return (
@@ -70,13 +70,15 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
             <input
               id="investAmount"
               type="number"
-              min={1}
+              min={MIN_INVESTMENT_AMOUNT}
               max={xpBalance}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="w-24 rounded-lg border border-border bg-surface px-3 py-2"
             />
-            <span className="text-xs text-zinc-500">máš {xpBalance} XP</span>
+            <span className="text-xs text-zinc-500">
+              máš {xpBalance} XP · min. {MIN_INVESTMENT_AMOUNT} XP
+            </span>
           </div>
           <div className="flex flex-wrap gap-2">
             {terms.map((term) => (
@@ -96,7 +98,7 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={submitting || amount <= 0 || amount > xpBalance}
+              disabled={submitting || amount < MIN_INVESTMENT_AMOUNT || amount > xpBalance}
               className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
             >
               Investovat
