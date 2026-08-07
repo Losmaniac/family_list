@@ -1,6 +1,7 @@
 import { Trophy } from "lucide-react";
 import { levelProgress } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
+import InfoButton from "@/components/InfoButton";
 import type { Member } from "@/lib/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -19,6 +20,10 @@ export default function Leaderboard({ members, levelTitles }: LeaderboardProps) 
       <h2 className="flex items-center gap-1.5 font-medium">
         <Trophy size={18} className="text-accent" />
         Žebříček
+        <InfoButton
+          title="Žebříček"
+          description="Pořadí členů rodiny podle celkového XP — kdo splní víc úkolů a udrží streak, stoupá výš. Aktualizuje se hned, jak někomu přibude XP."
+        />
       </h2>
       <div className="flex flex-col gap-1.5">
         {ranked.map((member, i) => {

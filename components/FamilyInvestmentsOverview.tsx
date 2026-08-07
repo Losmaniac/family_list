@@ -1,4 +1,5 @@
 import Avatar from "@/components/Avatar";
+import InfoButton from "@/components/InfoButton";
 import { maturityPayout } from "@/lib/investments";
 import type { Investment, Member } from "@/lib/types";
 
@@ -28,7 +29,13 @@ export default function FamilyInvestmentsOverview({ members, investments }: Fami
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="font-medium">Přehled rodiny</h2>
+      <h2 className="flex items-center gap-1 font-medium">
+        Přehled rodiny
+        <InfoButton
+          title="Přehled rodiny"
+          description="Souhrn aktivních investic všech členů rodiny — kolik má kdo zamčeného XP a za kolik dní se která investice vyplatí. Jen pro rodiče."
+        />
+      </h2>
       <div className="flex flex-col gap-2">
         {byMember.map(({ member, memberActive, totalLocked }) => (
           <div key={member.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">

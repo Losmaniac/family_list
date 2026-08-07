@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import InfoButton from "@/components/InfoButton";
 import { MIN_INVESTMENT_AMOUNT, maturityPayout, type InvestmentTerm } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
 
@@ -131,7 +132,16 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
               className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3"
             >
               <div>
-                <p className="font-medium">{inv.principal} XP</p>
+                <p className="flex items-center gap-1 font-medium">
+                  {inv.principal} XP
+                  <InfoButton
+                    title="Aktivní investice"
+                    description={`Zamčeno ${inv.principal} XP na ${Math.round(inv.rate * 100)} % výnos. Až doba vyprší, vrátí se ti ${maturityPayout(
+                      inv.principal,
+                      inv.rate
+                    )} XP (${inv.principal} vklad + ${maturityPayout(inv.principal, inv.rate) - inv.principal} úrok). Vybrat lze i dřív, ale úrok pak propadá a vrátí se jen vklad.`}
+                  />
+                </p>
                 <p className="text-sm text-zinc-500">Běží · ještě {daysRemaining(inv.maturesAt)} dní</p>
                 <p className="text-sm text-zinc-500">
                   Při dokončení: <span className="font-semibold text-success">+{maturityPayout(inv.principal, inv.rate) - inv.principal} XP</span>
@@ -154,7 +164,17 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
         <div className="flex flex-col gap-2">
           {past.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-              <p className="font-medium">{inv.principal} XP</p>
+              <p className="flex items-center gap-1 font-medium">
+                {inv.principal} XP
+                <InfoButton
+                  title={PAST_STATUS_LABELS[inv.status]}
+                  description={
+                    inv.status === "matured"
+                      ? `Investice doběhla do konce a vyplatila se i s úrokem: ${inv.payout ?? inv.principal} XP celkem.`
+                      : `Investice byla vybrána předčasně — vrátil se jen vklad (${inv.payout ?? inv.principal} XP), úrok propadl.`
+                  }
+                />
+              </p>
               <span className={`text-sm font-semibold ${inv.status === "matured" ? "text-success" : "text-zinc-500"}`}>
                 {PAST_STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
               </span>

@@ -16,6 +16,7 @@ import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
 import AvatarPicker from "@/components/AvatarPicker";
+import InfoButton from "@/components/InfoButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
@@ -548,7 +549,13 @@ export default function SettingsPage() {
 
       {member.role === "parent" && members.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Členové rodiny</h2>
+          <h2 className="flex items-center gap-1 font-medium">
+            Členové rodiny
+            <InfoButton
+              title="Členové rodiny"
+              description="Karta každého člena: role (rodič/dítě), ikona zvonečku ukazuje, jestli má zapnuté notifikace. Tlačítkem XP mu můžeš ručně upravit XP, další tlačítko přepíná roli rodič/dítě, koš člena odebere z rodiny."
+            />
+          </h2>
           <div className="flex flex-col gap-2">
             {members.map((m) => (
               <div key={m.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
