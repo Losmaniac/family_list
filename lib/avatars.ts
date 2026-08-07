@@ -70,6 +70,42 @@ export const DEFAULT_FACE_AVATAR: FaceAvatarConfig = {
   facialHair: "none",
 };
 
+export const LETTER_COLORS = [
+  "#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
+] as const;
+
+export interface LetterAvatarConfig {
+  /** 1–2 characters, always stored upper-cased. */
+  text: string;
+  color: number;
+}
+
+const LETTER_PREFIX = "letters:";
+
+export function encodeLetterAvatar(config: LetterAvatarConfig): string {
+  return LETTER_PREFIX + JSON.stringify(config);
+}
+
+export function parseLetterAvatar(value: string | undefined): LetterAvatarConfig | null {
+  if (!value || !value.startsWith(LETTER_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(value.slice(LETTER_PREFIX.length));
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof parsed.text !== "string" ||
+      parsed.text.length < 1 ||
+      parsed.text.length > 2 ||
+      typeof parsed.color !== "number"
+    ) {
+      return null;
+    }
+    return parsed as LetterAvatarConfig;
+  } catch {
+    return null;
+  }
+}
+
 const FACE_PREFIX = "face:";
 
 export function encodeFaceAvatar(config: FaceAvatarConfig): string {

@@ -8,14 +8,20 @@ import {
   FACIAL_HAIR_STYLES,
   HAIR_COLORS,
   HAIR_STYLES,
+  LETTER_COLORS,
   MOUTH_STYLES,
   SKIN_TONES,
   encodeFaceAvatar,
+  encodeLetterAvatar,
   isAnimalAvatar,
   parseFaceAvatar,
+  parseLetterAvatar,
   type FaceAvatarConfig,
+  type LetterAvatarConfig,
 } from "@/lib/avatars";
 import FaceAvatar from "@/components/FaceAvatar";
+
+const DEFAULT_LETTER_AVATAR: LetterAvatarConfig = { text: "AB", color: 0 };
 
 export default function AvatarPicker({
   value,
@@ -25,13 +31,23 @@ export default function AvatarPicker({
   onChange: (avatarUrl: string) => void;
 }) {
   const initialConfig = parseFaceAvatar(value) ?? DEFAULT_FACE_AVATAR;
-  const [tab, setTab] = useState<"face" | "animal">(isAnimalAvatar(value) ? "animal" : "face");
+  const initialLetterConfig = parseLetterAvatar(value) ?? DEFAULT_LETTER_AVATAR;
+  const [tab, setTab] = useState<"face" | "letters" | "animal">(
+    isAnimalAvatar(value) ? "animal" : parseLetterAvatar(value) ? "letters" : "face"
+  );
   const [config, setConfig] = useState<FaceAvatarConfig>(initialConfig);
+  const [letterConfig, setLetterConfig] = useState<LetterAvatarConfig>(initialLetterConfig);
 
   function updateConfig(patch: Partial<FaceAvatarConfig>) {
     const next = { ...config, ...patch };
     setConfig(next);
     onChange(encodeFaceAvatar(next));
+  }
+
+  function updateLetterConfig(patch: Partial<LetterAvatarConfig>) {
+    const next = { ...letterConfig, ...patch };
+    setLetterConfig(next);
+    if (next.text.length > 0) onChange(encodeLetterAvatar(next));
   }
 
   return (
@@ -46,6 +62,16 @@ export default function AvatarPicker({
           className={`rounded-full px-3 py-1 ${tab === "face" ? "bg-accent text-accent-foreground" : "text-zinc-500"}`}
         >
           Obličej
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTab("letters");
+            if (letterConfig.text.length > 0) onChange(encodeLetterAvatar(letterConfig));
+          }}
+          className={`rounded-full px-3 py-1 ${tab === "letters" ? "bg-accent text-accent-foreground" : "text-zinc-500"}`}
+        >
+          Písmena
         </button>
         <button
           type="button"
@@ -158,6 +184,42 @@ export default function AvatarPicker({
                 >
                   {style.label}
                 </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : tab === "letters" ? (
+        <div className="flex flex-col gap-3">
+          <div
+            className="flex h-20 w-20 items-center justify-center self-start rounded-full text-2xl font-semibold text-white"
+            style={{ backgroundColor: LETTER_COLORS[letterConfig.color] ?? LETTER_COLORS[0] }}
+          >
+            {letterConfig.text || "?"}
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="text-zinc-500">Písmena (max 2 znaky)</p>
+            <input
+              type="text"
+              value={letterConfig.text}
+              onChange={(e) => updateLetterConfig({ text: e.target.value.toUpperCase().slice(0, 2) })}
+              maxLength={2}
+              className="w-20 rounded-lg border border-border bg-surface px-3 py-2 text-center text-lg uppercase"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="text-zinc-500">Barva</p>
+            <div className="flex flex-wrap gap-2">
+              {LETTER_COLORS.map((color, i) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => updateLetterConfig({ color: i })}
+                  style={{ backgroundColor: color }}
+                  className={`h-7 w-7 rounded-full ${letterConfig.color === i ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
+                  aria-label={`Barva ${i + 1}`}
+                />
               ))}
             </div>
           </div>
