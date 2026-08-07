@@ -1,4 +1,4 @@
-import { isAnimalAvatar, parseFaceAvatar } from "@/lib/avatars";
+import { isAnimalAvatar, LETTER_COLORS, parseFaceAvatar, parseLetterAvatar } from "@/lib/avatars";
 import FaceAvatar from "@/components/FaceAvatar";
 
 interface AvatarProps {
@@ -24,7 +24,20 @@ function initials(name: string): string {
 
 export default function Avatar({ name, avatarUrl, size = "md" }: AvatarProps) {
   const faceConfig = parseFaceAvatar(avatarUrl);
+  const letterConfig = parseLetterAvatar(avatarUrl);
   const isAnimal = isAnimalAvatar(avatarUrl);
+
+  if (letterConfig) {
+    const color = LETTER_COLORS[letterConfig.color] ?? LETTER_COLORS[0];
+    return (
+      <div
+        className={`flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${SIZE_CLASSES[size]}`}
+        style={{ backgroundColor: color }}
+      >
+        {letterConfig.text}
+      </div>
+    );
+  }
 
   return (
     <div
