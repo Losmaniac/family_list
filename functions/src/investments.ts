@@ -18,6 +18,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, type Firestore } from "firebase-admin/firestore";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import { maturityPayout } from "../../lib/investments";
+import { sendToTokens } from "./notifyHelpers";
 import type { Investment, Member } from "../../lib/types";
 
 async function reconcileInvestment(db: Firestore, familyId: string, investmentId: string): Promise<void> {
@@ -137,6 +138,12 @@ export const maturedInvestmentsPayout = onSchedule(
           tx.update(memberRef, { xpBalance: FieldValue.increment(payout) });
           tx.update(investmentDoc.ref, { status: "matured", payout });
         });
+
+        const memberSnap = await memberRef.get();
+        const token = (memberSnap.data() as Member | undefined)?.fcmToken;
+        if (token) {
+          await sendToTokens([token], "Family Quest", `Investice dozrála! +${payout} XP připsáno na účet.`);
+        }
       }
     }
   }

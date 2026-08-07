@@ -14,3 +14,10 @@ export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
+export {
+  onTaskProposalCreated,
+  onTaskRequestOpened,
+  onXpAdjustmentRequestCreated,
+  onPooledContributionCreated,
+  onRewardRedemptionActionable,
+} from "./actionNotifications";
