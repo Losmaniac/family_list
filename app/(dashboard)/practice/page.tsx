@@ -2,18 +2,19 @@
 
 import { useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { Brain, Calculator, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
 import { formatXp } from "@/lib/xp-engine";
+import EnglishFlashcards from "@/components/EnglishFlashcards";
 
-type ProblemType = "math" | "logicword";
+type Subject = "math" | "czech";
 
 interface GenerateResponse {
   question: string;
-  type: ProblemType;
+  subject: Subject;
 }
 
 interface SubmitResponse {
@@ -33,8 +34,7 @@ export default function PracticePage() {
   const { familyId } = useFamily();
   const toast = useToast();
 
-  const [subject, setSubject] = useState("math");
-  const [type, setType] = useState<ProblemType>("math");
+  const [subject, setSubject] = useState<string>("math");
   const [current, setCurrent] = useState<GenerateResponse | null>(null);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -42,15 +42,15 @@ export default function PracticePage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleNewProblem() {
-    if (!familyId) return;
+    if (!familyId || (subject !== "math" && subject !== "czech")) return;
     setLoading(true);
     setFeedback(null);
     setAnswer("");
     try {
-      const result = await httpsCallable<{ familyId: string; type: ProblemType }, GenerateResponse>(
+      const result = await httpsCallable<{ familyId: string; subject: Subject }, GenerateResponse>(
         getFirebaseFunctions(),
         "generatePracticeProblem"
-      )({ familyId, type });
+      )({ familyId, subject });
       setCurrent(result.data);
     } catch (err) {
       toast.error(describeError(err, "Úlohu se nepodařilo připravit."));
@@ -92,11 +92,20 @@ export default function PracticePage() {
     }
   }
 
+  function selectSubject(next: string) {
+    setSubject(next);
+    setCurrent(null);
+    setAnswer("");
+    setFeedback(null);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Vzdělání</h1>
       <p className="text-sm text-zinc-500">
-        Vyřeš úlohu a získej +{formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat.
+        {subject === "english"
+          ? "Nauč se anglická slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
+          : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat.`}
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -105,7 +114,7 @@ export default function PracticePage() {
             key={s.id}
             type="button"
             disabled={!s.available}
-            onClick={() => setSubject(s.id)}
+            onClick={() => selectSubject(s.id)}
             className={`rounded-full px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${
               subject === s.id ? "bg-accent text-accent-foreground" : "border border-border"
             }`}
@@ -116,29 +125,10 @@ export default function PracticePage() {
         ))}
       </div>
 
-      {subject === "math" && (
-        <>
-          <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setType("math")}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                type === "math" ? "bg-accent text-accent-foreground" : "text-zinc-500"
-              }`}
-            >
-              <Calculator size={14} /> Počítání
-            </button>
-            <button
-              type="button"
-              onClick={() => setType("logicword")}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                type === "logicword" ? "bg-accent text-accent-foreground" : "text-zinc-500"
-              }`}
-            >
-              <Brain size={14} /> Logika a slovní úlohy
-            </button>
-          </div>
+      {subject === "english" && <EnglishFlashcards />}
 
+      {(subject === "math" || subject === "czech") && (
+        <>
           {!current ? (
             <button
               type="button"
@@ -154,7 +144,6 @@ export default function PracticePage() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  inputMode={current.type === "math" ? "numeric" : "text"}
                   autoFocus
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}

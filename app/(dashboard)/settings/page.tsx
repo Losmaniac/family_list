@@ -13,6 +13,7 @@ import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { generateInviteCode } from "@/lib/invite-code";
 import { formatXp, xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
+import { findMemberConflict } from "@/lib/members";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
 import AvatarPicker from "@/components/AvatarPicker";
@@ -92,6 +93,15 @@ export default function SettingsPage() {
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!familyId || !user) return;
+    const conflict = findMemberConflict(members, { name, avatarUrl }, user.uid);
+    if (conflict) {
+      toast.error(
+        conflict.type === "name"
+          ? `„${conflict.member.name}“ už tohle jméno má — vyber jiné.`
+          : `„${conflict.member.name}“ už má stejného avatara — vyber jiného.`
+      );
+      return;
+    }
     setSavingProfile(true);
     try {
       await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
@@ -279,6 +289,11 @@ export default function SettingsPage() {
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
     if (!familyId || !user || !newMemberName.trim()) return;
+    const conflict = findMemberConflict(members, { name: newMemberName });
+    if (conflict) {
+      toast.error(`„${conflict.member.name}“ už tohle jméno má — vyber jiné.`);
+      return;
+    }
     setAddingMember(true);
     try {
       await addDoc(collection(getDb(), "families", familyId, "members"), {

@@ -6,6 +6,8 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { generateInviteCode } from "../../lib/invite-code";
+import { findMemberConflict } from "../../lib/members";
+import type { Member } from "../../lib/types";
 
 interface CreateFamilyRequest {
   familyName: string;
@@ -79,6 +81,15 @@ export const joinFamily = onCall<JoinFamilyRequest>(async (request) => {
   }
 
   const familyRef = familyQuery.docs[0].ref;
+
+  const existingMembersSnap = await familyRef.collection("members").get();
+  const existingMembers = existingMembersSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Member);
+  if (findMemberConflict(existingMembers, { name: memberName })) {
+    throw new HttpsError(
+      "already-exists",
+      "V rodině už někdo tohle jméno má — domluvte se doma na jiném."
+    );
+  }
 
   await db.runTransaction(async (tx) => {
     tx.set(familyRef.collection("members").doc(uid), {
