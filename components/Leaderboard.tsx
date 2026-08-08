@@ -4,7 +4,7 @@ import Avatar from "@/components/Avatar";
 import InfoButton from "@/components/InfoButton";
 import type { Member, XpLedgerEntry } from "@/lib/types";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+const MEDALS = ["🥇", "🥈", "🥉", "🥔"];
 
 interface LeaderboardProps {
   members: Member[];
