@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { CheckCircle2, Star, Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -12,7 +12,7 @@ import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
 import { dateKeyInFamilyZone, dayOfWeekInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
-import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate } from "@/lib/types";
+import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate, XpLedgerEntry } from "@/lib/types";
 
 const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
@@ -54,6 +54,7 @@ export default function FamilyPage() {
   const [submittingProposal, setSubmittingProposal] = useState(false);
   const [dailyTasksForDay, setDailyTasksForDay] = useState<DailyTask[]>([]);
   const [openRequests, setOpenRequests] = useState<TaskRequest[]>([]);
+  const [ledgerEntries, setLedgerEntries] = useState<XpLedgerEntry[]>([]);
   const [requestProposalDrafts, setRequestProposalDrafts] = useState<Record<string, { title: string; xpValue: string }>>({});
   const [submittingRequestProposal, setSubmittingRequestProposal] = useState<string | null>(null);
 
@@ -68,6 +69,17 @@ export default function FamilyPage() {
     if (!familyId) return;
     return onSnapshot(collection(getDb(), "families", familyId, "taskTemplates"), (snapshot) => {
       setTemplates(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as TaskTemplate));
+    });
+  }, [familyId]);
+
+  // Only used to break leaderboard ties (see Leaderboard) — full history,
+  // not scoped to a reason/window like AntiGamingPanel's, since a tie can
+  // in principle need to look as far back as a member's very first entry.
+  useEffect(() => {
+    if (!familyId) return;
+    const ledgerQuery = query(collection(getDb(), "families", familyId, "xpLedger"), orderBy("timestamp", "asc"));
+    return onSnapshot(ledgerQuery, (snapshot) => {
+      setLedgerEntries(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as XpLedgerEntry));
     });
   }, [familyId]);
 
@@ -216,7 +228,7 @@ export default function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Leaderboard members={members} levelTitles={family?.levelTitles} />
+      <Leaderboard members={members} levelTitles={family?.levelTitles} ledgerEntries={ledgerEntries} />
 
       <div className="flex items-center justify-between">
         <div>

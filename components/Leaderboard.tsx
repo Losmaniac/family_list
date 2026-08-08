@@ -1,18 +1,35 @@
 import { Trophy } from "lucide-react";
-import { levelProgress } from "@/lib/xp-engine";
+import { earliestTimestampAtBalance, levelProgress } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import InfoButton from "@/components/InfoButton";
-import type { Member } from "@/lib/types";
+import type { Member, XpLedgerEntry } from "@/lib/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 interface LeaderboardProps {
   members: Member[];
   levelTitles?: string[];
+  /** Full xpLedger history — used only to break ties (see below); leaderboard order still works fine without it, just without the tie-break. */
+  ledgerEntries?: Pick<XpLedgerEntry, "userId" | "delta" | "timestamp">[];
 }
 
-export default function Leaderboard({ members, levelTitles }: LeaderboardProps) {
-  const ranked = [...members].sort((a, b) => b.xpBalance - a.xpBalance);
+export default function Leaderboard({ members, levelTitles, ledgerEntries = [] }: LeaderboardProps) {
+  // Same XP → whoever reached that exact total first ranks higher (a tie
+  // that stays a tie forever otherwise feels arbitrary/unfair to kids
+  // watching the leaderboard). Falls back to Infinity — sorts last among
+  // ties — when we can't determine it, e.g. ledgerEntries wasn't passed or
+  // is a truncated slice that never actually sums to the balance.
+  const achievedAt = new Map<string, number>();
+  for (const member of members) {
+    const userEntries = ledgerEntries.filter((e) => e.userId === member.id);
+    const at = earliestTimestampAtBalance(userEntries, member.xpBalance);
+    if (at !== undefined) achievedAt.set(member.id, at);
+  }
+
+  const ranked = [...members].sort((a, b) => {
+    if (b.xpBalance !== a.xpBalance) return b.xpBalance - a.xpBalance;
+    return (achievedAt.get(a.id) ?? Infinity) - (achievedAt.get(b.id) ?? Infinity);
+  });
   if (ranked.length === 0) return null;
 
   return (

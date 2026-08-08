@@ -14,6 +14,29 @@ export function canAffordReward(xpBalance: number, rewardXpCost: number): boolea
   return xpBalance >= rewardXpCost;
 }
 
+/**
+ * Earliest moment a member's running XP total (summed in timestamp order)
+ * first equalled their current balance — used to break leaderboard ties
+ * ("stejné XP, kdo ho dosáhl dřív") in favor of whoever got there first,
+ * even if their balance has since dipped and climbed back to the same
+ * number (e.g. spent XP on a reward, then earned it back). Returns
+ * undefined if the entries given never actually sum to targetBalance —
+ * e.g. a caller passed a truncated/limited slice of the ledger — so the
+ * tie-break can fall back to a stable order instead of a wrong one.
+ */
+export function earliestTimestampAtBalance(
+  entries: Pick<XpLedgerEntry, "delta" | "timestamp">[],
+  targetBalance: number
+): number | undefined {
+  const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
+  let running = 0;
+  for (const entry of sorted) {
+    running += entry.delta;
+    if (running === targetBalance) return entry.timestamp;
+  }
+  return undefined;
+}
+
 export const DEFAULT_STREAK_BONUS_PER_DAY = 0.1;
 export const DEFAULT_STREAK_BONUS_CAP = 0.5;
 

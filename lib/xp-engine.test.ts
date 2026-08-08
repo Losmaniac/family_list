@@ -3,6 +3,7 @@ import {
   applyStreakBonus,
   buildLedgerEntry,
   canAffordReward,
+  earliestTimestampAtBalance,
   levelForXp,
   levelProgress,
   levelTitle,
@@ -18,6 +19,44 @@ describe("sumLedger", () => {
 
   it("returns 0 for an empty ledger", () => {
     expect(sumLedger([])).toBe(0);
+  });
+});
+
+describe("earliestTimestampAtBalance", () => {
+  it("finds the first time the running total hits the target", () => {
+    const entries = [
+      { delta: 10, timestamp: 100 },
+      { delta: 10, timestamp: 200 },
+      { delta: 10, timestamp: 300 },
+    ];
+    expect(earliestTimestampAtBalance(entries, 20)).toBe(200);
+  });
+
+  it("returns the earliest hit even if the balance dips and returns to it later", () => {
+    const entries = [
+      { delta: 20, timestamp: 100 }, // running: 20 — first time at 20
+      { delta: -15, timestamp: 200 }, // running: 5
+      { delta: 15, timestamp: 300 }, // running: 20 again — should not win
+    ];
+    expect(earliestTimestampAtBalance(entries, 20)).toBe(100);
+  });
+
+  it("is order-independent — sorts by timestamp itself", () => {
+    const entries = [
+      { delta: 10, timestamp: 300 },
+      { delta: 10, timestamp: 100 },
+      { delta: 10, timestamp: 200 },
+    ];
+    expect(earliestTimestampAtBalance(entries, 20)).toBe(200);
+  });
+
+  it("returns undefined when the entries never actually sum to the target", () => {
+    const entries = [{ delta: 5, timestamp: 100 }];
+    expect(earliestTimestampAtBalance(entries, 20)).toBeUndefined();
+  });
+
+  it("returns undefined for an empty ledger, even when the target is 0", () => {
+    expect(earliestTimestampAtBalance([], 0)).toBeUndefined();
   });
 });
 
