@@ -176,10 +176,9 @@ export interface RewardRedemption {
 }
 
 /**
- * pending -> approved (every other family member has approved — unanimous,
- * a task everyone lives with should have everyone's buy-in — at which point
- * a Cloud Function creates the real, active taskTemplate) | rejected (any
- * one other member can veto outright). The proposer can't vote on their own
+ * pending -> approved (a single parent's approval is enough — a Cloud
+ * Function then creates the real, active taskTemplate) | rejected (any one
+ * other member can veto outright). The proposer can't vote on their own
  * proposal.
  */
 export type TaskProposalStatus = "pending" | "approved" | "rejected";
