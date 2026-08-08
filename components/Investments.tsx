@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import InfoButton from "@/components/InfoButton";
 import { MIN_INVESTMENT_AMOUNT, maturityPayout, type InvestmentTerm } from "@/lib/investments";
 import type { Investment } from "@/lib/types";
@@ -21,9 +22,21 @@ interface InvestmentsProps {
   onStart: (principal: number, termDays: number) => void;
   onWithdrawEarly: (investment: Investment) => void;
   submitting?: boolean;
+  /** Parents can clean up old, already-settled investments one at a time. */
+  canDeletePast?: boolean;
+  onDeletePast?: (investment: Investment) => void;
 }
 
-export default function Investments({ investments, xpBalance, terms, onStart, onWithdrawEarly, submitting }: InvestmentsProps) {
+export default function Investments({
+  investments,
+  xpBalance,
+  terms,
+  onStart,
+  onWithdrawEarly,
+  submitting,
+  canDeletePast,
+  onDeletePast,
+}: InvestmentsProps) {
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState(MIN_INVESTMENT_AMOUNT);
   const [termDays, setTermDays] = useState(terms[0]?.days ?? 0);
@@ -175,9 +188,21 @@ export default function Investments({ investments, xpBalance, terms, onStart, on
                   }
                 />
               </p>
-              <span className={`text-sm font-semibold ${inv.status === "matured" ? "text-success" : "text-zinc-500"}`}>
-                {PAST_STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
-              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className={`text-sm font-semibold ${inv.status === "matured" ? "text-success" : "text-zinc-500"}`}>
+                  {PAST_STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
+                </span>
+                {canDeletePast && (
+                  <button
+                    type="button"
+                    onClick={() => onDeletePast?.(inv)}
+                    aria-label="Smazat investici"
+                    className="text-danger"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

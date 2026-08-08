@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
+import { logAction } from "@/lib/audit-log";
 import InvestmentsSection from "@/components/Investments";
 import FamilyInvestmentsOverview from "@/components/FamilyInvestmentsOverview";
 import { effectiveInvestmentTerms, findTermInList } from "@/lib/investments";
@@ -15,6 +17,7 @@ export default function InvestmentsPage() {
   const { user } = useAuth();
   const { familyId, member, family } = useFamily();
   const toast = useToast();
+  const { confirm } = useDialog();
   const terms = effectiveInvestmentTerms(family?.investmentTerms);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +91,24 @@ export default function InvestmentsPage() {
     }
   }
 
+  async function handleDeleteInvestment(investment: Investment) {
+    if (!familyId || !user) return;
+    const ok = await confirm({
+      title: "Smazat tuto investici?",
+      description: "Jde jen o starý záznam v historii — XP z něj bylo už dávno vyplaceno. Tuto akci nelze vrátit zpět.",
+      confirmLabel: "Smazat",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(getDb(), "families", familyId, "investments", investment.id));
+      logAction(familyId, user.uid, "investment_deleted", `${investment.principal} XP`);
+      toast.success("Investice byla smazána.");
+    } catch {
+      toast.error("Investici se nepodařilo smazat.");
+    }
+  }
+
   if (family?.investmentsEnabled === false) {
     return (
       <div className="flex flex-col gap-4">
@@ -107,6 +128,8 @@ export default function InvestmentsPage() {
         onStart={handleStartInvestment}
         onWithdrawEarly={handleWithdrawEarly}
         submitting={submitting}
+        canDeletePast={member?.role === "parent"}
+        onDeletePast={handleDeleteInvestment}
       />
       {member?.role === "parent" && (
         <FamilyInvestmentsOverview members={members} investments={familyInvestments} />

@@ -288,7 +288,8 @@ export type AuditAction =
   | "pooled_contribution_decided"
   | "chat_cleared"
   | "photos_cleared"
-  | "audit_log_cleared";
+  | "audit_log_cleared"
+  | "investment_deleted";
 
 export interface AuditLogEntry {
   id: string;
