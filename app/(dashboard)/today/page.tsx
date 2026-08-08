@@ -264,8 +264,14 @@ export default function TodayPage() {
   // whether a parent has gotten around to approving everything yet. Applies
   // equally to a parent with nothing assigned today at all (tasks.length
   // === 0) — "nothing left to do" either way, not just "finished it all".
-  const awaitingMyAction = tasks.some((t) => t.status === "pending" || t.status === "returned");
+  const remainingCount = tasks.filter((t) => t.status === "pending" || t.status === "returned").length;
+  const awaitingMyAction = remainingCount > 0;
   const requestsEnabled = family?.taskRequestsEnabled !== false;
+  // A parent can require the leftover count to drop to (or below) a chosen
+  // number before the inline "want another task" button unlocks — absent =
+  // no limit, so it's available as soon as anything is left, same as
+  // before this setting existed.
+  const maxRemainingForInlineRequest = family?.taskRequestMaxRemaining ?? Infinity;
 
   const requestCta = requestsEnabled && !awaitingMyAction && (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
@@ -297,7 +303,7 @@ export default function TodayPage() {
   // same request flow as requestCta above, just a low-key inline version
   // that stays available alongside a still-nonempty task list instead of
   // only appearing once every last pending/returned task is gone.
-  const requestMoreInline = requestsEnabled && awaitingMyAction && (
+  const requestMoreInline = requestsEnabled && awaitingMyAction && remainingCount <= maxRemainingForInlineRequest && (
     <div className="flex flex-col items-center gap-1 pt-1 text-center">
       {myRequest?.status === "open" ? (
         <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">

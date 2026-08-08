@@ -11,11 +11,13 @@ export default function GameSettingsPanel({
   levelTitles,
   levelThresholds,
   taskRequestsEnabled,
+  taskRequestMaxRemaining,
 }: {
   familyId: string;
   levelTitles?: string[];
   levelThresholds?: number[];
   taskRequestsEnabled?: boolean;
+  taskRequestMaxRemaining?: number;
 }) {
   const toast = useToast();
   const [savingRequestsToggle, setSavingRequestsToggle] = useState(false);
@@ -28,6 +30,34 @@ export default function GameSettingsPanel({
       toast.error("Nepodařilo se změnit nastavení žádostí o úkoly.");
     } finally {
       setSavingRequestsToggle(false);
+    }
+  }
+
+  const [maxRemainingInput, setMaxRemainingInput] = useState(
+    taskRequestMaxRemaining !== undefined ? String(taskRequestMaxRemaining) : ""
+  );
+  const [savingMaxRemaining, setSavingMaxRemaining] = useState(false);
+
+  async function handleSaveMaxRemaining() {
+    const trimmed = maxRemainingInput.trim();
+    setSavingMaxRemaining(true);
+    try {
+      if (trimmed === "") {
+        await updateDoc(doc(getDb(), "families", familyId), { taskRequestMaxRemaining: deleteField() });
+        toast.success("Limit vypnut — tlačítko je dostupné vždy, jakmile něco zbývá.");
+      } else {
+        const value = Number(trimmed);
+        if (!Number.isInteger(value) || value < 0) {
+          toast.error("Zadej celé číslo 0 nebo víc.");
+          return;
+        }
+        await updateDoc(doc(getDb(), "families", familyId), { taskRequestMaxRemaining: value });
+        toast.success("Limit uložen.");
+      }
+    } catch {
+      toast.error("Nepodařilo se uložit limit.");
+    } finally {
+      setSavingMaxRemaining(false);
     }
   }
 
@@ -126,6 +156,33 @@ export default function GameSettingsPanel({
         />
         Povolit žádosti o nový úkol (člen rodiny si může vyžádat úkol, až nemá co dělat)
       </label>
+
+      {taskRequestsEnabled !== false && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-zinc-500">
+            Kolik nesplněných úkolů smí členovi ještě zbývat, aby si mohl rovnou na kartě Dnes vyžádat další (vedle
+            hlavního tlačítka, které se ukáže, až je seznam úplně prázdný). Nech prázdné pro bez omezení.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              placeholder="bez omezení"
+              value={maxRemainingInput}
+              onChange={(e) => setMaxRemainingInput(e.target.value)}
+              className="w-32 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleSaveMaxRemaining}
+              disabled={savingMaxRemaining}
+              className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              Uložit
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <p className="text-sm text-zinc-500">Názvy levelů (1–10; nad 10 se opakuje poslední název)</p>
