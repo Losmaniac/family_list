@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { INVESTMENT_TERMS, effectiveInvestmentTerms, findInvestmentTerm, findTermInList, maturityPayout } from "./investments";
+import {
+  INVESTMENT_TERMS,
+  effectiveInvestmentTerms,
+  findInvestmentTerm,
+  findTermInList,
+  maturityPayout,
+  totalInvested,
+} from "./investments";
 
 describe("INVESTMENT_TERMS", () => {
   it("pays a higher rate for a longer term, like a real bond yield curve", () => {
@@ -65,5 +72,26 @@ describe("maturityPayout", () => {
 
   it("keeps the exact fractional XP, no rounding — only display floors it", () => {
     expect(maturityPayout(55, 0.02)).toBeCloseTo(56.1); // 55 * 1.02 = 56.1
+  });
+});
+
+describe("totalInvested", () => {
+  const investments = [
+    { userId: "u1", principal: 100, status: "active" },
+    { userId: "u1", principal: 50, status: "withdrawal_requested" },
+    { userId: "u1", principal: 200, status: "matured" },
+    { userId: "u2", principal: 300, status: "active" },
+  ];
+
+  it("sums active and withdrawal_requested principals for the given user", () => {
+    expect(totalInvested(investments, "u1")).toBe(150);
+  });
+
+  it("excludes settled statuses (matured/withdrawn/cancelled)", () => {
+    expect(totalInvested(investments, "u1")).not.toBe(350);
+  });
+
+  it("returns 0 for a user with no investments", () => {
+    expect(totalInvested(investments, "u3")).toBe(0);
   });
 });

@@ -13,7 +13,17 @@ import { addMonths, dateKeyInFamilyZone, daysInMonth, isSameDay, startOfMonth } 
 import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
-import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate, XpLedgerEntry } from "@/lib/types";
+import type {
+  DailyTask,
+  Investment,
+  Member,
+  Recurrence,
+  TaskCategory,
+  TaskProposal,
+  TaskRequest,
+  TaskTemplate,
+  XpLedgerEntry,
+} from "@/lib/types";
 
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
@@ -44,6 +54,7 @@ export default function FamilyPage() {
   const [dailyTasksForDay, setDailyTasksForDay] = useState<DailyTask[]>([]);
   const [openRequests, setOpenRequests] = useState<TaskRequest[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<XpLedgerEntry[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [requestProposalDrafts, setRequestProposalDrafts] = useState<Record<string, { title: string; xpValue: string }>>({});
   const [submittingRequestProposal, setSubmittingRequestProposal] = useState<string | null>(null);
 
@@ -69,6 +80,17 @@ export default function FamilyPage() {
     const ledgerQuery = query(collection(getDb(), "families", familyId, "xpLedger"), orderBy("timestamp", "asc"));
     return onSnapshot(ledgerQuery, (snapshot) => {
       setLedgerEntries(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as XpLedgerEntry));
+    });
+  }, [familyId]);
+
+  // The leaderboard shows how much of each member's XP is currently locked
+  // in an investment, alongside their real (spendable) balance the ranking
+  // is actually based on — investments are readable by any family member,
+  // same as everywhere else this appears.
+  useEffect(() => {
+    if (!familyId) return;
+    return onSnapshot(collection(getDb(), "families", familyId, "investments"), (snapshot) => {
+      setInvestments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Investment));
     });
   }, [familyId]);
 
@@ -257,6 +279,7 @@ export default function FamilyPage() {
         levelTitles={family?.levelTitles}
         levelThresholds={family?.levelThresholds}
         ledgerEntries={ledgerEntries}
+        investments={investments}
       />
 
       <div className="flex items-center justify-between">

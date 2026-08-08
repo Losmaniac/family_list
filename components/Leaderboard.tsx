@@ -1,8 +1,9 @@
 import { Trophy } from "lucide-react";
 import { earliestTimestampAtBalance, formatXp, levelProgress } from "@/lib/xp-engine";
+import { totalInvested } from "@/lib/investments";
 import Avatar from "@/components/Avatar";
 import InfoButton from "@/components/InfoButton";
-import type { Member, XpLedgerEntry } from "@/lib/types";
+import type { Investment, Member, XpLedgerEntry } from "@/lib/types";
 
 const MEDALS = ["🥇", "🥈", "🥉", "🥔"];
 
@@ -12,9 +13,17 @@ interface LeaderboardProps {
   levelThresholds?: number[];
   /** Full xpLedger history — used only to break ties (see below); leaderboard order still works fine without it, just without the tie-break. */
   ledgerEntries?: Pick<XpLedgerEntry, "userId" | "delta" | "timestamp">[];
+  /** Every family member's investments — used only to show how much of a member's XP is currently locked away, alongside their real (spendable) balance the ranking is actually based on. */
+  investments?: Pick<Investment, "userId" | "principal" | "status">[];
 }
 
-export default function Leaderboard({ members, levelTitles, levelThresholds, ledgerEntries = [] }: LeaderboardProps) {
+export default function Leaderboard({
+  members,
+  levelTitles,
+  levelThresholds,
+  ledgerEntries = [],
+  investments = [],
+}: LeaderboardProps) {
   // Same XP → whoever reached that exact total first ranks higher (a tie
   // that stays a tie forever otherwise feels arbitrary/unfair to kids
   // watching the leaderboard). Falls back to Infinity — sorts last among
@@ -40,12 +49,13 @@ export default function Leaderboard({ members, levelTitles, levelThresholds, led
         Žebříček
         <InfoButton
           title="Žebříček"
-          description="Pořadí členů rodiny podle celkového XP — kdo splní víc úkolů a udrží streak, stoupá výš. Aktualizuje se hned, jak někomu přibude XP."
+          description="Pořadí členů rodiny podle reálného (dostupného) XP — kdo splní víc úkolů a udrží streak, stoupá výš. V závorce je vidět, kolik má kdo aktuálně zainvestováno (to se do pořadí nepočítá, dokud se investice nevyplatí). Aktualizuje se hned, jak někomu přibude XP."
         />
       </h2>
       <div className="flex flex-col gap-1.5">
         {ranked.map((member, i) => {
           const { title } = levelProgress(member.xpBalance, levelTitles, levelThresholds);
+          const invested = totalInvested(investments, member.id);
           return (
             <div
               key={member.id}
@@ -61,7 +71,12 @@ export default function Leaderboard({ members, levelTitles, levelThresholds, led
                 <p className="truncate font-medium">{member.name}</p>
                 <p className="text-xs text-zinc-500">{title}</p>
               </div>
-              <span className="shrink-0 text-sm font-semibold text-accent">{formatXp(member.xpBalance)} XP</span>
+              <div className="flex shrink-0 flex-col items-end">
+                <span className="text-sm font-semibold text-accent">{formatXp(member.xpBalance)} XP</span>
+                {invested > 0 && (
+                  <span className="text-[10px] text-zinc-400">(zainvestováno {formatXp(invested)})</span>
+                )}
+              </div>
             </div>
           );
         })}
