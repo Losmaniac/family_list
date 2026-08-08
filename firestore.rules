@@ -262,9 +262,12 @@ service cloud.firestore {
         // unanimous approval.
         // A parent may also cancel any individual open request outright —
         // same moderation exception as taskProposals above — not just the
-        // requester cancelling their own.
+        // requester cancelling their own. 'date' is allowed alongside
+        // status/timestamp so reopening on a new day resets which day the
+        // request belongs to — otherwise it'd stay stamped with its
+        // original creation date and look stale (or non-stale) forever.
         allow update: if isFamilyMember(familyId) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'timestamp']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'timestamp', 'date']) &&
           (
             (requesterId == request.auth.uid &&
               (

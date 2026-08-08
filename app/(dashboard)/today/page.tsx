@@ -229,6 +229,7 @@ export default function TodayPage() {
         requestedBy: user.uid,
         status: "open",
         timestamp: Date.now(),
+        date: todayKey(),
       });
       toast.success("Žádost odeslána rodině — mohou ti navrhnout nový úkol.");
     } catch {
@@ -273,10 +274,14 @@ export default function TodayPage() {
   // no limit, so it's available as soon as anything is left, same as
   // before this setting existed.
   const maxRemainingForInlineRequest = family?.taskRequestMaxRemaining ?? Infinity;
+  // A request is only ever a same-day ask — one left open from a previous
+  // day (the cron sweep cancels those, but only runs once at 00:05) should
+  // never keep blocking a fresh "want another task" click today.
+  const hasOpenRequestToday = myRequest?.status === "open" && myRequest.date === todayKey();
 
   const requestCta = requestsEnabled && !awaitingMyAction && (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
-      {myRequest?.status === "open" ? (
+      {hasOpenRequestToday ? (
         <>
           <p className="text-sm text-zinc-500">Čekáš na návrh nového úkolu od rodiny.</p>
           <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
@@ -306,7 +311,7 @@ export default function TodayPage() {
   // only appearing once every last pending/returned task is gone.
   const requestMoreInline = requestsEnabled && awaitingMyAction && remainingCount <= maxRemainingForInlineRequest && (
     <div className="flex flex-col items-center gap-1 pt-1 text-center">
-      {myRequest?.status === "open" ? (
+      {hasOpenRequestToday ? (
         <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
           <X size={14} /> Čekáš na návrh nového úkolu — zrušit žádost
         </button>

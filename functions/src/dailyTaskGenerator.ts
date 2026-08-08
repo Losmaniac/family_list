@@ -1,7 +1,9 @@
 /**
  * Cron 00:05 — nejdřív označí včerejší (a starší) nesplněné dailyTasks jako
- * 'missed', pak vygeneruje dnešní dailyTasks z aktivních taskTemplates.
- * dailyTasks se negenerují dopředu do nekonečna, jen na aktuální den.
+ * 'missed' a zruší staré nezodpovězené taskRequests (jednorázová žádost o
+ * úkol na daný den, nepřežívá do dalšího), pak vygeneruje dnešní dailyTasks
+ * z aktivních taskTemplates. dailyTasks se negenerují dopředu do
+ * nekonečna, jen na aktuální den.
  */
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore } from "firebase-admin/firestore";
@@ -35,6 +37,23 @@ export const dailyTaskGenerator = onSchedule(
           missedBatch.update(staleDoc.ref, { status: "missed" });
         }
         await missedBatch.commit();
+      }
+
+      // A "want a new task" request is a same-day ask, not a standing one —
+      // one left unanswered overnight shouldn't still be waiting (or still
+      // blocking the requester's own re-ask) the next day.
+      const staleRequestsSnapshot = await familyDoc.ref
+        .collection("taskRequests")
+        .where("status", "==", "open")
+        .where("date", "<", dateKey)
+        .get();
+
+      if (!staleRequestsSnapshot.empty) {
+        const staleRequestsBatch = db.batch();
+        for (const staleDoc of staleRequestsSnapshot.docs) {
+          staleRequestsBatch.update(staleDoc.ref, { status: "cancelled" });
+        }
+        await staleRequestsBatch.commit();
       }
 
       const templatesSnapshot = await familyDoc.ref
