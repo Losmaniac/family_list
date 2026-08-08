@@ -250,6 +250,11 @@ export default function FamilyPage() {
     .map((m) => ({ member: m, tasks: dueTemplates.filter((t) => t.assignedTo.includes(m.id)) }))
     .filter((entry) => entry.tasks.length > 0);
 
+  // A request is a one-shot, same-day ask — one left open from a previous
+  // day (the nightly cron cancels those, but only runs once at 00:05)
+  // shouldn't still show up asking for a proposal a day later.
+  const todayOpenRequests = openRequests.filter((r) => r.date === dateKeyInFamilyZone(new Date()));
+
   return (
     <div className="flex flex-col gap-4">
       <Leaderboard
@@ -369,12 +374,12 @@ export default function FamilyPage() {
         </form>
       )}
 
-      {openRequests.length > 0 && (
+      {todayOpenRequests.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="flex items-center gap-1.5 font-medium">
             <Star size={16} className="text-accent" /> Žádosti o nový úkol
           </h2>
-          {openRequests.map((request) => {
+          {todayOpenRequests.map((request) => {
             const requester = members.find((m) => m.id === request.requestedBy);
             if (request.requestedBy === user?.uid) {
               return (

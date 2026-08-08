@@ -223,6 +223,15 @@ export interface TaskRequest {
   requestedBy: string;
   status: TaskRequestStatus;
   timestamp: number;
+  /**
+   * Date (YYYY-MM-DD, family zone) the request was (re)opened — a one-shot,
+   * same-day ask, not a standing one. Both the client (treats a request
+   * dated before today as no longer "open") and the daily cron (cancels any
+   * still-open request older than today, same sweep that marks stale
+   * dailyTasks 'missed') use this so an unanswered request never silently
+   * carries over to the next day.
+   */
+  date: string;
 }
 
 /**
