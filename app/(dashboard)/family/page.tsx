@@ -454,7 +454,6 @@ export default function FamilyPage() {
           {proposals.map((proposal) => {
             const proposer = members.find((m) => m.id === proposal.proposedBy);
             const target = proposal.requestId ? members.find((m) => m.id === proposal.assignedTo[0]) : null;
-            const needed = Math.max(members.length - 1, 0);
             const isOwn = proposal.proposedBy === user?.uid;
             const alreadyVoted = user ? proposal.approvals.includes(user.uid) : false;
             return (
@@ -466,7 +465,7 @@ export default function FamilyPage() {
                     </p>
                     <p className="truncate text-sm text-zinc-500">
                       Navrhl(a) {proposer?.name ?? proposal.proposedBy}
-                      {target && ` pro ${target.name}`} · schváleno {proposal.approvals.length}/{needed}
+                      {target && ` pro ${target.name}`} · stačí schválení jednoho rodiče
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -488,7 +487,7 @@ export default function FamilyPage() {
                         </button>
                       </>
                     )}
-                    {(isOwn || alreadyVoted) && <span className="text-sm text-zinc-400">Čeká na ostatní</span>}
+                    {(isOwn || alreadyVoted) && <span className="text-sm text-zinc-400">Čeká na schválení rodiče</span>}
                     {member?.role === "parent" && (
                       <button
                         type="button"
