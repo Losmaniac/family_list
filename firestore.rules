@@ -224,13 +224,23 @@ service cloud.firestore {
         // still 'pending'; the proposer never votes on their own proposal.
         // For a request-linked proposal this naturally includes the
         // requester, who gets a say over what lands on their own list.
+        // A parent may also remove any individual pending proposal outright
+        // — including their own — as a moderation action distinct from the
+        // peer-voting veto above (that one excludes the proposer on purpose;
+        // this one exists precisely so a parent can clear out their own or
+        // anyone else's stale/unwanted proposal one at a time).
         allow update: if isFamilyMember(familyId) &&
           resource.data.status == 'pending' &&
-          request.auth.uid != resource.data.proposedBy &&
           (
-            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvals']) &&
-              request.resource.data.approvals == resource.data.approvals.concat([request.auth.uid])) ||
-            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+            (request.auth.uid != resource.data.proposedBy &&
+              (
+                (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvals']) &&
+                  request.resource.data.approvals == resource.data.approvals.concat([request.auth.uid])) ||
+                (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                  request.resource.data.status == 'rejected')
+              )) ||
+            (isParent(familyId) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
               request.resource.data.status == 'rejected')
           );
         allow delete: if false;
@@ -250,12 +260,18 @@ service cloud.firestore {
         // never listed here — only the onTaskProposalWritten Cloud
         // Function (Admin SDK) performs that, when a linked proposal wins
         // unanimous approval.
+        // A parent may also cancel any individual open request outright —
+        // same moderation exception as taskProposals above — not just the
+        // requester cancelling their own.
         allow update: if isFamilyMember(familyId) &&
-          requesterId == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'timestamp']) &&
           (
-            (resource.data.status == 'open' && request.resource.data.status == 'cancelled') ||
-            (resource.data.status != 'open' && request.resource.data.status == 'open')
+            (requesterId == request.auth.uid &&
+              (
+                (resource.data.status == 'open' && request.resource.data.status == 'cancelled') ||
+                (resource.data.status != 'open' && request.resource.data.status == 'open')
+              )) ||
+            (isParent(familyId) && resource.data.status == 'open' && request.resource.data.status == 'cancelled')
           );
         allow delete: if false;
       }

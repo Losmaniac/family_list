@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { CheckCircle2, Star, Users } from "lucide-react";
+import { CheckCircle2, Star, Trash2, Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -43,7 +43,7 @@ function todayDisplayIndex(): number {
 
 export default function FamilyPage() {
   const { user } = useAuth();
-  const { familyId, family } = useFamily();
+  const { familyId, family, member } = useFamily();
   const toast = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -212,6 +212,29 @@ export default function FamilyPage() {
     }
   }
 
+  // Parent-only moderation actions — remove a single stale/unwanted request
+  // or proposal outright, regardless of whose it is or whether the normal
+  // voting flow has run its course.
+  async function handleRemoveRequest(request: TaskRequest) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskRequests", request.id), { status: "cancelled" });
+      toast.success("Žádost odebrána.");
+    } catch {
+      toast.error("Žádost se nepodařilo odebrat.");
+    }
+  }
+
+  async function handleRemoveProposal(proposal: TaskProposal) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "taskProposals", proposal.id), { status: "rejected" });
+      toast.success("Návrh odebrán.");
+    } catch {
+      toast.error("Návrh se nepodařilo odebrat.");
+    }
+  }
+
   const monday = startOfWeek(new Date());
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
@@ -354,17 +377,42 @@ export default function FamilyPage() {
             const requester = members.find((m) => m.id === request.requestedBy);
             if (request.requestedBy === user?.uid) {
               return (
-                <div key={request.id} className="rounded-xl border border-border px-4 py-3 text-sm text-zinc-500">
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-border px-4 py-3 text-sm text-zinc-500"
+                >
                   Čekáš na návrh úkolu od rodiny.
+                  {member?.role === "parent" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRequest(request)}
+                      aria-label="Odebrat žádost"
+                      className="shrink-0 text-danger"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               );
             }
             const draft = requestProposalDrafts[request.id] ?? { title: "", xpValue: "10" };
             return (
               <div key={request.id} className="flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
-                  <p className="font-medium">{requester?.name ?? request.requestedBy} chce nový úkol</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
+                    <p className="font-medium">{requester?.name ?? request.requestedBy} chce nový úkol</p>
+                  </div>
+                  {member?.role === "parent" && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRequest(request)}
+                      aria-label="Odebrat žádost"
+                      className="shrink-0 text-danger"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -421,27 +469,37 @@ export default function FamilyPage() {
                       {target && ` pro ${target.name}`} · schváleno {proposal.approvals.length}/{needed}
                     </p>
                   </div>
-                  {!isOwn && !alreadyVoted && (
-                    <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!isOwn && !alreadyVoted && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveProposal(proposal)}
+                          className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
+                        >
+                          Schválit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectProposal(proposal)}
+                          className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
+                        >
+                          Zamítnout
+                        </button>
+                      </>
+                    )}
+                    {(isOwn || alreadyVoted) && <span className="text-sm text-zinc-400">Čeká na ostatní</span>}
+                    {member?.role === "parent" && (
                       <button
                         type="button"
-                        onClick={() => handleApproveProposal(proposal)}
-                        className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
+                        onClick={() => handleRemoveProposal(proposal)}
+                        aria-label="Odebrat návrh"
+                        className="text-danger"
                       >
-                        Schválit
+                        <Trash2 size={16} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRejectProposal(proposal)}
-                        className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
-                      >
-                        Zamítnout
-                      </button>
-                    </div>
-                  )}
-                  {(isOwn || alreadyVoted) && (
-                    <span className="shrink-0 text-sm text-zinc-400">Čeká na ostatní</span>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             );
