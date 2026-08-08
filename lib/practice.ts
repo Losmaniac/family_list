@@ -6,6 +6,26 @@
  * one source of truth, no XP/answer logic duplicated between client and server.
  */
 
+/**
+ * "Vzdělání" is organized by subject, each with its own set of exercise
+ * types — only "math" is actually implemented today. New subjects (Čeština,
+ * Angličtina, ...) get added here as their content/generation logic is
+ * built; `available: false` just means "shows as coming soon" in the UI,
+ * not a client-side-only gate — there's no server support for them yet
+ * either.
+ */
+export interface PracticeSubject {
+  id: string;
+  label: string;
+  available: boolean;
+}
+
+export const PRACTICE_SUBJECTS: PracticeSubject[] = [
+  { id: "math", label: "Matematika", available: true },
+  { id: "czech", label: "Čeština", available: false },
+  { id: "english", label: "Angličtina", available: false },
+];
+
 export type PracticeDifficulty = 1 | 2 | 3;
 
 export const PRACTICE_DIFFICULTY_LABELS: Record<PracticeDifficulty, string> = {
