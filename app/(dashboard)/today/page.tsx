@@ -33,6 +33,7 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
   const [photoTask, setPhotoTask] = useState<DailyTask | null>(null);
+  const [expandedPhotoUrl, setExpandedPhotoUrl] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [myRequest, setMyRequest] = useState<TaskRequest | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState(false);
@@ -316,12 +317,19 @@ export default function TodayPage() {
               >
                 <div className="flex items-center gap-3">
                   {task.photoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset
-                    <img
-                      src={task.photoUrl}
-                      alt="Foto potvrzení úkolu"
-                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPhotoUrl(task.photoUrl!)}
+                      className="shrink-0"
+                      aria-label="Zvětšit foto"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
+                      <img
+                        src={task.photoUrl}
+                        alt="Foto potvrzení úkolu"
+                        className="h-12 w-12 rounded-lg object-cover"
+                      />
+                    </button>
                   )}
                   {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
                   <div>
@@ -424,6 +432,29 @@ export default function TodayPage() {
           </div>
         )}
       </section>
+
+      {expandedPhotoUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setExpandedPhotoUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setExpandedPhotoUrl(null)}
+            aria-label="Zavřít"
+            className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white"
+          >
+            <X size={20} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
+          <img
+            src={expandedPhotoUrl}
+            alt="Foto potvrzení úkolu"
+            className="max-h-full max-w-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
