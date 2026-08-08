@@ -164,11 +164,16 @@ export default function FamilyPage() {
 
     setSubmittingRequestProposal(request.id);
     try {
+      // A response to "chci nový úkol" is a one-off for the day the request
+      // was made, not a standing chore — 'daily' here would keep generating
+      // it every day forever, which is never what answering a single
+      // request is meant to do.
       await addDoc(collection(getDb(), "families", familyId, "taskProposals"), {
         title: draft.title.trim(),
         category: "household",
         xpValue,
-        recurrence: "daily",
+        recurrence: "once",
+        date: dateKeyInFamilyZone(new Date()),
         daysOfWeek: [],
         assignedTo: [request.requestedBy],
         proposedBy: user.uid,
