@@ -367,6 +367,7 @@ export default function SettingsPage() {
             levelTitles={family?.levelTitles}
             levelThresholds={family?.levelThresholds}
             taskRequestsEnabled={family?.taskRequestsEnabled}
+            taskRequestMaxRemaining={family?.taskRequestMaxRemaining}
           />
         </section>
       )}

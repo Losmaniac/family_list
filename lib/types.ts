@@ -40,6 +40,8 @@ export interface Family {
   levelThresholds?: number[];
   /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
   taskRequestsEnabled?: boolean;
+  /** Max number of still-pending/returned tasks at which a member can already ask for another one, before the list is fully empty; absent = no limit (always allowed, as soon as taskRequestsEnabled). */
+  taskRequestMaxRemaining?: number;
   /** JPEG quality (0-1) task proof photos are compressed to before upload; absent = 0.7. */
   photoCompressionQuality?: number;
   /** Longer edge (px) task proof photos are downscaled to before upload; absent = 1600. */
