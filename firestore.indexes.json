@@ -33,6 +33,15 @@
       ]
     },
     {
+      "collectionGroup": "xpLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "reason", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "rewardRedemptions",
       "queryScope": "COLLECTION",
       "fields": [
