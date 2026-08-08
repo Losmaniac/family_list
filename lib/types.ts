@@ -315,3 +315,25 @@ export interface AuditLogEntry {
   detail: string;
   timestamp: number;
 }
+
+export type CalendarEventCategory = "doctor" | "birthday" | "holiday" | "vacation" | "other";
+
+/**
+ * A plain reminder on the family's planning calendar — doctor visits,
+ * birthdays, holidays, vacations, anything worth remembering that isn't a
+ * chore. Deliberately separate from taskTemplates/dailyTasks: it never
+ * awards XP and never needs approval, it's just a note on a day. A parent
+ * can add one for any family member; anyone else can only ever add one for
+ * themselves.
+ */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  /** Date (YYYY-MM-DD, family zone) the event falls on. */
+  date: string;
+  category: CalendarEventCategory;
+  /** Whose day this shows up on. */
+  memberId: string;
+  createdBy: string;
+  timestamp: number;
+}

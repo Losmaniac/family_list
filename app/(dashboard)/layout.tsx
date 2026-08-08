@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Camera,
   CalendarCheck,
+  CalendarDays,
   GraduationCap,
   ListChecks,
   MessageCircle,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/investments", label: "Investice", icon: TrendingUp, parentOnly: false },
   { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
   { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
+  { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
 ] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

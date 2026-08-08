@@ -83,3 +83,31 @@ export function formatDateTimeInFamilyZone(date: Date): string {
 export function formatTimeInFamilyZone(date: Date): string {
   return timeFormatter.format(date);
 }
+
+/**
+ * Calendar-grid helpers for month-view UIs (e.g. /family, /calendar).
+ * Unlike the family-zone helpers above, these operate on plain calendar
+ * dates already built from year/month/day components (e.g. `new Date(y, m,
+ * d)`) rather than converting a real instant — there's no time-zone
+ * conversion involved, just local Y/M/D arithmetic.
+ */
+
+/** The 1st of the given date's month, at local midnight. */
+export function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/** Number of days (28-31) in the given date's month. */
+export function daysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+/** The 1st of the month `delta` months away from the given date's month. */
+export function addMonths(date: Date, delta: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+/** Whether two dates fall on the same calendar day (ignores time-of-day). */
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
