@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Camera,
   CalendarCheck,
@@ -14,6 +24,7 @@ import {
   ShoppingBag,
   TrendingUp,
   Users,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -26,7 +37,14 @@ import OfflineBanner from "@/components/OfflineBanner";
 import AccentColorSync from "@/components/AccentColorSync";
 import AppBadgeSync from "@/components/AppBadgeSync";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  parentOnly: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
   { href: "/family", label: "Rodina", icon: Users, parentOnly: false },
   { href: "/assign", label: "Zadat", icon: ListChecks, parentOnly: true },
@@ -36,7 +54,60 @@ const NAV_ITEMS = [
   { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
   { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
   { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
-] as const;
+];
+
+function navOrderStorageKey(uid: string): string {
+  return `nav-order:${uid}`;
+}
+
+/**
+ * Applies a member's saved href order on top of the canonical NAV_ITEMS
+ * list — any href missing from storedOrder (a tab added after they last
+ * reordered, or one they've never seen) is appended at the end in its
+ * default position, and any stale href (a tab that no longer exists) is
+ * dropped silently.
+ */
+function resolveOrder(storedOrder: string[]): NavItem[] {
+  const byHref = new Map<string, NavItem>(NAV_ITEMS.map((item) => [item.href, item]));
+  const ordered = storedOrder.map((href) => byHref.get(href)).filter((item): item is NavItem => Boolean(item));
+  const seen = new Set(ordered.map((item) => item.href));
+  return [...ordered, ...NAV_ITEMS.filter((item) => !seen.has(item.href))];
+}
+
+function SortableNavButton({
+  item,
+  active,
+  onSelect,
+}: {
+  item: NavItem;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.href });
+  const Icon = item.icon;
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : undefined }}
+      {...attributes}
+      {...listeners}
+      type="button"
+      aria-current={active ? "page" : undefined}
+      // A plain click still calls onSelect directly — dnd-kit only treats a
+      // press as a drag once it clears the sensors' activation constraints
+      // (see sensors below), so a normal tap falls through to this like a
+      // regular button click.
+      onClick={onSelect}
+      className={`flex min-w-0 flex-1 touch-none flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
+        active ? "text-accent" : "text-zinc-500"
+      } ${isDragging ? "opacity-60" : ""}`}
+    >
+      <Icon size={20} />
+      <span className="max-w-full truncate">{item.label}</span>
+    </button>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -46,9 +117,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const loading = authLoading || familyLoading;
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((item) => item.href));
+  const [loadedOrderForUid, setLoadedOrderForUid] = useState<string | null>(null);
+
+  // Adjust state during rendering (React's documented pattern for "sync
+  // once when an external identity becomes available/changes") instead of
+  // an effect — `user` is always null during SSR and the very first client
+  // render (Firebase auth resolves asynchronously), so this never touches
+  // localStorage before hydration and never causes a mismatch; it just
+  // applies this member's saved order the first render where `user` is
+  // actually known.
+  if (user && loadedOrderForUid !== user.uid) {
+    setLoadedOrderForUid(user.uid);
+    const stored = typeof window !== "undefined" ? localStorage.getItem(navOrderStorageKey(user.uid)) : null;
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setNavOrder(parsed);
+      } catch {
+        // Corrupt/foreign value — ignore, keep the default order.
+      }
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    // "Dlouhý klik" on touch — a press has to hold for `delay` ms before it
+    // counts as a drag, so a normal tap still just navigates.
+    useSensor(TouchSensor, { activationConstraint: { delay: 350, tolerance: 8 } })
+  );
 
   function visibleNavItems() {
-    return NAV_ITEMS.filter((item) => {
+    return resolveOrder(navOrder).filter((item) => {
       if (item.parentOnly && member?.role !== "parent") return false;
       if (item.href === "/investments" && family?.investmentsEnabled === false) return false;
       // "Vzdělání" is opt-in per member (Settings → parent picks who) while
@@ -65,13 +165,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     });
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !user) return;
+
+    const visibleHrefs = visibleNavItems().map((item) => item.href);
+    const oldIndex = visibleHrefs.indexOf(String(active.id));
+    const newIndex = visibleHrefs.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reorderedVisible = arrayMove(visibleHrefs, oldIndex, newIndex);
+
+    // Splice the reordered visible hrefs back into the full canonical
+    // order, preserving the relative position of any items this member
+    // can't currently see (e.g. parent-only tabs for a child) so they land
+    // back in the right place if visibility ever changes.
+    const fullOrder = resolveOrder(navOrder).map((item) => item.href);
+    let cursor = 0;
+    const nextOrder = fullOrder.map((href) => (visibleHrefs.includes(href) ? reorderedVisible[cursor++] : href));
+
+    setNavOrder(nextOrder);
+    localStorage.setItem(navOrderStorageKey(user.uid), JSON.stringify(nextOrder));
+  }
+
   function navigateToTab(href: string) {
     // Slide toward whichever side the target tab sits on relative to the
-    // current one in the nav order — read by the --vt-direction-driven
-    // keyframes in globals.css, scoped to the "page-content" transition
-    // name below so only the content area moves, not the static chrome.
-    const currentIndex = NAV_ITEMS.findIndex((item) => pathname?.startsWith(item.href));
-    const targetIndex = NAV_ITEMS.findIndex((item) => item.href === href);
+    // current one in this member's own nav order — read by the
+    // --vt-direction-driven keyframes in globals.css, scoped to the
+    // "page-content" transition name below so only the content area moves,
+    // not the static chrome.
+    const orderedHrefs = visibleNavItems().map((item) => item.href);
+    const currentIndex = orderedHrefs.findIndex((itemHref) => pathname?.startsWith(itemHref));
+    const targetIndex = orderedHrefs.indexOf(href);
     const direction = targetIndex >= currentIndex ? 1 : -1;
 
     if (typeof document.startViewTransition !== "function") {
@@ -137,6 +261,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  const items = visibleNavItems();
+
   return (
     <div className="flex flex-1 flex-col">
       <XpGainCelebration />
@@ -177,28 +303,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        {visibleNavItems().map((item) => {
-          const Icon = item.icon;
-          const active = pathname?.startsWith(item.href);
-          return (
-            <button
-              key={item.href}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              // A plain button calling navigateToTab directly — routed through
-              // the exact same imperative path as the swipe gesture below, so
-              // a tap gets the identical view-transition slide instead of
-              // whatever timing next/link's own click handling would add.
-              onClick={() => navigateToTab(item.href)}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
-                active ? "text-accent" : "text-zinc-500"
-              }`}
-            >
-              <Icon size={20} />
-              <span className="max-w-full truncate">{item.label}</span>
-            </button>
-          );
-        })}
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((item) => item.href)} strategy={horizontalListSortingStrategy}>
+            {items.map((item) => (
+              <SortableNavButton
+                key={item.href}
+                item={item}
+                active={Boolean(pathname?.startsWith(item.href))}
+                onSelect={() => navigateToTab(item.href)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </nav>
     </div>
   );

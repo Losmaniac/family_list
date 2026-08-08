@@ -48,3 +48,19 @@ export function effectiveInvestmentTerms(customTerms: InvestmentTerm[] | undefin
 export function maturityPayout(principal: number, rate: number): number {
   return principal * (1 + rate);
 }
+
+/**
+ * How much of a member's XP is currently locked up — 'active' investments,
+ * plus 'withdrawal_requested' ones (the principal hasn't actually been
+ * returned to their balance yet, that only happens once the server
+ * processes the request). Matured/withdrawn/cancelled investments are
+ * already settled, so they don't count as "currently invested".
+ */
+export function totalInvested<T extends { userId: string; principal: number; status: string }>(
+  investments: T[],
+  userId: string
+): number {
+  return investments
+    .filter((i) => i.userId === userId && (i.status === "active" || i.status === "withdrawal_requested"))
+    .reduce((sum, i) => sum + i.principal, 0);
+}
