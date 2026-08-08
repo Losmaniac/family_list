@@ -10,6 +10,7 @@ import { useToast } from "@/lib/toast-context";
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
 import { dateKeyInFamilyZone, dayOfWeekInFamilyZone } from "@/lib/date-utils";
+import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
 import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate, XpLedgerEntry } from "@/lib/types";
@@ -461,7 +462,7 @@ export default function FamilyPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {categoryInfo(proposal.category).icon} {proposal.title} · +{proposal.xpValue} XP
+                      {categoryInfo(proposal.category).icon} {proposal.title} · +{formatXp(proposal.xpValue)} XP
                     </p>
                     <p className="truncate text-sm text-zinc-500">
                       Navrhl(a) {proposer?.name ?? proposal.proposedBy}
@@ -559,7 +560,7 @@ export default function FamilyPage() {
                         {template.category && `${categoryInfo(template.category).icon} `}
                         {template.title}
                       </p>
-                      <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
+                      <span className="shrink-0 text-sm font-semibold text-accent">+{formatXp(template.xpValue)} XP</span>
                     </div>
                   );
                 })}

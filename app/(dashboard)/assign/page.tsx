@@ -11,6 +11,7 @@ import { logAction } from "@/lib/audit-log";
 import { TASK_PRESET_CATEGORIES, type TaskPreset } from "@/lib/task-presets";
 import { TASK_CATEGORIES, categoryInfo } from "@/lib/categories";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
+import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import WeekSchedule from "@/components/WeekSchedule";
 import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types";
@@ -451,7 +452,7 @@ export default function AssignPage() {
                 {template.title}
               </p>
               <p className="text-sm text-zinc-500">
-                +{template.xpValue} XP · {recurrenceLabel(template)} ·{" "}
+                +{formatXp(template.xpValue)} XP · {recurrenceLabel(template)} ·{" "}
                 {template.assignedTo
                   .map((id) => members.find((m) => m.id === id)?.name ?? id)
                   .join(", ")}

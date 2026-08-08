@@ -11,6 +11,7 @@ import { logAction } from "@/lib/audit-log";
 import InvestmentsSection from "@/components/Investments";
 import FamilyInvestmentsOverview from "@/components/FamilyInvestmentsOverview";
 import { effectiveInvestmentTerms, findTermInList } from "@/lib/investments";
+import { formatXp } from "@/lib/xp-engine";
 import type { Investment, Member } from "@/lib/types";
 
 export default function InvestmentsPage() {
@@ -71,7 +72,7 @@ export default function InvestmentsPage() {
         maturesAt: now + term.days * 24 * 60 * 60 * 1000,
         status: "active",
       });
-      toast.success(`${principal} XP uloženo na ${term.label}.`);
+      toast.success(`${formatXp(principal)} XP uloženo na ${term.label}.`);
     } catch {
       toast.error("Investici se nepodařilo založit.");
     } finally {
@@ -106,7 +107,7 @@ export default function InvestmentsPage() {
     setFamilyInvestments((prev) => prev.filter((i) => i.id !== investment.id));
     try {
       await deleteDoc(doc(getDb(), "families", familyId, "investments", investment.id));
-      logAction(familyId, user.uid, "investment_deleted", `${investment.principal} XP`);
+      logAction(familyId, user.uid, "investment_deleted", `${formatXp(investment.principal)} XP`);
       toast.success("Investice byla smazána.");
     } catch {
       toast.error("Investici se nepodařilo smazat.");

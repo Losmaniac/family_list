@@ -8,6 +8,7 @@ import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { formatXp } from "@/lib/xp-engine";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
 import type { Member, PooledContribution, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
@@ -200,7 +201,7 @@ export default function ShopPage() {
                 <div className="flex items-center justify-between text-sm">
                   <p className="font-medium">{reward?.title ?? pool.rewardId}</p>
                   <p className="text-zinc-500">
-                    {total}/{reward?.xpCost ?? "?"} XP
+                    {formatXp(total)}/{reward ? formatXp(reward.xpCost) : "?"} XP
                   </p>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
@@ -211,7 +212,7 @@ export default function ShopPage() {
                     const pledge = pool.contributions[userId];
                     return (
                       <span key={userId} className="rounded-full bg-surface-muted px-2 py-0.5">
-                        {members[userId]?.name ?? userId}: {pledge !== undefined ? `${pledge} XP` : "čeká"}
+                        {members[userId]?.name ?? userId}: {pledge !== undefined ? `${formatXp(pledge)} XP` : "čeká"}
                       </span>
                     );
                   })}

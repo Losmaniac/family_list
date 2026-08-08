@@ -1,5 +1,5 @@
 import { Trophy } from "lucide-react";
-import { earliestTimestampAtBalance, levelProgress } from "@/lib/xp-engine";
+import { earliestTimestampAtBalance, formatXp, levelProgress } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import InfoButton from "@/components/InfoButton";
 import type { Member, XpLedgerEntry } from "@/lib/types";
@@ -61,9 +61,7 @@ export default function Leaderboard({ members, levelTitles, levelThresholds, led
                 <p className="truncate font-medium">{member.name}</p>
                 <p className="text-xs text-zinc-500">{title}</p>
               </div>
-              <span className="shrink-0 text-sm font-semibold text-accent">
-                {member.xpBalance.toLocaleString("cs-CZ")} XP
-              </span>
+              <span className="shrink-0 text-sm font-semibold text-accent">{formatXp(member.xpBalance)} XP</span>
             </div>
           );
         })}

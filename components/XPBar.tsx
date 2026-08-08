@@ -1,4 +1,4 @@
-import { levelProgress } from "@/lib/xp-engine";
+import { formatXp, levelProgress } from "@/lib/xp-engine";
 
 interface XPBarProps {
   xpBalance: number;
@@ -17,7 +17,7 @@ export default function XPBar({ xpBalance, levelTitles, levelThresholds }: XPBar
           Level {level} · {title}
         </span>
         <span className="text-zinc-500">
-          {intoLevel}/{span} XP
+          {formatXp(intoLevel)}/{formatXp(span)} XP
         </span>
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-muted">

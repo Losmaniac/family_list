@@ -16,6 +16,7 @@ import { getDb } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { computeAchievements } from "@/lib/achievements";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
+import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
@@ -174,7 +175,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             const xp = dailyXp[i];
             const heightPct = xp === 0 ? 2 : Math.max(6, Math.round((Math.abs(xp) / maxDailyXp) * 100));
             return (
-              <div key={day} className="flex flex-1 flex-col items-center gap-1" title={`${day}: ${xp >= 0 ? "+" : ""}${xp} XP`}>
+              <div key={day} className="flex flex-1 flex-col items-center gap-1" title={`${day}: ${xp >= 0 ? "+" : ""}${formatXp(xp)} XP`}>
                 <div className="flex h-20 w-full items-end">
                   <div
                     className={`w-full rounded-t-sm ${xp < 0 ? "bg-danger" : "bg-accent"}`}
@@ -212,7 +213,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               </div>
               <span className={`font-semibold ${entry.delta >= 0 ? "text-success" : "text-danger"}`}>
                 {entry.delta >= 0 ? "+" : ""}
-                {entry.delta} XP
+                {formatXp(entry.delta)} XP
               </span>
             </div>
           ))

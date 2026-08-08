@@ -12,6 +12,7 @@ import { useDialog } from "@/lib/dialog-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { logAction } from "@/lib/audit-log";
 import { compressImage } from "@/lib/image-compress";
+import { formatXp } from "@/lib/xp-engine";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
@@ -365,7 +366,7 @@ export default function TodayPage() {
                   <div>
                     <p className="font-medium">{template.title}</p>
                     <p className="text-sm text-zinc-500">
-                      {requester?.name ?? task.assignedTo} · +{template.xpValue} XP
+                      {requester?.name ?? task.assignedTo} · +{formatXp(template.xpValue)} XP
                     </p>
                   </div>
                 </div>

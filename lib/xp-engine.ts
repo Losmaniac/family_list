@@ -15,6 +15,17 @@ export function canAffordReward(xpBalance: number, rewardXpCost: number): boolea
 }
 
 /**
+ * XP is decimal-capable in the ledger/xpBalance (investments, Vzdělání, and
+ * future modules can award fractional XP) but the UI only ever shows whole
+ * numbers — always floored, never rounded up, so nobody sees XP they don't
+ * actually have yet. Formatted with the app's number convention (space
+ * thousands separator).
+ */
+export function formatXp(value: number): string {
+  return Math.floor(value).toLocaleString("cs-CZ");
+}
+
+/**
  * Earliest moment a member's running XP total (summed in timestamp order)
  * first equalled their current balance — used to break leaderboard ties
  * ("stejné XP, kdo ho dosáhl dřív") in favor of whoever got there first,
@@ -54,7 +65,9 @@ export function applyStreakBonus(
   cap: number = DEFAULT_STREAK_BONUS_CAP
 ): number {
   const bonus = Math.min(cap, perDay * Math.max(0, streak - 1));
-  return Math.round(baseXp * (1 + bonus));
+  // Kept exact (not rounded) — the ledger and xpBalance are decimal-capable;
+  // only the UI floors XP for display.
+  return baseXp * (1 + bonus);
 }
 
 // Explicit thresholds matching the spec's example curve (L2=100, L3=250, ...,
