@@ -3,7 +3,17 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Camera, CalendarCheck, ListChecks, MessageCircle, Settings, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import {
+  Camera,
+  CalendarCheck,
+  GraduationCap,
+  ListChecks,
+  MessageCircle,
+  Settings,
+  ShoppingBag,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import Avatar from "@/components/Avatar";
@@ -23,6 +33,7 @@ const NAV_ITEMS = [
   { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
   { href: "/investments", label: "Investice", icon: TrendingUp, parentOnly: false },
   { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
+  { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
 ] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -38,6 +49,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return NAV_ITEMS.filter((item) => {
       if (item.parentOnly && member?.role !== "parent") return false;
       if (item.href === "/investments" && family?.investmentsEnabled === false) return false;
+      // "Vzdělání" is opt-in per member (Settings → parent picks who) while
+      // it's being rolled out — parents can always reach it themselves to
+      // try it and configure who else sees it.
+      if (
+        item.href === "/practice" &&
+        member?.role !== "parent" &&
+        !family?.practiceVisibleTo?.includes(member?.id ?? "")
+      ) {
+        return false;
+      }
       return true;
     });
   }

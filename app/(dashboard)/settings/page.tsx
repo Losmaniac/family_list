@@ -22,6 +22,7 @@ import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
 import StreakSettingsPanel from "@/components/StreakSettingsPanel";
+import PracticeSettingsPanel from "@/components/PracticeSettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
@@ -380,6 +381,18 @@ export default function SettingsPage() {
             streakBonusPerDay={family?.streakBonusPerDay}
             streakBonusCap={family?.streakBonusCap}
             streakFreezeEnabled={family?.streakFreezeEnabled}
+          />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Vzdělání</h2>
+          <PracticeSettingsPanel
+            familyId={familyId}
+            members={members}
+            practiceVisibleTo={family?.practiceVisibleTo}
+            practiceDailyXpCap={family?.practiceDailyXpCap}
           />
         </section>
       )}

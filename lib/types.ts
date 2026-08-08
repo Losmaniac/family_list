@@ -50,8 +50,10 @@ export interface Family {
   eveningReminderEnabled?: boolean;
   /** Whether one missed day per week is forgiven instead of resetting the streak; absent = enabled. */
   streakFreezeEnabled?: boolean;
-  /** Max XP a member can earn per day from the "Příklady" practice module; absent = the built-in default (see lib/practice.ts). */
+  /** Max XP a member can earn per day from the "Vzdělání" practice module; absent = the built-in default (see lib/practice.ts). */
   practiceDailyXpCap?: number;
+  /** Member IDs who see the "Vzdělání" module at all (nav item + /practice); absent/empty = nobody but parents, who can always reach it to try/configure it. */
+  practiceVisibleTo?: string[];
 }
 
 export type MemberRole = "parent" | "child";
