@@ -9,7 +9,7 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
-import { dateKeyInFamilyZone } from "@/lib/date-utils";
+import { addMonths, dateKeyInFamilyZone, daysInMonth, isSameDay, startOfMonth } from "@/lib/date-utils";
 import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
@@ -27,22 +27,6 @@ function emptyProposalForm() {
     recurrence: "daily" as Recurrence,
     daysOfWeek: [] as number[],
   };
-}
-
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function daysInMonth(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-}
-
-function addMonths(date: Date, delta: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 export default function FamilyPage() {
