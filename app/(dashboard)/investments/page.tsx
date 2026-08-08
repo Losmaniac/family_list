@@ -100,12 +100,18 @@ export default function InvestmentsPage() {
       danger: true,
     });
     if (!ok) return;
+    // Optimistic — don't wait on the onSnapshot round-trip to reflect the
+    // delete, it should disappear the instant the parent confirms it.
+    setInvestments((prev) => prev.filter((i) => i.id !== investment.id));
+    setFamilyInvestments((prev) => prev.filter((i) => i.id !== investment.id));
     try {
       await deleteDoc(doc(getDb(), "families", familyId, "investments", investment.id));
       logAction(familyId, user.uid, "investment_deleted", `${investment.principal} XP`);
       toast.success("Investice byla smazána.");
     } catch {
       toast.error("Investici se nepodařilo smazat.");
+      setInvestments((prev) => (prev.some((i) => i.id === investment.id) ? prev : [...prev, investment]));
+      setFamilyInvestments((prev) => (prev.some((i) => i.id === investment.id) ? prev : [...prev, investment]));
     }
   }
 
