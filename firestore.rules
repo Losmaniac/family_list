@@ -167,7 +167,11 @@ service cloud.firestore {
           resource.data.status == 'active' &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
           request.resource.data.status == 'withdrawal_requested';
-        allow delete: if false;
+        // A parent may clean up old, already-settled investments (matured
+        // or withdrawn) from the history — never 'active', since deleting
+        // one wouldn't return the already-deducted principal to the
+        // member's balance.
+        allow delete: if isParent(familyId) && resource.data.status != 'active';
       }
 
       match /pooledContributions/{poolId} {

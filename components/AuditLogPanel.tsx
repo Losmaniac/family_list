@@ -19,6 +19,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   chat_cleared: "Vymazání historie chatu",
   photos_cleared: "Vymazání fotek úkolů",
   audit_log_cleared: "Vymazání historie akcí",
+  investment_deleted: "Smazání investice",
 };
 
 export default function AuditLogPanel({ familyId, members }: { familyId: string; members: Member[] }) {
