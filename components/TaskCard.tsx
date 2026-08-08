@@ -1,7 +1,7 @@
 import { Camera, CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
 import { categoryInfo } from "@/lib/categories";
 import { formatXp } from "@/lib/xp-engine";
-import InfoButton from "@/components/InfoButton";
+import { useDialog } from "@/lib/dialog-context";
 import type { DailyTask, TaskTemplate } from "@/lib/types";
 
 const STATUS_EXPLANATIONS: Record<string, string> = {
@@ -24,7 +24,26 @@ const STATUS_STYLES: Record<string, string> = {
   returned: "border-danger/30 bg-danger/10",
 };
 
+/**
+ * Full detail text for the tap-to-view dialog — the row itself only ever
+ * shows a truncated single-line description, so this is the one place a
+ * member can read the whole thing plus everything else about the task
+ * (category, reward, photo requirement, current status, a parent's return
+ * comment) without that also completing/uncompleting it.
+ */
+function buildDetails(task: DailyTask, template: TaskTemplate): string {
+  const parts: string[] = [];
+  if (template.description) parts.push(template.description);
+  parts.push(`Kategorie: ${categoryInfo(template.category).label}.`);
+  parts.push(`Odměna: +${formatXp(template.xpValue)} XP.`);
+  if (template.photoRequired) parts.push("Vyžaduje přiložit foto jako důkaz.");
+  if (STATUS_EXPLANATIONS[task.status]) parts.push(STATUS_EXPLANATIONS[task.status]);
+  if (task.status === "returned" && task.returnComment) parts.push(`Poznámka rodiče: ${task.returnComment}`);
+  return parts.join(" ");
+}
+
 export default function TaskCard({ task, template, onToggle, disabled }: TaskCardProps) {
+  const { info } = useDialog();
   const categoryIcon = template.category ? categoryInfo(template.category).icon : null;
 
   return (
@@ -37,9 +56,16 @@ export default function TaskCard({ task, template, onToggle, disabled }: TaskCar
         type="button"
         onClick={() => onToggle?.(task)}
         disabled={disabled}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-60"
+        aria-label={task.status === "pending" || task.status === "returned" ? "Splnit úkol" : "Zrušit splnění"}
+        className="shrink-0 disabled:opacity-60"
       >
         <StatusIcon status={task.status} />
+      </button>
+      <button
+        type="button"
+        onClick={() => info({ title: template.title, description: buildDetails(task, template) })}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
         <div className="min-w-0 flex-1">
           <p className={`flex items-center gap-1 font-medium ${task.status === "done" ? "text-zinc-400 line-through" : ""}`}>
             {categoryIcon && <span>{categoryIcon}</span>}
@@ -58,12 +84,6 @@ export default function TaskCard({ task, template, onToggle, disabled }: TaskCar
         </div>
         <span className="shrink-0 text-sm font-semibold text-accent">+{formatXp(template.xpValue)} XP</span>
       </button>
-      <InfoButton
-        title={template.title}
-        description={`${STATUS_EXPLANATIONS[task.status] ?? ""} Splněním získáš +${formatXp(template.xpValue)} XP.${
-          template.photoRequired ? " Tento úkol vyžaduje přiložit foto jako důkaz." : ""
-        }`}
-      />
     </div>
   );
 }

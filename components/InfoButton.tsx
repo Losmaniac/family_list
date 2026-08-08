@@ -6,7 +6,7 @@ import { useDialog } from "@/lib/dialog-context";
 /**
  * A small "?" affordance dropped onto a card to explain what it is —
  * stops propagation so it never triggers whatever the card itself does on
- * tap/click (e.g. TaskCard's toggle).
+ * tap/click.
  */
 export default function InfoButton({ title, description }: { title: string; description: string }) {
   const { info } = useDialog();
