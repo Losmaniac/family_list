@@ -28,24 +28,24 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
 
 export type PracticeDifficulty = 1 | 2 | 3;
 
-export const PRACTICE_DIFFICULTY_LABELS: Record<PracticeDifficulty, string> = {
-  1: "Lehké",
-  2: "Střední",
-  3: "Těžké",
-};
-
-/** XP awarded per correct answer, by difficulty — small on purpose since the daily cap is the real limiter. */
-export const PRACTICE_XP_REWARD: Record<PracticeDifficulty, number> = {
-  1: 1,
-  2: 2,
-  3: 3,
-};
+/** Flat XP for every correct answer, any difficulty — no easy/medium/hard picker, the daily cap is the only limiter. */
+export const PRACTICE_XP_PER_PROBLEM = 1;
 
 /** Max XP a member can earn from this module per day; a parent can raise/lower this later. */
 export const DEFAULT_PRACTICE_DAILY_XP_CAP = 50;
 
 /** Wrong answers allowed before the correct answer is revealed and a new problem is required. */
 export const PRACTICE_MAX_ATTEMPTS = 3;
+
+/**
+ * No difficulty picker is shown to the member — the server always chooses
+ * for them. Tuned for 5th grade (~10-11 y/o): skips tier 1 (single digits)
+ * as too easy, randomizes between tier 2 (two-digit +/-/×) and tier 3
+ * (×/÷ with bigger numbers) so problems still vary.
+ */
+export function pickGradeAppropriateMathDifficulty(random: () => number = Math.random): PracticeDifficulty {
+  return random() < 0.5 ? 2 : 3;
+}
 
 export interface MathProblem {
   operandA: number;

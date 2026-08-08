@@ -3,8 +3,8 @@ import {
   generateMathProblem,
   isAnswerCorrect,
   normalizeAnswer,
+  pickGradeAppropriateMathDifficulty,
   pickRandomLogicWordProblem,
-  PRACTICE_XP_REWARD,
   LOGIC_WORD_PROBLEMS,
 } from "./practice";
 
@@ -67,9 +67,11 @@ describe("pickRandomLogicWordProblem", () => {
   });
 });
 
-describe("PRACTICE_XP_REWARD", () => {
-  it("increases with difficulty", () => {
-    expect(PRACTICE_XP_REWARD[1]).toBeLessThan(PRACTICE_XP_REWARD[2]);
-    expect(PRACTICE_XP_REWARD[2]).toBeLessThan(PRACTICE_XP_REWARD[3]);
+describe("pickGradeAppropriateMathDifficulty", () => {
+  it("only ever returns tier 2 or 3, never the too-easy tier 1", () => {
+    for (let i = 0; i <= 10; i++) {
+      const difficulty = pickGradeAppropriateMathDifficulty(() => i / 10);
+      expect([2, 3]).toContain(difficulty);
+    }
   });
 });
