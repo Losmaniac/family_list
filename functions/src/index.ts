@@ -15,6 +15,7 @@ export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
 export { generatePracticeProblem, submitPracticeAnswer } from "./practice";
+export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export {
   onTaskProposalCreated,
   onTaskRequestOpened,
