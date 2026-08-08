@@ -1,31 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { collection, deleteDoc, doc, onSnapshot, writeBatch } from "firebase/firestore";
+import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
-import { addDays, dateKeyInFamilyZone, startOfWeek } from "@/lib/date-utils";
+import { addMonths, dateKeyInFamilyZone, daysInMonth, startOfMonth } from "@/lib/date-utils";
+import { czechHolidayName } from "@/lib/czech-holidays";
 import { CALENDAR_EVENT_CATEGORIES, calendarEventCategoryInfo } from "@/lib/calendar-events";
 import Avatar from "@/components/Avatar";
 import type { CalendarEvent, CalendarEventCategory, Member } from "@/lib/types";
 
-// Display order Po..Ne — weekDates below is always built from a Monday
-// startOfWeek, so a date's index in that array already matches this order.
+// Monday-first display order, matching how the grid below is laid out.
 const WEEKDAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" });
 
-function emptyForm(defaultMemberId: string, defaultDate: string) {
-  return { title: "", date: defaultDate, category: "other" as CalendarEventCategory, memberId: defaultMemberId };
-}
-
-function weekRangeLabel(weekStart: Date): string {
-  const weekEnd = addDays(weekStart, 6);
-  const startLabel = `${weekStart.getDate()}. ${weekStart.getMonth() + 1}.`;
-  const endLabel = `${weekEnd.getDate()}. ${weekEnd.getMonth() + 1}. ${weekEnd.getFullYear()}`;
-  return `${startLabel} – ${endLabel}`;
+function emptyForm(defaultMemberIds: string[]) {
+  return { title: "", category: "other" as CalendarEventCategory, memberIds: defaultMemberIds };
 }
 
 export default function CalendarPage() {
@@ -36,11 +30,15 @@ export default function CalendarPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [showForm, setShowForm] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()));
+  // The one day whose popup (existing reminders + "add another") is open —
+  // this is the only interaction surface now: tap any day, view what's
+  // there, optionally add more, on top of the general "+ Přidat" shortcut.
+  const [openDateKey, setOpenDateKey] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
   // Safe to read user.uid synchronously here — DashboardLayout only ever
   // renders this page once auth has resolved.
-  const [form, setForm] = useState(() => emptyForm(user?.uid ?? "", dateKeyInFamilyZone(new Date())));
+  const [form, setForm] = useState(() => emptyForm(user ? [user.uid] : []));
   const [submitting, setSubmitting] = useState(false);
 
   const isParent = member?.role === "parent";
@@ -59,43 +57,63 @@ export default function CalendarPage() {
     });
   }, [familyId]);
 
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const todayKey = dateKeyInFamilyZone(new Date());
+  const leadingBlanks = (startOfMonth(viewMonth).getDay() + 6) % 7; // Mon=0..Sun=6
+  const monthDates = Array.from(
+    { length: daysInMonth(viewMonth) },
+    (_, i) => new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i + 1)
+  );
 
-  function eventsFor(dateKey: string, memberId: string): CalendarEvent[] {
-    return events
-      .filter((e) => e.date === dateKey && e.memberId === memberId)
-      .sort((a, b) => a.timestamp - b.timestamp);
-  }
-
-  function canAddFor(memberId: string): boolean {
-    return isParent || memberId === user?.uid;
+  function eventsFor(dateKey: string): CalendarEvent[] {
+    return events.filter((e) => e.date === dateKey).sort((a, b) => a.timestamp - b.timestamp);
   }
 
   function canDelete(evt: CalendarEvent): boolean {
     return evt.createdBy === user?.uid || isParent;
   }
 
-  function openFormFor(dateKey: string, memberId: string) {
-    setForm({ title: "", date: dateKey, category: "other", memberId });
-    setShowForm(true);
+  function openDay(dateKey: string) {
+    setOpenDateKey(dateKey);
+    setShowAddForm(false);
+    setForm(emptyForm(user ? [user.uid] : []));
+  }
+
+  function toggleFormMember(memberId: string) {
+    if (!isParent) return;
+    setForm((prev) => ({
+      ...prev,
+      memberIds: prev.memberIds.includes(memberId)
+        ? prev.memberIds.filter((id) => id !== memberId)
+        : [...prev.memberIds, memberId],
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!familyId || !user || !form.title.trim()) return;
+    if (!familyId || !user || !openDateKey || !form.title.trim()) return;
+    const memberIds = isParent ? form.memberIds : [user.uid];
+    if (memberIds.length === 0) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(getDb(), "families", familyId, "calendarEvents"), {
-        title: form.title.trim(),
-        date: form.date,
-        category: form.category,
-        memberId: isParent ? form.memberId : user.uid,
-        createdBy: user.uid,
-        timestamp: Date.now(),
-      });
-      toast.success("Přidáno do kalendáře.");
-      setShowForm(false);
+      // One doc per selected member — e.g. a family vacation gets a
+      // reminder on every member's own record, not just the person who
+      // added it, so "kdo má co" stays accurate per person even though
+      // they were all added in a single action.
+      const batch = writeBatch(getDb());
+      for (const memberId of memberIds) {
+        batch.set(doc(collection(getDb(), "families", familyId, "calendarEvents")), {
+          title: form.title.trim(),
+          date: openDateKey,
+          category: form.category,
+          memberId,
+          createdBy: user.uid,
+          timestamp: Date.now(),
+        });
+      }
+      await batch.commit();
+      toast.success(memberIds.length > 1 ? "Přidáno do kalendáře pro vybrané členy." : "Přidáno do kalendáře.");
+      setShowAddForm(false);
+      setForm(emptyForm([user.uid]));
     } catch {
       toast.error("Nepodařilo se přidat záznam.");
     } finally {
@@ -119,6 +137,13 @@ export default function CalendarPage() {
     }
   }
 
+  const openDayEvents = openDateKey ? eventsFor(openDateKey) : [];
+  const openDayDate = openDateKey ? new Date(`${openDateKey}T00:00:00`) : null;
+  const openDayLabel = openDayDate
+    ? openDayDate.toLocaleDateString("cs-CZ", { day: "numeric", month: "long", year: "numeric" })
+    : "";
+  const openDayHoliday = openDayDate ? czechHolidayName(openDayDate) : undefined;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -128,198 +153,198 @@ export default function CalendarPage() {
             Připomínky mimo naplánované úkoly — lékař, narozeniny, svátky, dovolené…
           </p>
         </div>
-        {!showForm && (
-          <button
-            type="button"
-            onClick={() => openFormFor(dateKeyInFamilyZone(new Date()), user?.uid ?? "")}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
-          >
-            <Plus size={16} /> Přidat
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            openDay(todayKey);
+            setShowAddForm(true);
+          }}
+          className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+        >
+          <Plus size={16} /> Přidat
+        </button>
       </div>
 
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => setWeekStart(addDays(weekStart, -7))}
-          aria-label="Předchozí týden"
+          onClick={() => setViewMonth(addMonths(viewMonth, -1))}
+          aria-label="Předchozí měsíc"
           className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
         >
           <ChevronLeft size={18} />
         </button>
+        <p className="text-sm font-semibold capitalize">{MONTH_LABEL_FORMATTER.format(viewMonth)}</p>
         <button
           type="button"
-          onClick={() => setWeekStart(startOfWeek(new Date()))}
-          className="text-sm font-semibold"
-        >
-          {weekRangeLabel(weekStart)}
-        </button>
-        <button
-          type="button"
-          onClick={() => setWeekStart(addDays(weekStart, 7))}
-          aria-label="Následující týden"
+          onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+          aria-label="Následující měsíc"
           className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
         >
           <ChevronRight size={18} />
         </button>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
-          <input
-            type="text"
-            required
-            autoFocus
-            placeholder="Co si připomenout?"
-            value={form.title}
-            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-            className="rounded-lg border border-border bg-surface px-4 py-2"
-          />
-          <input
-            type="date"
-            required
-            value={form.date}
-            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
-            className="rounded-lg border border-border bg-surface px-4 py-2"
-          />
-          <div className="flex flex-wrap gap-2">
-            {CALENDAR_EVENT_CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => setForm((prev) => ({ ...prev, category: cat.value }))}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  form.category === cat.value ? "bg-accent text-accent-foreground" : "border border-border"
-                }`}
-              >
-                {cat.icon} {cat.label}
-              </button>
-            ))}
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-zinc-500">
+        {WEEKDAYS.map((label, i) => (
+          <div key={label} className={i >= 5 ? "text-accent" : ""}>
+            {label}
           </div>
-          {isParent && (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-zinc-500">Pro koho</p>
-              <div className="flex flex-wrap gap-2">
-                {members.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, memberId: m.id }))}
-                    className={`rounded-full px-3 py-1.5 text-sm ${
-                      form.memberId === m.id ? "bg-accent text-accent-foreground" : "border border-border"
-                    }`}
-                  >
-                    {m.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2">
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: leadingBlanks }, (_, i) => (
+          <div key={`blank-${i}`} />
+        ))}
+        {monthDates.map((date) => {
+          const dateKey = dateKeyInFamilyZone(date);
+          const isToday = dateKey === todayKey;
+          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+          const holiday = czechHolidayName(date);
+          const hasEvents = eventsFor(dateKey).length > 0;
+          return (
             <button
-              type="submit"
-              disabled={submitting || !form.title.trim()}
-              className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-            >
-              Uložit
-            </button>
-            <button
+              key={dateKey}
               type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+              onClick={() => openDay(dateKey)}
+              title={holiday}
+              className={`relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-sm ${
+                isToday ? "ring-2 ring-accent" : ""
+              } ${holiday ? "bg-danger/10 text-danger" : isWeekend ? "bg-surface-muted text-zinc-600" : "bg-surface"}`}
             >
-              Zrušit
+              <span className={isToday ? "font-bold" : ""}>{date.getDate()}</span>
+              {hasEvents && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />}
             </button>
-          </div>
-        </form>
-      )}
+          );
+        })}
+      </div>
 
-      {/* Grid: a fixed weekday-label column, then one column per family
-          member — rows are the days of the currently viewed week, so a
-          parent can see at a glance who has what coming up without
-          clicking through each day one at a time. */}
-      <div className="overflow-x-auto overscroll-x-contain">
+      {openDateKey && (
         <div
-          className="grid min-w-max gap-px overflow-hidden rounded-xl border border-border bg-border"
-          style={{ gridTemplateColumns: `44px repeat(${Math.max(members.length, 1)}, minmax(104px, 1fr))` }}
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
-          <div className="bg-surface" />
-          {members.map((m) => (
-            <div key={m.id} className="flex flex-col items-center gap-1 bg-surface px-1 py-2">
-              <Avatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
-              <span className="max-w-full truncate text-xs font-medium">{m.name}</span>
+          <div className="flex max-h-[80vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold capitalize">{openDayLabel}</h2>
+              <button
+                type="button"
+                onClick={() => setOpenDateKey(null)}
+                aria-label="Zavřít"
+                className="text-zinc-400 hover:text-zinc-600"
+              >
+                <X size={20} />
+              </button>
             </div>
-          ))}
 
-          {weekDates.map((date, dayIndex) => {
-            const dateKey = dateKeyInFamilyZone(date);
-            const isToday = dateKey === todayKey;
-            return (
-              <div key={dateKey} className="contents">
-                <div
-                  className={`flex flex-col items-center justify-start gap-0.5 bg-surface px-1 py-2 text-xs font-semibold ${
-                    isToday ? "text-accent" : "text-zinc-500"
-                  }`}
-                >
-                  <span>{WEEKDAYS[dayIndex]}</span>
-                  <span className="text-[10px] font-normal">{date.getDate()}.</span>
-                </div>
-                {members.map((m) => {
-                  const dayEvents = eventsFor(dateKey, m.id);
-                  const addable = canAddFor(m.id);
+            {openDayHoliday && <p className="text-sm font-medium text-danger">{openDayHoliday}</p>}
+
+            {openDayEvents.length === 0 ? (
+              <p className="text-sm text-zinc-500">Žádné záznamy na tento den.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {openDayEvents.map((evt) => {
+                  const evtMember = members.find((m) => m.id === evt.memberId);
                   return (
-                    // A div, not a button — it holds each event's own delete
-                    // button, and nesting <button> inside <button> is
-                    // invalid HTML. addable clicks add a new reminder;
-                    // clicks on a chip's own delete button stop propagation
-                    // so they don't also trigger this.
-                    <div
-                      key={`${dateKey}-${m.id}`}
-                      role={addable ? "button" : undefined}
-                      tabIndex={addable ? 0 : undefined}
-                      onClick={addable ? () => openFormFor(dateKey, m.id) : undefined}
-                      onKeyDown={
-                        addable
-                          ? (e) => {
-                              if (e.key === "Enter" || e.key === " ") openFormFor(dateKey, m.id);
-                            }
-                          : undefined
-                      }
-                      className={`flex min-h-[52px] flex-col gap-1 bg-surface p-1 ${
-                        isToday ? "bg-accent/5" : ""
-                      } ${addable ? "cursor-pointer hover:bg-surface-muted" : ""}`}
-                    >
-                      {dayEvents.map((evt) => (
-                        <div
-                          key={evt.id}
-                          className="flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-1 text-[11px]"
+                    <div key={evt.id} className="flex items-center gap-3 rounded-xl border border-border px-3 py-2">
+                      <span className="shrink-0 text-xl">{calendarEventCategoryInfo(evt.category).icon}</span>
+                      {evtMember && <Avatar name={evtMember.name} avatarUrl={evtMember.avatarUrl} size="sm" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{evt.title}</p>
+                        {evtMember && <p className="truncate text-xs text-zinc-500">{evtMember.name}</p>}
+                      </div>
+                      {canDelete(evt) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(evt)}
+                          aria-label="Smazat záznam"
+                          className="shrink-0 text-danger"
                         >
-                          <span className="shrink-0">{calendarEventCategoryInfo(evt.category).icon}</span>
-                          <span className="min-w-0 flex-1 truncate">{evt.title}</span>
-                          {canDelete(evt) && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(evt);
-                              }}
-                              aria-label="Smazat záznam"
-                              className="shrink-0 text-zinc-400 hover:text-danger"
-                            >
-                              <X size={11} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
               </div>
-            );
-          })}
+            )}
+
+            {!showAddForm ? (
+              <button
+                type="button"
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center justify-center gap-1 rounded-full border border-border px-4 py-2 text-sm font-semibold"
+              >
+                <Plus size={16} /> Přidat další
+              </button>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3 border-t border-border pt-3">
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Co si připomenout?"
+                  value={form.title}
+                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="rounded-lg border border-border bg-surface px-4 py-2"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {CALENDAR_EVENT_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, category: cat.value }))}
+                      className={`rounded-full px-3 py-1.5 text-sm ${
+                        form.category === cat.value ? "bg-accent text-accent-foreground" : "border border-border"
+                      }`}
+                    >
+                      {cat.icon} {cat.label}
+                    </button>
+                  ))}
+                </div>
+                {isParent && (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-zinc-500">
+                      Pro koho — vyber i víc lidí najednou (např. dovolená pro celou rodinu)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {members.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleFormMember(m.id)}
+                          className={`rounded-full px-3 py-1.5 text-sm ${
+                            form.memberIds.includes(m.id) ? "bg-accent text-accent-foreground" : "border border-border"
+                          }`}
+                        >
+                          {m.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={submitting || !form.title.trim() || (isParent && form.memberIds.length === 0)}
+                    className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                  >
+                    Uložit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="rounded-full border border-border px-6 py-3 text-sm font-semibold"
+                  >
+                    Zrušit
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
