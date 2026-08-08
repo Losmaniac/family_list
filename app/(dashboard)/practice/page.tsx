@@ -6,14 +6,13 @@ import { Brain, Calculator, Sparkles } from "lucide-react";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
-import { PRACTICE_DIFFICULTY_LABELS, PRACTICE_SUBJECTS, PRACTICE_XP_REWARD, type PracticeDifficulty } from "@/lib/practice";
+import { PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
 
 type ProblemType = "math" | "logicword";
 
 interface GenerateResponse {
   question: string;
   type: ProblemType;
-  difficulty: PracticeDifficulty;
 }
 
 interface SubmitResponse {
@@ -35,7 +34,6 @@ export default function PracticePage() {
 
   const [subject, setSubject] = useState("math");
   const [type, setType] = useState<ProblemType>("math");
-  const [difficulty, setDifficulty] = useState<PracticeDifficulty>(1);
   const [current, setCurrent] = useState<GenerateResponse | null>(null);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -48,13 +46,10 @@ export default function PracticePage() {
     setFeedback(null);
     setAnswer("");
     try {
-      const result = await httpsCallable<
-        { familyId: string; type: ProblemType; difficulty: PracticeDifficulty },
-        GenerateResponse
-      >(
+      const result = await httpsCallable<{ familyId: string; type: ProblemType }, GenerateResponse>(
         getFirebaseFunctions(),
         "generatePracticeProblem"
-      )({ familyId, type, difficulty });
+      )({ familyId, type });
       setCurrent(result.data);
     } catch (err) {
       toast.error(describeError(err, "Úlohu se nepodařilo připravit."));
@@ -99,7 +94,9 @@ export default function PracticePage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Vzdělání</h1>
-      <p className="text-sm text-zinc-500">Vyřeš úlohu a získej XP navíc. Za den je limit, kolik XP takhle můžeš nasbírat.</p>
+      <p className="text-sm text-zinc-500">
+        Vyřeš úlohu a získej +{PRACTICE_XP_PER_PROBLEM} XP. Za den je limit, kolik XP takhle můžeš nasbírat.
+      </p>
 
       <div className="flex flex-wrap gap-2">
         {PRACTICE_SUBJECTS.map((s) => (
@@ -120,42 +117,25 @@ export default function PracticePage() {
 
       {subject === "math" && (
         <>
-          <div className="flex flex-col gap-3">
-            <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
-              <button
-                type="button"
-                onClick={() => setType("math")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                  type === "math" ? "bg-accent text-accent-foreground" : "text-zinc-500"
-                }`}
-              >
-                <Calculator size={14} /> Počítání
-              </button>
-              <button
-                type="button"
-                onClick={() => setType("logicword")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
-                  type === "logicword" ? "bg-accent text-accent-foreground" : "text-zinc-500"
-                }`}
-              >
-                <Brain size={14} /> Logika a slovní úlohy
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {([1, 2, 3] as PracticeDifficulty[]).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDifficulty(d)}
-                  className={`rounded-full px-3 py-1.5 text-sm ${
-                    difficulty === d ? "bg-accent text-accent-foreground" : "border border-border"
-                  }`}
-                >
-                  {PRACTICE_DIFFICULTY_LABELS[d]} · +{PRACTICE_XP_REWARD[d]} XP
-                </button>
-              ))}
-            </div>
+          <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setType("math")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
+                type === "math" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+              }`}
+            >
+              <Calculator size={14} /> Počítání
+            </button>
+            <button
+              type="button"
+              onClick={() => setType("logicword")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
+                type === "logicword" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+              }`}
+            >
+              <Brain size={14} /> Logika a slovní úlohy
+            </button>
           </div>
 
           {!current ? (

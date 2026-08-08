@@ -12,11 +12,11 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import {
   DEFAULT_PRACTICE_DAILY_XP_CAP,
   PRACTICE_MAX_ATTEMPTS,
-  PRACTICE_XP_REWARD,
+  PRACTICE_XP_PER_PROBLEM,
   generateMathProblem,
   isAnswerCorrect,
+  pickGradeAppropriateMathDifficulty,
   pickRandomLogicWordProblem,
-  type PracticeDifficulty,
 } from "../../lib/practice";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { buildLedgerEntry } from "../../lib/xp-engine";
@@ -35,14 +35,16 @@ async function requireFamilyMember(familyId: string, uid: string): Promise<void>
 interface GenerateRequest {
   familyId: string;
   type: "math" | "logicword";
-  difficulty?: PracticeDifficulty;
 }
 
+// No difficulty picker in the UI — the server always chooses, tuned for
+// 5th grade. Any difficulty a client might still send is ignored; it was
+// never trust-relevant anyway now that every problem pays the same flat
+// PRACTICE_XP_PER_PROBLEM regardless of difficulty.
 export const generatePracticeProblem = onCall<GenerateRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, type } = request.data;
-  const difficulty = request.data.difficulty ?? 1;
   if (!familyId || (type !== "math" && type !== "logicword")) {
     throw new HttpsError("invalid-argument", "familyId and a valid type are required.");
   }
@@ -52,26 +54,25 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
   const pendingRef = db.collection("families").doc(familyId).collection("practicePending").doc(uid);
 
   if (type === "math") {
+    const difficulty = pickGradeAppropriateMathDifficulty();
     const problem = generateMathProblem(difficulty);
     await pendingRef.set({
       type,
-      difficulty,
       correctAnswer: String(problem.correctAnswer),
       attempts: 0,
       createdAt: Date.now(),
     });
-    return { question: problem.question, type, difficulty };
+    return { question: problem.question, type };
   }
 
-  const problem = pickRandomLogicWordProblem(difficulty);
+  const problem = pickRandomLogicWordProblem();
   await pendingRef.set({
     type,
-    difficulty: problem.difficulty,
     correctAnswer: problem.answer,
     attempts: 0,
     createdAt: Date.now(),
   });
-  return { question: problem.question, type, difficulty: problem.difficulty };
+  return { question: problem.question, type };
 });
 
 interface SubmitRequest {
@@ -98,7 +99,6 @@ export const submitPracticeAnswer = onCall<SubmitRequest>(async (request) => {
   }
 
   const correct = isAnswerCorrect(answer, pending.correctAnswer as string);
-  const difficulty = pending.difficulty as PracticeDifficulty;
 
   if (!correct) {
     const attempts = ((pending.attempts as number) ?? 0) + 1;
@@ -127,7 +127,7 @@ export const submitPracticeAnswer = onCall<SubmitRequest>(async (request) => {
     .filter((e) => dateKeyInFamilyZone(new Date(e.timestamp)) === today)
     .reduce((sum, e) => sum + e.delta, 0);
 
-  const reward = PRACTICE_XP_REWARD[difficulty];
+  const reward = PRACTICE_XP_PER_PROBLEM;
   const headroom = Math.max(0, dailyCap - earnedToday);
   const awarded = Math.min(reward, headroom);
 
