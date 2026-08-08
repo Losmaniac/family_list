@@ -18,6 +18,7 @@ import Avatar from "@/components/Avatar";
 import AvatarPicker from "@/components/AvatarPicker";
 import InfoButton from "@/components/InfoButton";
 import ThemeToggle from "@/components/ThemeToggle";
+import NavStyleToggle from "@/components/NavStyleToggle";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
@@ -382,6 +383,10 @@ export default function SettingsPage() {
       <section className="flex flex-col gap-3">
         <h2 className="font-medium">Vzhled</h2>
         <ThemeToggle />
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm text-zinc-500">Styl navigace</p>
+          <NavStyleToggle />
+        </div>
         {familyId && member.role === "parent" && (
           <div className="flex flex-col gap-1.5">
             <p className="text-sm text-zinc-500">Barva zvýraznění (pro celou rodinu)</p>

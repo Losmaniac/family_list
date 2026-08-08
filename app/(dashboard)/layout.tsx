@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { NavStyleProvider, useNavStyle } from "@/lib/nav-style-context";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
@@ -36,6 +37,7 @@ import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
 import OfflineBanner from "@/components/OfflineBanner";
 import AccentColorSync from "@/components/AccentColorSync";
 import AppBadgeSync from "@/components/AppBadgeSync";
+import FloatingNavMenu from "@/components/FloatingNavMenu";
 
 interface NavItem {
   href: string;
@@ -110,10 +112,19 @@ function SortableNavButton({
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <NavStyleProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </NavStyleProvider>
+  );
+}
+
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
   const { loading: familyLoading, member, family } = useFamily();
+  const { style: navStyle } = useNavStyle();
 
   const loading = authLoading || familyLoading;
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -291,7 +302,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       <main
-        className="flex-1 p-4 pb-28"
+        className={`flex-1 p-4 ${navStyle === "radial" ? "pb-20" : "pb-28"}`}
         style={{ viewTransitionName: "page-content" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -299,23 +310,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
-      >
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map((item) => item.href)} strategy={horizontalListSortingStrategy}>
-            {items.map((item) => (
-              <SortableNavButton
-                key={item.href}
-                item={item}
-                active={Boolean(pathname?.startsWith(item.href))}
-                onSelect={() => navigateToTab(item.href)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-      </nav>
+      {navStyle === "radial" ? (
+        <FloatingNavMenu
+          items={items}
+          activeHref={items.find((item) => pathname?.startsWith(item.href))?.href}
+          onSelect={navigateToTab}
+        />
+      ) : (
+        <nav
+          className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
+          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+        >
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <SortableContext items={items.map((item) => item.href)} strategy={horizontalListSortingStrategy}>
+              {items.map((item) => (
+                <SortableNavButton
+                  key={item.href}
+                  item={item}
+                  active={Boolean(pathname?.startsWith(item.href))}
+                  onSelect={() => navigateToTab(item.href)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </nav>
+      )}
     </div>
   );
 }
