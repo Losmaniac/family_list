@@ -14,6 +14,7 @@ export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
+export { generatePracticeProblem, submitPracticeAnswer } from "./practice";
 export {
   onTaskProposalCreated,
   onTaskRequestOpened,

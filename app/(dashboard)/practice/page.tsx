@@ -1,0 +1,174 @@
+"use client";
+
+import { useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import { Brain, Calculator, Sparkles } from "lucide-react";
+import { getFirebaseFunctions } from "@/lib/firebase";
+import { useFamily } from "@/lib/family-context";
+import { useToast } from "@/lib/toast-context";
+import { PRACTICE_DIFFICULTY_LABELS, PRACTICE_XP_REWARD, type PracticeDifficulty } from "@/lib/practice";
+
+type ProblemType = "math" | "logicword";
+
+interface GenerateResponse {
+  question: string;
+  type: ProblemType;
+  difficulty: PracticeDifficulty;
+}
+
+interface SubmitResponse {
+  correct: boolean;
+  awarded: number;
+  attemptsLeft?: number;
+  correctAnswer?: string;
+  capReached?: boolean;
+}
+
+export default function PracticePage() {
+  const { familyId } = useFamily();
+  const toast = useToast();
+
+  const [type, setType] = useState<ProblemType>("math");
+  const [difficulty, setDifficulty] = useState<PracticeDifficulty>(1);
+  const [current, setCurrent] = useState<GenerateResponse | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleNewProblem() {
+    if (!familyId) return;
+    setLoading(true);
+    setFeedback(null);
+    setAnswer("");
+    try {
+      const result = await httpsCallable<
+        { familyId: string; type: ProblemType; difficulty: PracticeDifficulty },
+        GenerateResponse
+      >(
+        getFirebaseFunctions(),
+        "generatePracticeProblem"
+      )({ familyId, type, difficulty });
+      setCurrent(result.data);
+    } catch {
+      toast.error("Úlohu se nepodařilo připravit.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!familyId || !answer.trim() || !current) return;
+    setSubmitting(true);
+    try {
+      const result = await httpsCallable<{ familyId: string; answer: string }, SubmitResponse>(
+        getFirebaseFunctions(),
+        "submitPracticeAnswer"
+      )({ familyId, answer: answer.trim() });
+      const data = result.data;
+      if (data.correct) {
+        setCurrent(null);
+        setAnswer("");
+        if (data.awarded > 0) {
+          toast.success(`Správně! +${data.awarded} XP`);
+        } else {
+          setFeedback("Správně! Dnešní limit XP z Příkladů je ale už vyčerpaný.");
+        }
+      } else if (data.attemptsLeft && data.attemptsLeft > 0) {
+        setFeedback(`Není to ono, zkus to znovu — zbývá ${data.attemptsLeft} ${data.attemptsLeft === 1 ? "pokus" : "pokusy"}.`);
+        setAnswer("");
+      } else {
+        setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Zkus další úlohu.`);
+        setCurrent(null);
+        setAnswer("");
+      }
+    } catch {
+      toast.error("Odpověď se nepodařilo odeslat.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <h1 className="text-xl font-semibold">Příklady</h1>
+      <p className="text-sm text-zinc-500">
+        Vyřeš úlohu a získej XP navíc. Za den je limit, kolik XP takhle můžeš nasbírat.
+      </p>
+
+      <div className="flex flex-col gap-3">
+        <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setType("math")}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
+              type === "math" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+            }`}
+          >
+            <Calculator size={14} /> Matematika
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("logicword")}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${
+              type === "logicword" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+            }`}
+          >
+            <Brain size={14} /> Logika a slovní úlohy
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {([1, 2, 3] as PracticeDifficulty[]).map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDifficulty(d)}
+              className={`rounded-full px-3 py-1.5 text-sm ${
+                difficulty === d ? "bg-accent text-accent-foreground" : "border border-border"
+              }`}
+            >
+              {PRACTICE_DIFFICULTY_LABELS[d]} · +{PRACTICE_XP_REWARD[d]} XP
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!current ? (
+        <button
+          type="button"
+          onClick={handleNewProblem}
+          disabled={loading}
+          className="flex items-center gap-1.5 self-start rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+        >
+          <Sparkles size={16} /> {loading ? "Připravuji…" : "Nová úloha"}
+        </button>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+          <p className="text-lg font-medium">{current.question}</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode={current.type === "math" ? "numeric" : "text"}
+              autoFocus
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="Tvoje odpověď"
+              className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+            />
+            <button
+              type="submit"
+              disabled={submitting || !answer.trim()}
+              className="shrink-0 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              Odeslat
+            </button>
+          </div>
+        </form>
+      )}
+
+      {feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
+    </div>
+  );
+}
