@@ -292,6 +292,30 @@ export default function TodayPage() {
     </div>
   );
 
+  // A leftover task or two (e.g. something meant for later, like an evening
+  // chore) shouldn't block asking for extra in the meantime — this is the
+  // same request flow as requestCta above, just a low-key inline version
+  // that stays available alongside a still-nonempty task list instead of
+  // only appearing once every last pending/returned task is gone.
+  const requestMoreInline = requestsEnabled && awaitingMyAction && (
+    <div className="flex flex-col items-center gap-1 pt-1 text-center">
+      {myRequest?.status === "open" ? (
+        <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
+          <X size={14} /> Čekáš na návrh nového úkolu — zrušit žádost
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleRequestTask}
+          disabled={submittingRequest}
+          className="flex items-center gap-1.5 text-sm font-semibold text-accent disabled:opacity-50"
+        >
+          <Star size={14} /> Chci ještě další úkol
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
       <input
@@ -429,6 +453,7 @@ export default function TodayPage() {
             )}
 
             {requestCta}
+            {requestMoreInline}
           </div>
         )}
       </section>
