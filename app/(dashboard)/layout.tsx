@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="truncate font-medium">{member.name}</p>
             <StreakBadge currentStreak={member.currentStreak} />
           </div>
-          <XPBar xpBalance={member.xpBalance} levelTitles={family?.levelTitles} />
+          <XPBar xpBalance={member.xpBalance} levelTitles={family?.levelTitles} levelThresholds={family?.levelThresholds} />
         </div>
         <Link
           href="/settings"

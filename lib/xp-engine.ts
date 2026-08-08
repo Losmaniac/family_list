@@ -60,8 +60,22 @@ export function applyStreakBonus(
 // Explicit thresholds matching the spec's example curve (L2=100, L3=250, ...,
 // L6=1000, L10=2500); levels 7-9 interpolated to keep the curve smooth, and
 // levels beyond 10 continue at a flat step since the spec only anchors to 10.
-const LEVEL_THRESHOLDS = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2500];
+export const DEFAULT_LEVEL_THRESHOLDS = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2500];
 const XP_PER_LEVEL_BEYOND_TABLE = 500;
+
+/**
+ * A parent can override how much XP levels 2-10 require (Settings → Herní
+ * nastavení, stored as family.levelThresholds) — level 1 always starts at 0
+ * XP by definition, never overridable, and any index missing/short in the
+ * stored array falls back to the matching default, same pattern as
+ * levelTitle below.
+ */
+function effectiveThresholds(customThresholds?: number[]): number[] {
+  const base = customThresholds && customThresholds.length > 0 ? customThresholds : DEFAULT_LEVEL_THRESHOLDS;
+  const resolved = DEFAULT_LEVEL_THRESHOLDS.map((fallback, i) => base[i] ?? fallback);
+  resolved[0] = 0;
+  return resolved;
+}
 
 export const DEFAULT_LEVEL_TITLES = [
   "Nováček",
@@ -76,19 +90,21 @@ export const DEFAULT_LEVEL_TITLES = [
   "Velmistr",
 ];
 
-export function xpForLevel(level: number): number {
-  if (level <= LEVEL_THRESHOLDS.length) return LEVEL_THRESHOLDS[level - 1];
-  return LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1] + (level - LEVEL_THRESHOLDS.length) * XP_PER_LEVEL_BEYOND_TABLE;
+export function xpForLevel(level: number, customThresholds?: number[]): number {
+  const thresholds = effectiveThresholds(customThresholds);
+  if (level <= thresholds.length) return thresholds[level - 1];
+  return thresholds[thresholds.length - 1] + (level - thresholds.length) * XP_PER_LEVEL_BEYOND_TABLE;
 }
 
-export function levelForXp(xpBalance: number): number {
+export function levelForXp(xpBalance: number, customThresholds?: number[]): number {
+  const thresholds = effectiveThresholds(customThresholds);
   let level = 1;
-  for (let i = 1; i < LEVEL_THRESHOLDS.length; i++) {
-    if (xpBalance >= LEVEL_THRESHOLDS[i]) level = i + 1;
+  for (let i = 1; i < thresholds.length; i++) {
+    if (xpBalance >= thresholds[i]) level = i + 1;
   }
-  if (xpBalance >= LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1]) {
-    const overflow = xpBalance - LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
-    level = LEVEL_THRESHOLDS.length + Math.floor(overflow / XP_PER_LEVEL_BEYOND_TABLE);
+  if (xpBalance >= thresholds[thresholds.length - 1]) {
+    const overflow = xpBalance - thresholds[thresholds.length - 1];
+    level = thresholds.length + Math.floor(overflow / XP_PER_LEVEL_BEYOND_TABLE);
   }
   return level;
 }
@@ -111,10 +127,10 @@ export interface LevelProgress {
   span: number;
 }
 
-export function levelProgress(xpBalance: number, customTitles?: string[]): LevelProgress {
-  const level = levelForXp(xpBalance);
-  const floor = xpForLevel(level);
-  const nextFloor = xpForLevel(level + 1);
+export function levelProgress(xpBalance: number, customTitles?: string[], customThresholds?: number[]): LevelProgress {
+  const level = levelForXp(xpBalance, customThresholds);
+  const floor = xpForLevel(level, customThresholds);
+  const nextFloor = xpForLevel(level + 1, customThresholds);
   return { level, title: levelTitle(level, customTitles), intoLevel: xpBalance - floor, span: nextFloor - floor };
 }
 

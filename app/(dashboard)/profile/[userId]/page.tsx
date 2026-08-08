@@ -145,7 +145,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         </div>
       </div>
 
-      <XPBar xpBalance={profile.xpBalance} levelTitles={family?.levelTitles} />
+      <XPBar xpBalance={profile.xpBalance} levelTitles={family?.levelTitles} levelThresholds={family?.levelThresholds} />
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Odznaky</h2>

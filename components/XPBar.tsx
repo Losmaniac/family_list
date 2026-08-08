@@ -3,10 +3,11 @@ import { levelProgress } from "@/lib/xp-engine";
 interface XPBarProps {
   xpBalance: number;
   levelTitles?: string[];
+  levelThresholds?: number[];
 }
 
-export default function XPBar({ xpBalance, levelTitles }: XPBarProps) {
-  const { level, title, intoLevel, span } = levelProgress(xpBalance, levelTitles);
+export default function XPBar({ xpBalance, levelTitles, levelThresholds }: XPBarProps) {
+  const { level, title, intoLevel, span } = levelProgress(xpBalance, levelTitles, levelThresholds);
   const progress = span > 0 ? Math.round((intoLevel / span) * 100) : 100;
 
   return (

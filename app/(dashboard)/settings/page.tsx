@@ -365,6 +365,7 @@ export default function SettingsPage() {
           <GameSettingsPanel
             familyId={familyId}
             levelTitles={family?.levelTitles}
+            levelThresholds={family?.levelThresholds}
             taskRequestsEnabled={family?.taskRequestsEnabled}
           />
         </section>
