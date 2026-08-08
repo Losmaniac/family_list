@@ -293,6 +293,7 @@ export interface ChatMessage {
  * parents; append-only, never edited or deleted.
  */
 export type AuditAction =
+  | "member_added"
   | "member_role_changed"
   | "member_removed"
   | "xp_adjustment_decided"
