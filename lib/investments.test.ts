@@ -59,11 +59,11 @@ describe("effectiveInvestmentTerms", () => {
 
 describe("maturityPayout", () => {
   it("adds the rate's fraction on top of the principal", () => {
-    expect(maturityPayout(100, 0.12)).toBe(112);
-    expect(maturityPayout(100, 0.5)).toBe(150);
+    expect(maturityPayout(100, 0.12)).toBeCloseTo(112);
+    expect(maturityPayout(100, 0.5)).toBeCloseTo(150);
   });
 
-  it("rounds to a whole XP", () => {
-    expect(maturityPayout(55, 0.02)).toBe(56); // 55 * 1.02 = 56.1
+  it("keeps the exact fractional XP, no rounding — only display floors it", () => {
+    expect(maturityPayout(55, 0.02)).toBeCloseTo(56.1); // 55 * 1.02 = 56.1
   });
 });

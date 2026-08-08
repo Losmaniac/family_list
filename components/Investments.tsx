@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import InfoButton from "@/components/InfoButton";
 import { MIN_INVESTMENT_AMOUNT, maturityPayout, type InvestmentTerm } from "@/lib/investments";
+import { formatXp } from "@/lib/xp-engine";
 import type { Investment } from "@/lib/types";
 
 const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
@@ -94,7 +95,7 @@ export default function Investments({
               className="w-24 rounded-lg border border-border bg-surface px-3 py-2"
             />
             <span className="text-xs text-zinc-500">
-              máš {xpBalance} XP · min. {MIN_INVESTMENT_AMOUNT} XP
+              máš {formatXp(xpBalance)} XP · min. {MIN_INVESTMENT_AMOUNT} XP
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -114,8 +115,8 @@ export default function Investments({
           <p className="text-xs text-zinc-500">XP se zamkne na celou dobu — čím delší doba, tím vyšší výnos.</p>
           {selectedTerm && amount > 0 && (
             <p className="text-sm">
-              Výnos: <span className="font-semibold text-success">+{payout - amount} XP</span> · Vrátí se celkem:{" "}
-              <span className="font-semibold text-accent">{payout} XP</span>
+              Výnos: <span className="font-semibold text-success">+{formatXp(payout - amount)} XP</span> · Vrátí se
+              celkem: <span className="font-semibold text-accent">{formatXp(payout)} XP</span>
             </p>
           )}
           <div className="flex gap-2">
@@ -146,19 +147,23 @@ export default function Investments({
             >
               <div>
                 <p className="flex items-center gap-1 font-medium">
-                  {inv.principal} XP
+                  {formatXp(inv.principal)} XP
                   <InfoButton
                     title="Aktivní investice"
-                    description={`Zamčeno ${inv.principal} XP na ${Math.round(inv.rate * 100)} % výnos. Až doba vyprší, vrátí se ti ${maturityPayout(
-                      inv.principal,
-                      inv.rate
-                    )} XP (${inv.principal} vklad + ${maturityPayout(inv.principal, inv.rate) - inv.principal} úrok). Vybrat lze i dřív, ale úrok pak propadá a vrátí se jen vklad.`}
+                    description={`Zamčeno ${formatXp(inv.principal)} XP na ${Math.round(inv.rate * 100)} % výnos. Až doba vyprší, vrátí se ti ${formatXp(
+                      maturityPayout(inv.principal, inv.rate)
+                    )} XP (${formatXp(inv.principal)} vklad + ${formatXp(
+                      maturityPayout(inv.principal, inv.rate) - inv.principal
+                    )} úrok). Vybrat lze i dřív, ale úrok pak propadá a vrátí se jen vklad.`}
                   />
                 </p>
                 <p className="text-sm text-zinc-500">Běží · ještě {daysRemaining(inv.maturesAt)} dní</p>
                 <p className="text-sm text-zinc-500">
-                  Při dokončení: <span className="font-semibold text-success">+{maturityPayout(inv.principal, inv.rate) - inv.principal} XP</span>
-                  {" "}· vrátí se {maturityPayout(inv.principal, inv.rate)} XP
+                  Při dokončení:{" "}
+                  <span className="font-semibold text-success">
+                    +{formatXp(maturityPayout(inv.principal, inv.rate) - inv.principal)} XP
+                  </span>{" "}
+                  · vrátí se {formatXp(maturityPayout(inv.principal, inv.rate))} XP
                 </p>
               </div>
               <button
@@ -178,19 +183,19 @@ export default function Investments({
           {past.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
               <p className="flex items-center gap-1 font-medium">
-                {inv.principal} XP
+                {formatXp(inv.principal)} XP
                 <InfoButton
                   title={PAST_STATUS_LABELS[inv.status]}
                   description={
                     inv.status === "matured"
-                      ? `Investice doběhla do konce a vyplatila se i s úrokem: ${inv.payout ?? inv.principal} XP celkem.`
-                      : `Investice byla vybrána předčasně — vrátil se jen vklad (${inv.payout ?? inv.principal} XP), úrok propadl.`
+                      ? `Investice doběhla do konce a vyplatila se i s úrokem: ${formatXp(inv.payout ?? inv.principal)} XP celkem.`
+                      : `Investice byla vybrána předčasně — vrátil se jen vklad (${formatXp(inv.payout ?? inv.principal)} XP), úrok propadl.`
                   }
                 />
               </p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className={`text-sm font-semibold ${inv.status === "matured" ? "text-success" : "text-zinc-500"}`}>
-                  {PAST_STATUS_LABELS[inv.status]} · {inv.payout ?? inv.principal} XP
+                  {PAST_STATUS_LABELS[inv.status]} · {formatXp(inv.payout ?? inv.principal)} XP
                 </span>
                 {canDeletePast && (
                   <button

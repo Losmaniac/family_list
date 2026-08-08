@@ -40,7 +40,11 @@ export function effectiveInvestmentTerms(customTerms: InvestmentTerm[] | undefin
   return customTerms && customTerms.length > 0 ? customTerms : INVESTMENT_TERMS;
 }
 
-/** Principal + interest at maturity, rounded to a whole XP. */
+/**
+ * Principal + interest at maturity. Kept as an exact (possibly fractional)
+ * XP value — the ledger and xpBalance are decimal-capable so interest isn't
+ * lost to rounding; only the UI floors XP for display.
+ */
 export function maturityPayout(principal: number, rate: number): number {
-  return Math.round(principal * (1 + rate));
+  return principal * (1 + rate);
 }

@@ -1,5 +1,6 @@
 import { Camera, CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
 import { categoryInfo } from "@/lib/categories";
+import { formatXp } from "@/lib/xp-engine";
 import InfoButton from "@/components/InfoButton";
 import type { DailyTask, TaskTemplate } from "@/lib/types";
 
@@ -55,11 +56,11 @@ export default function TaskCard({ task, template, onToggle, disabled }: TaskCar
             template.description && <p className="truncate text-sm text-zinc-500">{template.description}</p>
           )}
         </div>
-        <span className="shrink-0 text-sm font-semibold text-accent">+{template.xpValue} XP</span>
+        <span className="shrink-0 text-sm font-semibold text-accent">+{formatXp(template.xpValue)} XP</span>
       </button>
       <InfoButton
         title={template.title}
-        description={`${STATUS_EXPLANATIONS[task.status] ?? ""} Splněním získáš +${template.xpValue} XP.${
+        description={`${STATUS_EXPLANATIONS[task.status] ?? ""} Splněním získáš +${formatXp(template.xpValue)} XP.${
           template.photoRequired ? " Tento úkol vyžaduje přiložit foto jako důkaz." : ""
         }`}
       />

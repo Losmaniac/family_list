@@ -4,6 +4,7 @@ import {
   buildLedgerEntry,
   canAffordReward,
   earliestTimestampAtBalance,
+  formatXp,
   levelForXp,
   levelProgress,
   levelTitle,
@@ -76,8 +77,8 @@ describe("applyStreakBonus", () => {
   });
 
   it("gives +10% per additional consecutive day", () => {
-    expect(applyStreakBonus(100, 2)).toBe(110);
-    expect(applyStreakBonus(100, 3)).toBe(120);
+    expect(applyStreakBonus(100, 2)).toBeCloseTo(110);
+    expect(applyStreakBonus(100, 3)).toBeCloseTo(120);
   });
 
   it("caps the bonus at +50%, however long the streak", () => {
@@ -190,6 +191,21 @@ describe("buildLedgerEntry", () => {
     const entry = buildLedgerEntry({ userId: "u1", delta: 6, reason: "task_completed" });
     expect("relatedTaskId" in entry).toBe(false);
     expect("note" in entry).toBe(false);
+  });
+});
+
+describe("formatXp", () => {
+  it("floors fractional XP instead of rounding", () => {
+    expect(formatXp(56.9)).toBe("56");
+    expect(formatXp(56.1)).toBe("56");
+  });
+
+  it("leaves whole numbers unchanged", () => {
+    expect(formatXp(100)).toBe("100");
+  });
+
+  it("uses a space as the thousands separator", () => {
+    expect(formatXp(1500.7)).toBe("1 500");
   });
 });
 

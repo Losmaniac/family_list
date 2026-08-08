@@ -7,6 +7,7 @@ import { getFirebaseFunctions } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
+import { formatXp } from "@/lib/xp-engine";
 
 type ProblemType = "math" | "logicword";
 
@@ -72,7 +73,7 @@ export default function PracticePage() {
         setCurrent(null);
         setAnswer("");
         if (data.awarded > 0) {
-          toast.success(`Správně! +${data.awarded} XP`);
+          toast.success(`Správně! +${formatXp(data.awarded)} XP`);
         } else {
           setFeedback("Správně! Dnešní limit XP z Vzdělání je ale už vyčerpaný.");
         }
@@ -95,7 +96,7 @@ export default function PracticePage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Vzdělání</h1>
       <p className="text-sm text-zinc-500">
-        Vyřeš úlohu a získej +{PRACTICE_XP_PER_PROBLEM} XP. Za den je limit, kolik XP takhle můžeš nasbírat.
+        Vyřeš úlohu a získej +{formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat.
       </p>
 
       <div className="flex flex-wrap gap-2">

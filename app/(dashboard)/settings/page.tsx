@@ -12,7 +12,7 @@ import { setupPushNotifications, isIosNotStandalone } from "@/lib/push";
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { generateInviteCode } from "@/lib/invite-code";
-import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
+import { formatXp, xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
 import AvatarPicker from "@/components/AvatarPicker";
@@ -309,7 +309,7 @@ export default function SettingsPage() {
           familyId,
           user.uid,
           "xp_adjustment_decided",
-          `${target?.name ?? request.targetUserId}: ${request.delta >= 0 ? "+" : ""}${request.delta} XP ${status === "approved" ? "schváleno" : "zamítnuto"}`
+          `${target?.name ?? request.targetUserId}: ${request.delta >= 0 ? "+" : ""}${formatXp(request.delta)} XP ${status === "approved" ? "schváleno" : "zamítnuto"}`
         );
       }
     } catch {
@@ -530,7 +530,7 @@ export default function SettingsPage() {
                 <div className="min-w-0">
                   <p className="font-medium">
                     {target?.name ?? request.targetUserId}: {request.delta >= 0 ? "+" : ""}
-                    {request.delta} XP
+                    {formatXp(request.delta)} XP
                   </p>
                   <p className="truncate text-sm text-zinc-500">
                     {request.reason} · požádal(a) {requester?.name ?? request.requestedBy}

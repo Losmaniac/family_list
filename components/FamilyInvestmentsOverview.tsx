@@ -1,6 +1,7 @@
 import Avatar from "@/components/Avatar";
 import InfoButton from "@/components/InfoButton";
 import { maturityPayout } from "@/lib/investments";
+import { formatXp } from "@/lib/xp-engine";
 import type { Investment, Member } from "@/lib/types";
 
 function daysRemaining(maturesAt: number): number {
@@ -45,14 +46,14 @@ export default function FamilyInvestmentsOverview({ members, investments }: Fami
                 <p className="truncate font-medium">{member.name}</p>
                 <p className="text-sm text-zinc-500">{member.role === "parent" ? "Rodič" : "Dítě"}</p>
               </div>
-              <span className="shrink-0 text-sm font-semibold text-accent">{totalLocked} XP</span>
+              <span className="shrink-0 text-sm font-semibold text-accent">{formatXp(totalLocked)} XP</span>
             </div>
             <div className="flex flex-col gap-1 border-t border-border pt-2">
               {memberActive.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between text-sm">
-                  <span>{inv.principal} XP</span>
+                  <span>{formatXp(inv.principal)} XP</span>
                   <span className="text-zinc-500">
-                    ještě {daysRemaining(inv.maturesAt)} dní · vrátí se {maturityPayout(inv.principal, inv.rate)} XP
+                    ještě {daysRemaining(inv.maturesAt)} dní · vrátí se {formatXp(maturityPayout(inv.principal, inv.rate))} XP
                   </span>
                 </div>
               ))}

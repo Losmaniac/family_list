@@ -18,6 +18,7 @@ import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { logAction } from "@/lib/audit-log";
 import { REWARD_PRESET_TIERS, type RewardPreset } from "@/lib/reward-presets";
+import { formatXp } from "@/lib/xp-engine";
 import type { Member, PooledContribution, Reward, RewardRedemption } from "@/lib/types";
 
 export default function ShopAdminPanel({ familyId, members }: { familyId: string; members: Member[] }) {
@@ -321,14 +322,14 @@ export default function ShopAdminPanel({ familyId, members }: { familyId: string
               <div key={pool.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
                 <div className="flex items-center justify-between text-sm">
                   <p className="font-medium">{reward?.title ?? pool.rewardId}</p>
-                  <p className="text-zinc-500">{total}/{reward?.xpCost ?? "?"} XP</p>
+                  <p className="text-zinc-500">{formatXp(total)}/{reward ? formatXp(reward.xpCost) : "?"} XP</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs text-zinc-500">
                   {pool.invitedUserIds.map((userId) => {
                     const pledge = pool.contributions[userId];
                     return (
                       <span key={userId} className="rounded-full bg-surface-muted px-2 py-0.5">
-                        {membersById[userId]?.name ?? userId}: {pledge !== undefined ? `${pledge} XP` : "čeká"}
+                        {membersById[userId]?.name ?? userId}: {pledge !== undefined ? `${formatXp(pledge)} XP` : "čeká"}
                       </span>
                     );
                   })}
@@ -365,7 +366,7 @@ export default function ShopAdminPanel({ familyId, members }: { familyId: string
               <div>
                 <p className={`font-medium ${!reward.active ? "text-zinc-400 line-through" : ""}`}>{reward.title}</p>
                 <p className="text-sm text-zinc-500">
-                  {reward.xpCost.toLocaleString("cs-CZ")} XP · {reward.approvalRequired ? "vyžaduje schválení" : "okamžité"}
+                  {formatXp(reward.xpCost)} XP · {reward.approvalRequired ? "vyžaduje schválení" : "okamžité"}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -404,7 +405,7 @@ export default function ShopAdminPanel({ familyId, members }: { familyId: string
               .filter((r) => r.active)
               .map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.title} ({r.xpCost} XP)
+                  {r.title} ({formatXp(r.xpCost)} XP)
                 </option>
               ))}
           </select>

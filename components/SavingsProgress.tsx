@@ -1,4 +1,5 @@
 import { PiggyBank, X } from "lucide-react";
+import { formatXp } from "@/lib/xp-engine";
 import type { Reward } from "@/lib/types";
 
 function ProgressRow({ reward, xpBalance }: { reward: Reward; xpBalance: number }) {
@@ -8,7 +9,7 @@ function ProgressRow({ reward, xpBalance }: { reward: Reward; xpBalance: number 
     <div className="flex flex-col gap-1.5 rounded-xl border border-border px-4 py-3">
       <div className="flex items-center justify-between text-sm">
         <p className="font-medium">{reward.title}</p>
-        <p className="text-zinc-500">{remaining === 0 ? "Můžeš uplatnit!" : `ještě ${remaining} XP`}</p>
+        <p className="text-zinc-500">{remaining === 0 ? "Můžeš uplatnit!" : `ještě ${formatXp(remaining)} XP`}</p>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
