@@ -2,23 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
-import { addMonths, dateKeyInFamilyZone, daysInMonth, isSameDay, startOfMonth } from "@/lib/date-utils";
+import { addDays, dateKeyInFamilyZone, startOfWeek } from "@/lib/date-utils";
 import { CALENDAR_EVENT_CATEGORIES, calendarEventCategoryInfo } from "@/lib/calendar-events";
 import Avatar from "@/components/Avatar";
 import type { CalendarEvent, CalendarEventCategory, Member } from "@/lib/types";
 
-// JS Date.getDay() convention (0=Sun..6=Sat).
-const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
-const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" });
+// Display order Po..Ne — weekDates below is always built from a Monday
+// startOfWeek, so a date's index in that array already matches this order.
+const WEEKDAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 
-function emptyForm(defaultMemberId: string) {
-  return { title: "", category: "other" as CalendarEventCategory, memberId: defaultMemberId };
+function emptyForm(defaultMemberId: string, defaultDate: string) {
+  return { title: "", date: defaultDate, category: "other" as CalendarEventCategory, memberId: defaultMemberId };
+}
+
+function weekRangeLabel(weekStart: Date): string {
+  const weekEnd = addDays(weekStart, 6);
+  const startLabel = `${weekStart.getDate()}. ${weekStart.getMonth() + 1}.`;
+  const endLabel = `${weekEnd.getDate()}. ${weekEnd.getMonth() + 1}. ${weekEnd.getFullYear()}`;
+  return `${startLabel} – ${endLabel}`;
 }
 
 export default function CalendarPage() {
@@ -29,12 +36,11 @@ export default function CalendarPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()));
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [showForm, setShowForm] = useState(false);
   // Safe to read user.uid synchronously here — DashboardLayout only ever
   // renders this page once auth has resolved.
-  const [form, setForm] = useState(() => emptyForm(user?.uid ?? ""));
+  const [form, setForm] = useState(() => emptyForm(user?.uid ?? "", dateKeyInFamilyZone(new Date())));
   const [submitting, setSubmitting] = useState(false);
 
   const isParent = member?.role === "parent";
@@ -53,29 +59,27 @@ export default function CalendarPage() {
     });
   }, [familyId]);
 
-  const monthDates = Array.from(
-    { length: daysInMonth(viewMonth) },
-    (_, i) => new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i + 1)
-  );
-  const today = new Date();
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const todayKey = dateKeyInFamilyZone(new Date());
 
-  function goToMonth(delta: number) {
-    const next = addMonths(viewMonth, delta);
-    setViewMonth(next);
-    setSelectedDate(
-      next.getFullYear() === today.getFullYear() && next.getMonth() === today.getMonth() ? today : next
-    );
+  function eventsFor(dateKey: string, memberId: string): CalendarEvent[] {
+    return events
+      .filter((e) => e.date === dateKey && e.memberId === memberId)
+      .sort((a, b) => a.timestamp - b.timestamp);
   }
 
-  const eventsByDate = new Map<string, CalendarEvent[]>();
-  for (const evt of events) {
-    const list = eventsByDate.get(evt.date) ?? [];
-    list.push(evt);
-    eventsByDate.set(evt.date, list);
+  function canAddFor(memberId: string): boolean {
+    return isParent || memberId === user?.uid;
   }
 
-  const selectedDateKey = dateKeyInFamilyZone(selectedDate);
-  const selectedDayEvents = (eventsByDate.get(selectedDateKey) ?? []).sort((a, b) => a.timestamp - b.timestamp);
+  function canDelete(evt: CalendarEvent): boolean {
+    return evt.createdBy === user?.uid || isParent;
+  }
+
+  function openFormFor(dateKey: string, memberId: string) {
+    setForm({ title: "", date: dateKey, category: "other", memberId });
+    setShowForm(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,14 +88,13 @@ export default function CalendarPage() {
     try {
       await addDoc(collection(getDb(), "families", familyId, "calendarEvents"), {
         title: form.title.trim(),
-        date: selectedDateKey,
+        date: form.date,
         category: form.category,
         memberId: isParent ? form.memberId : user.uid,
         createdBy: user.uid,
         timestamp: Date.now(),
       });
       toast.success("Přidáno do kalendáře.");
-      setForm(emptyForm(user.uid));
       setShowForm(false);
     } catch {
       toast.error("Nepodařilo se přidat záznam.");
@@ -128,12 +131,38 @@ export default function CalendarPage() {
         {!showForm && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => openFormFor(dateKeyInFamilyZone(new Date()), user?.uid ?? "")}
             className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
           >
             <Plus size={16} /> Přidat
           </button>
         )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setWeekStart(addDays(weekStart, -7))}
+          aria-label="Předchozí týden"
+          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setWeekStart(startOfWeek(new Date()))}
+          className="text-sm font-semibold"
+        >
+          {weekRangeLabel(weekStart)}
+        </button>
+        <button
+          type="button"
+          onClick={() => setWeekStart(addDays(weekStart, 7))}
+          aria-label="Následující týden"
+          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {showForm && (
@@ -147,10 +176,13 @@ export default function CalendarPage() {
             onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
             className="rounded-lg border border-border bg-surface px-4 py-2"
           />
-          <p className="text-xs text-zinc-500">
-            Datum: {WEEKDAYS[selectedDate.getDay()]} {selectedDate.getDate()}. {selectedDate.getMonth() + 1}.{" "}
-            {selectedDate.getFullYear()}
-          </p>
+          <input
+            type="date"
+            required
+            value={form.date}
+            onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+            className="rounded-lg border border-border bg-surface px-4 py-2"
+          />
           <div className="flex flex-wrap gap-2">
             {CALENDAR_EVENT_CATEGORIES.map((cat) => (
               <button
@@ -203,91 +235,91 @@ export default function CalendarPage() {
         </form>
       )}
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => goToMonth(-1)}
-          aria-label="Předchozí měsíc"
-          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
+      {/* Grid: a fixed weekday-label column, then one column per family
+          member — rows are the days of the currently viewed week, so a
+          parent can see at a glance who has what coming up without
+          clicking through each day one at a time. */}
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div
+          className="grid min-w-max gap-px overflow-hidden rounded-xl border border-border bg-border"
+          style={{ gridTemplateColumns: `44px repeat(${Math.max(members.length, 1)}, minmax(104px, 1fr))` }}
         >
-          <ChevronLeft size={18} />
-        </button>
-        <p className="text-sm font-semibold capitalize">{MONTH_LABEL_FORMATTER.format(viewMonth)}</p>
-        <button
-          type="button"
-          onClick={() => goToMonth(1)}
-          aria-label="Následující měsíc"
-          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
+          <div className="bg-surface" />
+          {members.map((m) => (
+            <div key={m.id} className="flex flex-col items-center gap-1 bg-surface px-1 py-2">
+              <Avatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
+              <span className="max-w-full truncate text-xs font-medium">{m.name}</span>
+            </div>
+          ))}
 
-      <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1">
-        {monthDates.map((date) => {
-          const active = isSameDay(date, selectedDate);
-          const isRealToday = isSameDay(date, today);
-          const hasEvents = (eventsByDate.get(dateKeyInFamilyZone(date)) ?? []).length > 0;
-          return (
-            <button
-              key={date.getDate()}
-              type="button"
-              onClick={() => setSelectedDate(date)}
-              className={`relative flex min-w-[48px] shrink-0 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-xs font-semibold transition-colors ${
-                active ? "bg-accent text-accent-foreground" : "bg-surface-muted text-zinc-500"
-              }`}
-            >
-              {WEEKDAYS[date.getDay()]}
-              <span className="text-[10px] font-normal">{date.getDate()}.</span>
-              {isRealToday && !active && (
-                <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent" aria-hidden="true" />
-              )}
-              {hasEvents && (
-                <span
-                  className={`absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full ${
-                    active ? "bg-accent-foreground" : "bg-accent"
-                  }`}
-                  aria-hidden="true"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedDayEvents.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
-          <CalendarDays size={40} />
-          <p className="text-lg">Žádné záznamy na tento den.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {selectedDayEvents.map((evt) => {
-            const evtMember = members.find((m) => m.id === evt.memberId);
-            const canDelete = evt.createdBy === user?.uid || isParent;
+          {weekDates.map((date, dayIndex) => {
+            const dateKey = dateKeyInFamilyZone(date);
+            const isToday = dateKey === todayKey;
             return (
-              <div key={evt.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-                <span className="shrink-0 text-xl">{calendarEventCategoryInfo(evt.category).icon}</span>
-                {evtMember && <Avatar name={evtMember.name} avatarUrl={evtMember.avatarUrl} size="sm" />}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{evt.title}</p>
-                  {evtMember && <p className="truncate text-xs text-zinc-500">{evtMember.name}</p>}
+              <div key={dateKey} className="contents">
+                <div
+                  className={`flex flex-col items-center justify-start gap-0.5 bg-surface px-1 py-2 text-xs font-semibold ${
+                    isToday ? "text-accent" : "text-zinc-500"
+                  }`}
+                >
+                  <span>{WEEKDAYS[dayIndex]}</span>
+                  <span className="text-[10px] font-normal">{date.getDate()}.</span>
                 </div>
-                {canDelete && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(evt)}
-                    aria-label="Smazat záznam"
-                    className="shrink-0 text-danger"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
+                {members.map((m) => {
+                  const dayEvents = eventsFor(dateKey, m.id);
+                  const addable = canAddFor(m.id);
+                  return (
+                    // A div, not a button — it holds each event's own delete
+                    // button, and nesting <button> inside <button> is
+                    // invalid HTML. addable clicks add a new reminder;
+                    // clicks on a chip's own delete button stop propagation
+                    // so they don't also trigger this.
+                    <div
+                      key={`${dateKey}-${m.id}`}
+                      role={addable ? "button" : undefined}
+                      tabIndex={addable ? 0 : undefined}
+                      onClick={addable ? () => openFormFor(dateKey, m.id) : undefined}
+                      onKeyDown={
+                        addable
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") openFormFor(dateKey, m.id);
+                            }
+                          : undefined
+                      }
+                      className={`flex min-h-[52px] flex-col gap-1 bg-surface p-1 ${
+                        isToday ? "bg-accent/5" : ""
+                      } ${addable ? "cursor-pointer hover:bg-surface-muted" : ""}`}
+                    >
+                      {dayEvents.map((evt) => (
+                        <div
+                          key={evt.id}
+                          className="flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-1 text-[11px]"
+                        >
+                          <span className="shrink-0">{calendarEventCategoryInfo(evt.category).icon}</span>
+                          <span className="min-w-0 flex-1 truncate">{evt.title}</span>
+                          {canDelete(evt) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(evt);
+                              }}
+                              aria-label="Smazat záznam"
+                              className="shrink-0 text-zinc-400 hover:text-danger"
+                            >
+                              <X size={11} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
         </div>
-      )}
+      </div>
     </div>
   );
 }

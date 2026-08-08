@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, daysInMonth, isSameDay, startOfMonth } from "./date-utils";
+import { addDays, addMonths, daysInMonth, isSameDay, startOfMonth, startOfWeek } from "./date-utils";
 
 describe("startOfMonth", () => {
   it("returns the 1st of the given date's month", () => {
@@ -60,5 +60,43 @@ describe("isSameDay", () => {
 
   it("is false for the same day/month in a different year", () => {
     expect(isSameDay(new Date(2026, 7, 8), new Date(2027, 7, 8))).toBe(false);
+  });
+});
+
+describe("startOfWeek", () => {
+  it("returns the same date when given a Monday", () => {
+    const monday = new Date(2026, 7, 3); // Aug 3 2026 is a Monday
+    const result = startOfWeek(monday);
+    expect(result.getDate()).toBe(3);
+  });
+
+  it("rolls back to Monday from mid-week", () => {
+    const result = startOfWeek(new Date(2026, 7, 6)); // Thursday
+    expect(result.getDate()).toBe(3);
+  });
+
+  it("rolls back to Monday from Sunday", () => {
+    const result = startOfWeek(new Date(2026, 7, 9)); // Sunday
+    expect(result.getDate()).toBe(3);
+  });
+});
+
+describe("addDays", () => {
+  it("moves forward within the same month", () => {
+    const result = addDays(new Date(2026, 7, 3), 4);
+    expect(result.getDate()).toBe(7);
+    expect(result.getMonth()).toBe(7);
+  });
+
+  it("rolls over into the next month", () => {
+    const result = addDays(new Date(2026, 7, 30), 3);
+    expect(result.getMonth()).toBe(8);
+    expect(result.getDate()).toBe(2);
+  });
+
+  it("supports negative deltas", () => {
+    const result = addDays(new Date(2026, 7, 3), -3);
+    expect(result.getMonth()).toBe(6);
+    expect(result.getDate()).toBe(31);
   });
 });

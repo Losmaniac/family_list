@@ -111,3 +111,18 @@ export function addMonths(date: Date, delta: number): Date {
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+
+/** The Monday (local midnight) of the given date's week. */
+export function startOfWeek(date: Date): Date {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const mondayOffset = (result.getDay() + 6) % 7; // getDay(): 0=Sun..6=Sat
+  result.setDate(result.getDate() - mondayOffset);
+  return result;
+}
+
+/** The date `delta` days away from the given date (delta may be negative). */
+export function addDays(date: Date, delta: number): Date {
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  result.setDate(result.getDate() + delta);
+  return result;
+}

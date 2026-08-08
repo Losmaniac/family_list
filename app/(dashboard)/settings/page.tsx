@@ -27,7 +27,7 @@ import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
-import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, Zap } from "lucide-react";
+import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, UserPlus, Zap } from "lucide-react";
 import type { Member, XpAdjustmentRequest } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -42,6 +42,9 @@ export default function SettingsPage() {
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
+  const [showAddMemberForm, setShowAddMemberForm] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
 
   // The dashboard layout only renders this page once `member` is loaded, so
   // it's safe to seed these from it once at mount via a lazy initializer —
@@ -264,6 +267,33 @@ export default function SettingsPage() {
       toast.success(`„${target.name}“ byl odebrán.`);
     } catch {
       toast.error("Člena se nepodařilo odebrat.");
+    }
+  }
+
+  // Adds a family member who doesn't sign in themselves (e.g. a baby too
+  // young to use the app) — unlike a real member, there's no invite-code
+  // join flow for them, so a parent creates the doc directly. The doc ID
+  // is just a fresh Firestore auto-ID rather than an auth uid; nothing else
+  // in the schema assumes members/{id} maps to a real signed-in user.
+  async function handleAddMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!familyId || !user || !newMemberName.trim()) return;
+    setAddingMember(true);
+    try {
+      await addDoc(collection(getDb(), "families", familyId, "members"), {
+        name: newMemberName.trim(),
+        role: "child",
+        xpBalance: 0,
+        currentStreak: 0,
+      });
+      logAction(familyId, user.uid, "member_added", newMemberName.trim());
+      toast.success(`„${newMemberName.trim()}“ přidán(a) do rodiny.`);
+      setNewMemberName("");
+      setShowAddMemberForm(false);
+    } catch {
+      toast.error("Člena se nepodařilo přidat.");
+    } finally {
+      setAddingMember(false);
     }
   }
 
@@ -564,13 +594,59 @@ export default function SettingsPage() {
 
       {member.role === "parent" && members.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="flex items-center gap-1 font-medium">
-            Členové rodiny
-            <InfoButton
-              title="Členové rodiny"
-              description="Karta každého člena: role (rodič/dítě), ikona zvonečku ukazuje, jestli má zapnuté notifikace. Tlačítkem XP mu můžeš ručně upravit XP, další tlačítko přepíná roli rodič/dítě, koš člena odebere z rodiny."
-            />
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-1 font-medium">
+              Členové rodiny
+              <InfoButton
+                title="Členové rodiny"
+                description="Karta každého člena: role (rodič/dítě), ikona zvonečku ukazuje, jestli má zapnuté notifikace. Tlačítkem XP mu můžeš ručně upravit XP, další tlačítko přepíná roli rodič/dítě, koš člena odebere z rodiny. Přidat lze i člena, který se sám nepřihlašuje (např. miminko) — přidá se rovnou jako dítě, bez invite kódu."
+              />
+            </h2>
+            {!showAddMemberForm && (
+              <button
+                type="button"
+                onClick={() => setShowAddMemberForm(true)}
+                className="flex items-center gap-1 text-sm text-accent"
+              >
+                <UserPlus size={16} /> Přidat
+              </button>
+            )}
+          </div>
+          {showAddMemberForm && (
+            <form onSubmit={handleAddMember} className="flex flex-col gap-2 rounded-xl border border-border p-4">
+              <p className="text-xs text-zinc-500">
+                Pro člena, který se sám nepřihlašuje (např. miminko) — přidá se jako dítě, bez invite kódu.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Jméno"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2"
+                />
+                <button
+                  type="submit"
+                  disabled={addingMember || !newMemberName.trim()}
+                  className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                >
+                  Přidat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddMemberForm(false);
+                    setNewMemberName("");
+                  }}
+                  className="shrink-0 rounded-full border border-border px-4 py-2 text-sm font-semibold"
+                >
+                  Zrušit
+                </button>
+              </div>
+            </form>
+          )}
           <div className="flex flex-col gap-2">
             {members.map((m) => (
               <div key={m.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">

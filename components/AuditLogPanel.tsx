@@ -7,6 +7,7 @@ import { getDb } from "@/lib/firebase";
 import type { AuditAction, AuditLogEntry, Member } from "@/lib/types";
 
 const ACTION_LABELS: Record<AuditAction, string> = {
+  member_added: "Přidání člena",
   member_role_changed: "Změna role",
   member_removed: "Odebrání člena",
   xp_adjustment_decided: "Rozhodnutí o úpravě XP",
