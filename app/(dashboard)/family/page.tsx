@@ -2,23 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, arrayUnion, collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { CheckCircle2, Star, Trash2, Users } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Star, Trash2, Users } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { isDue } from "@/lib/task-scheduler";
 import { categoryInfo, TASK_CATEGORIES } from "@/lib/categories";
-import { dateKeyInFamilyZone, dayOfWeekInFamilyZone } from "@/lib/date-utils";
+import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import Leaderboard from "@/components/Leaderboard";
 import type { DailyTask, Member, Recurrence, TaskCategory, TaskProposal, TaskRequest, TaskTemplate, XpLedgerEntry } from "@/lib/types";
 
-const DAY_LABELS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 // JS Date.getDay() convention (0=Sun..6=Sat) — matches TaskTemplate.daysOfWeek.
-const DISPLAY_TO_JS_DAY = [1, 2, 3, 4, 5, 6, 0];
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" });
 
 function emptyProposalForm() {
   return {
@@ -30,16 +29,20 @@ function emptyProposalForm() {
   };
 }
 
-function startOfWeek(date: Date): Date {
-  const result = new Date(date);
-  const mondayOffset = (result.getDay() + 6) % 7;
-  result.setDate(result.getDate() - mondayOffset);
-  result.setHours(0, 0, 0, 0);
-  return result;
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function todayDisplayIndex(): number {
-  return DISPLAY_TO_JS_DAY.indexOf(dayOfWeekInFamilyZone(new Date()));
+function daysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+function addMonths(date: Date, delta: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 export default function FamilyPage() {
@@ -48,7 +51,8 @@ export default function FamilyPage() {
   const toast = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(todayDisplayIndex);
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [proposals, setProposals] = useState<TaskProposal[]>([]);
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [proposalForm, setProposalForm] = useState(emptyProposalForm);
@@ -106,19 +110,18 @@ export default function FamilyPage() {
     });
   }, [familyId]);
 
+  const selectedDateKey = dateKeyInFamilyZone(selectedDate);
+
   useEffect(() => {
     if (!familyId) return;
-    const monday = startOfWeek(new Date());
-    const selected = new Date(monday);
-    selected.setDate(selected.getDate() + selectedIndex);
     const dailyTasksQuery = query(
       collection(getDb(), "families", familyId, "dailyTasks"),
-      where("date", "==", dateKeyInFamilyZone(selected))
+      where("date", "==", selectedDateKey)
     );
     return onSnapshot(dailyTasksQuery, (snapshot) => {
       setDailyTasksForDay(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask));
     });
-  }, [familyId, selectedIndex]);
+  }, [familyId, selectedDateKey]);
 
   function toggleProposalDay(day: number) {
     setProposalForm((prev) => ({
@@ -241,14 +244,17 @@ export default function FamilyPage() {
     }
   }
 
-  const monday = startOfWeek(new Date());
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-  const selectedDate = weekDates[selectedIndex];
-  const isToday = selectedIndex === todayDisplayIndex();
+  const monthDates = Array.from({ length: daysInMonth(viewMonth) }, (_, i) => new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i + 1));
+  const today = new Date();
+  const isToday = isSameDay(selectedDate, today);
+
+  function goToMonth(delta: number) {
+    const next = addMonths(viewMonth, delta);
+    setViewMonth(next);
+    setSelectedDate(
+      next.getFullYear() === today.getFullYear() && next.getMonth() === today.getMonth() ? today : next
+    );
+  }
 
   const dueTemplates = templates.filter((t) => t.active && isDue(t, selectedDate));
   const byMember = members
@@ -273,7 +279,7 @@ export default function FamilyPage() {
         <div>
           <h1 className="text-xl font-semibold">Úkoly celé rodiny</h1>
           <p className="text-sm text-zinc-500">
-            {isToday ? "Dnes" : `${DAY_LABELS[selectedIndex]} ${selectedDate.getDate()}.`}
+            {isToday ? "Dnes" : `${WEEKDAYS[selectedDate.getDay()]} ${selectedDate.getDate()}.`}
           </p>
         </div>
         {!showProposalForm && (
@@ -517,20 +523,44 @@ export default function FamilyPage() {
         </section>
       )}
 
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => goToMonth(-1)}
+          aria-label="Předchozí měsíc"
+          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <p className="text-sm font-semibold capitalize">{MONTH_LABEL_FORMATTER.format(viewMonth)}</p>
+        <button
+          type="button"
+          onClick={() => goToMonth(1)}
+          aria-label="Následující měsíc"
+          className="shrink-0 rounded-full p-1.5 text-zinc-500 hover:text-accent"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
       <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1">
-        {weekDates.map((date, i) => {
-          const active = i === selectedIndex;
+        {monthDates.map((date) => {
+          const active = isSameDay(date, selectedDate);
+          const isRealToday = isSameDay(date, today);
           return (
             <button
-              key={i}
+              key={date.getDate()}
               type="button"
-              onClick={() => setSelectedIndex(i)}
-              className={`flex min-w-[48px] shrink-0 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-xs font-semibold transition-colors ${
+              onClick={() => setSelectedDate(date)}
+              className={`relative flex min-w-[48px] shrink-0 flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-xs font-semibold transition-colors ${
                 active ? "bg-accent text-accent-foreground" : "bg-surface-muted text-zinc-500"
               }`}
             >
-              {DAY_LABELS[i]}
+              {WEEKDAYS[date.getDay()]}
               <span className="text-[10px] font-normal">{date.getDate()}.</span>
+              {isRealToday && !active && (
+                <span className="absolute bottom-1 h-1 w-1 rounded-full bg-accent" aria-hidden="true" />
+              )}
             </button>
           );
         })}
