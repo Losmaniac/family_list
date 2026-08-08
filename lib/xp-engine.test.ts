@@ -120,6 +120,31 @@ describe("xpForLevel / levelForXp", () => {
     expect(levelForXp(0)).toBe(1);
     expect(levelForXp(-100)).toBe(1);
   });
+
+  it("uses a family's custom thresholds when given", () => {
+    const custom = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    expect(xpForLevel(2, custom)).toBe(10);
+    expect(levelForXp(15, custom)).toBe(2);
+    expect(levelForXp(25, custom)).toBe(3);
+  });
+
+  it("falls back to the default for any level missing from a short custom array", () => {
+    const custom = [0, 10, 20];
+    expect(xpForLevel(2, custom)).toBe(10);
+    expect(xpForLevel(4, custom)).toBe(450); // default — index 3 not in custom
+  });
+
+  it("always keeps level 1 at 0 XP even if a custom array tries to override it", () => {
+    const custom = [500, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    expect(xpForLevel(1, custom)).toBe(0);
+    expect(levelForXp(5, custom)).toBe(1);
+  });
+
+  it("keeps growing past level 10 at the flat step off the custom table's top", () => {
+    const custom = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    expect(levelForXp(90, custom)).toBe(10);
+    expect(levelForXp(590, custom)).toBe(11);
+  });
 });
 
 describe("levelProgress", () => {

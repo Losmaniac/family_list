@@ -36,6 +36,8 @@ export interface Family {
   streakBonusCap?: number;
   /** Custom names for levels 1-10 (and beyond, via the last one); absent/empty = the built-in Czech titles. */
   levelTitles?: string[];
+  /** Custom XP thresholds for levels 1-10 (index 0/level 1 is always 0, never overridable); absent/short = the built-in curve fills the rest. Levels beyond 10 keep growing at the same flat step regardless. */
+  levelThresholds?: number[];
   /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
   taskRequestsEnabled?: boolean;
   /** JPEG quality (0-1) task proof photos are compressed to before upload; absent = 0.7. */

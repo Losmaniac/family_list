@@ -4,15 +4,17 @@ import { useState } from "react";
 import { deleteField, doc, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useToast } from "@/lib/toast-context";
-import { DEFAULT_LEVEL_TITLES } from "@/lib/xp-engine";
+import { DEFAULT_LEVEL_THRESHOLDS, DEFAULT_LEVEL_TITLES } from "@/lib/xp-engine";
 
 export default function GameSettingsPanel({
   familyId,
   levelTitles,
+  levelThresholds,
   taskRequestsEnabled,
 }: {
   familyId: string;
   levelTitles?: string[];
+  levelThresholds?: number[];
   taskRequestsEnabled?: boolean;
 }) {
   const toast = useToast();
@@ -68,6 +70,51 @@ export default function GameSettingsPanel({
     }
   }
 
+  const [thresholds, setThresholds] = useState<number[]>(() => {
+    const base = levelThresholds && levelThresholds.length > 0 ? levelThresholds : DEFAULT_LEVEL_THRESHOLDS;
+    return DEFAULT_LEVEL_THRESHOLDS.map((fallback, i) => base[i] ?? fallback);
+  });
+  const [savingThresholds, setSavingThresholds] = useState(false);
+
+  function updateThreshold(index: number, value: string) {
+    setThresholds((prev) => prev.map((t, i) => (i === index ? Number(value) : t)));
+  }
+
+  async function handleSaveThresholds() {
+    // Level 1 always starts at 0 XP — not user-editable, enforced here too
+    // in case a stale input somehow carried a nonzero value.
+    const toSave = [0, ...thresholds.slice(1)];
+    for (let i = 1; i < toSave.length; i++) {
+      if (!Number.isFinite(toSave[i]) || toSave[i] <= toSave[i - 1]) {
+        toast.error("Každý další level musí vyžadovat víc XP než ten předchozí.");
+        return;
+      }
+    }
+    setSavingThresholds(true);
+    try {
+      await updateDoc(doc(getDb(), "families", familyId), { levelThresholds: toSave });
+      setThresholds(toSave);
+      toast.success("Potřebné XP pro levely uloženo.");
+    } catch {
+      toast.error("Nepodařilo se uložit potřebné XP.");
+    } finally {
+      setSavingThresholds(false);
+    }
+  }
+
+  async function handleResetThresholds() {
+    setSavingThresholds(true);
+    try {
+      await updateDoc(doc(getDb(), "families", familyId), { levelThresholds: deleteField() });
+      setThresholds(DEFAULT_LEVEL_THRESHOLDS);
+      toast.success("Potřebné XP obnoveno na výchozí.");
+    } catch {
+      toast.error("Nepodařilo se obnovit výchozí hodnoty.");
+    } finally {
+      setSavingThresholds(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <label className="flex items-center gap-2 text-sm">
@@ -108,6 +155,47 @@ export default function GameSettingsPanel({
             type="button"
             onClick={handleResetTitles}
             disabled={savingTitles}
+            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+          >
+            Obnovit výchozí
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-zinc-500">
+          Potřebné XP pro levely (2–10; level 1 vždy začíná na 0 XP). Nad level 10 se dál přičítá stejný krok jako
+          mezi levely 9 a 10.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {thresholds.map((threshold, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-6 shrink-0 text-right text-xs text-zinc-500">{i + 1}.</span>
+              <input
+                type="number"
+                min={0}
+                value={threshold}
+                disabled={i === 0}
+                onChange={(e) => updateThreshold(i, e.target.value)}
+                className="w-28 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm disabled:opacity-50"
+              />
+              <span className="text-xs text-zinc-500">XP</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleSaveThresholds}
+            disabled={savingThresholds}
+            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            Uložit XP
+          </button>
+          <button
+            type="button"
+            onClick={handleResetThresholds}
+            disabled={savingThresholds}
             className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
           >
             Obnovit výchozí

@@ -228,7 +228,12 @@ export default function FamilyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Leaderboard members={members} levelTitles={family?.levelTitles} ledgerEntries={ledgerEntries} />
+      <Leaderboard
+        members={members}
+        levelTitles={family?.levelTitles}
+        levelThresholds={family?.levelThresholds}
+        ledgerEntries={ledgerEntries}
+      />
 
       <div className="flex items-center justify-between">
         <div>

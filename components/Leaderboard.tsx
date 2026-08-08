@@ -9,11 +9,12 @@ const MEDALS = ["🥇", "🥈", "🥉", "🥔"];
 interface LeaderboardProps {
   members: Member[];
   levelTitles?: string[];
+  levelThresholds?: number[];
   /** Full xpLedger history — used only to break ties (see below); leaderboard order still works fine without it, just without the tie-break. */
   ledgerEntries?: Pick<XpLedgerEntry, "userId" | "delta" | "timestamp">[];
 }
 
-export default function Leaderboard({ members, levelTitles, ledgerEntries = [] }: LeaderboardProps) {
+export default function Leaderboard({ members, levelTitles, levelThresholds, ledgerEntries = [] }: LeaderboardProps) {
   // Same XP → whoever reached that exact total first ranks higher (a tie
   // that stays a tie forever otherwise feels arbitrary/unfair to kids
   // watching the leaderboard). Falls back to Infinity — sorts last among
@@ -44,7 +45,7 @@ export default function Leaderboard({ members, levelTitles, ledgerEntries = [] }
       </h2>
       <div className="flex flex-col gap-1.5">
         {ranked.map((member, i) => {
-          const { title } = levelProgress(member.xpBalance, levelTitles);
+          const { title } = levelProgress(member.xpBalance, levelTitles, levelThresholds);
           return (
             <div
               key={member.id}
