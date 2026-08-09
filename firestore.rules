@@ -28,6 +28,10 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/families/$(familyId)/taskTemplates/$(templateId)).data.get('photoRequired', false) == true;
     }
 
+    function scheduleVisibleToAll(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId)).data.get('scheduleVisibleToAll', false) == true;
+    }
+
     // If the task's template requires a photo, the resulting document must
     // already carry one — enforced server-side so a photo-required task
     // can't be marked complete via a raw API call that skips the upload.
@@ -297,6 +301,33 @@ service cloud.firestore {
           (resource.data.createdBy == request.auth.uid || isParent(familyId)) &&
           (isParent(familyId) || request.resource.data.memberId == request.auth.uid);
         allow delete: if isFamilyMember(familyId) && (resource.data.createdBy == request.auth.uid || isParent(familyId));
+      }
+
+      match /schedules/{memberId} {
+        // A parent always sees every child's schedule; anyone else always
+        // sees their own, and — only if a parent has turned on
+        // family.scheduleVisibleToAll — everyone else's too.
+        allow read: if isFamilyMember(familyId) &&
+          (isParent(familyId) || memberId == request.auth.uid || scheduleVisibleToAll(familyId));
+        // The schedule's own member can edit it; a parent can edit any
+        // child's (e.g. entering it for them) — doc ID is the member's own
+        // uid, so create/update share the same check.
+        allow write: if isFamilyMember(familyId) && (isParent(familyId) || memberId == request.auth.uid);
+      }
+
+      match /shoppingItems/{itemId} {
+        allow read: if isFamilyMember(familyId);
+        // Anyone in the family can add, check off, edit, or remove an
+        // item — the parent-configurable part is the category list
+        // (family.shoppingCategories on the family doc itself, parent-only
+        // like every other family-level setting), not who can touch items.
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.addedBy == request.auth.uid &&
+          request.resource.data.name is string && request.resource.data.name.size() > 0 &&
+          request.resource.data.category is string;
+        allow update: if isFamilyMember(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'quantity', 'category', 'checked']);
+        allow delete: if isFamilyMember(familyId);
       }
 
       match /xpAdjustmentRequests/{requestId} {
