@@ -17,6 +17,7 @@ export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
 export { generatePracticeProblem, submitPracticeAnswer, getPracticeCapStatus } from "./practice";
 export { onMarketplaceOfferWritten } from "./marketplace";
+export { chargeMediaListening } from "./mediaBilling";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
 export { penaltyTaskSweep } from "./penaltyTasks";
