@@ -8,14 +8,20 @@
  *
  * Two different services, on purpose:
  * - Text search goes through search.openfoodfacts.org (search-a-licious,
- *   their current dedicated search service). The older cgi/search.pl and
- *   world.openfoodfacts.org/api/v2/search endpoints both intermittently
- *   return 503 "Page temporarily unavailable" under normal load — that's
- *   what "Potraviny se nepodařilo najít / load failed" actually was.
+ *   their current dedicated search service) — but via our own
+ *   /api/food-search proxy, not directly: that host responds fine to a
+ *   plain server-side fetch but never sends Access-Control-Allow-Origin,
+ *   so a direct browser fetch() was silently blocked by CORS (every
+ *   search failed, not just intermittently). The older cgi/search.pl and
+ *   world.openfoodfacts.org/api/v2/search endpoints do have CORS but
+ *   intermittently return 503 "Page temporarily unavailable" under normal
+ *   load — that's what "Potraviny se nepodařilo najít / load failed" was
+ *   before the switch to search-a-licious.
  * - A single barcode lookup goes through world.openfoodfacts.org's v2
- *   product endpoint instead — a plain by-ID read, not a search-cluster
- *   query, and reliable in practice. It also happens to return a ready-
- *   made image URL, unlike search-a-licious (see buildThumbnailUrl).
+ *   product endpoint directly instead — it does send proper CORS headers,
+ *   is a plain by-ID read rather than a search-cluster query so it's
+ *   reliable in practice, and happens to return a ready-made image URL,
+ *   unlike search-a-licious (see buildThumbnailUrl).
  *
  * Coverage isn't limited to any one country — it's a global, crowd-sourced
  * database (mostly OpenStreetMap-style community contributions), and
@@ -23,14 +29,14 @@
  * Kofola, …), just not guaranteed for any specific item.
  */
 
-export const FOOD_SEARCH_URL = "https://search.openfoodfacts.org/search";
+/** Same-origin proxy (app/api/food-search) — see the module doc for why this can't call search.openfoodfacts.org directly. */
+export const FOOD_SEARCH_URL = "/api/food-search";
 export const FOOD_PRODUCT_URL = "https://world.openfoodfacts.org/api/v2/product";
 
-const SEARCH_FIELDS = "code,product_name,brands,nutriscore_grade,nutriments,images";
 const PRODUCT_FIELDS = "code,product_name,brands,nutriscore_grade,nutriments,image_front_small_url";
 
 export function buildFoodSearchUrl(query: string): string {
-  const params = new URLSearchParams({ q: query, page_size: "20", fields: SEARCH_FIELDS });
+  const params = new URLSearchParams({ q: query });
   return `${FOOD_SEARCH_URL}?${params.toString()}`;
 }
 
