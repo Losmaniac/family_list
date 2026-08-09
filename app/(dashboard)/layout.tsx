@@ -17,11 +17,13 @@ import {
   Camera,
   CalendarCheck,
   CalendarDays,
+  CalendarClock,
   GraduationCap,
   ListChecks,
   MessageCircle,
   Settings,
   ShoppingBag,
+  ShoppingCart,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -56,6 +58,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
   { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
   { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
+  { href: "/schedule", label: "Rozvrh", icon: CalendarClock, parentOnly: false },
+  { href: "/shopping", label: "Nákup", icon: ShoppingCart, parentOnly: false },
 ];
 
 function navOrderStorageKey(uid: string): string {

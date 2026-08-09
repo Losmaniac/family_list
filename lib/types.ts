@@ -54,6 +54,10 @@ export interface Family {
   practiceDailyXpCap?: number;
   /** Member IDs who see the "Vzdělání" module at all (nav item + /practice); absent/empty = nobody but parents, who can always reach it to try/configure it. */
   practiceVisibleTo?: string[];
+  /** Whether a non-parent can see every member's class schedule, not just their own; absent = false (own schedule only — parents can always see everyone's). */
+  scheduleVisibleToAll?: boolean;
+  /** Category list for the shared shopping list, parent-managed; absent/empty = the built-in default categories. */
+  shoppingCategories?: string[];
 }
 
 export type MemberRole = "parent" | "child";
@@ -336,5 +340,36 @@ export interface CalendarEvent {
   /** Whose day this shows up on. */
   memberId: string;
   createdBy: string;
+  timestamp: number;
+}
+
+/**
+ * families/{familyId}/schedules/{memberId} — one member's weekly class
+ * timetable. `days[0]` is Monday .. `days[4]` is Friday; each is an ordered
+ * list of subject names for periods 1..N (an empty string means no lesson
+ * that period). Doc ID is the member's own uid, so there's naturally at
+ * most one schedule per member. A parent can always see (and edit) every
+ * child's; a non-parent always sees/edits their own, and — only if a
+ * parent has turned on family.scheduleVisibleToAll — everyone else's too.
+ */
+export interface ClassSchedule {
+  memberId: string;
+  days: string[][];
+  updatedAt: number;
+}
+
+/**
+ * families/{familyId}/shoppingItems/{id} — the family's shared shopping
+ * list. Anyone can add, check off, or remove an item — a parent only
+ * manages the category list (family.shoppingCategories), not who's
+ * allowed to touch the list itself.
+ */
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity?: string;
+  category: string;
+  checked: boolean;
+  addedBy: string;
   timestamp: number;
 }
