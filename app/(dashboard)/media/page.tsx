@@ -1,0 +1,422 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
+import { useToast } from "@/lib/toast-context";
+import {
+  buildStationsSearchUrl,
+  buildTopCountriesUrl as buildTopRadioCountriesUrl,
+  buildTopTagsUrl,
+  parseFacets,
+  parseStations,
+  type RadioFacet,
+  type RadioStation,
+} from "@/lib/radio-browser";
+import {
+  categoriesUrl,
+  channelsUrl,
+  countriesUrl as tvCountriesUrl,
+  filterChannels,
+  joinChannelsWithStreams,
+  parseCategories,
+  parseCountries,
+  streamsUrl,
+  type CategoryOption,
+  type CountryOption,
+  type TvChannel,
+} from "@/lib/iptv-org";
+
+function describeError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : undefined;
+  return message ? `${fallback} (${message})` : fallback;
+}
+
+const TV_RESULT_LIMIT = 60;
+
+type MediaTab = "radio" | "tv";
+
+function RadioTab() {
+  const toast = useToast();
+  const [nameQuery, setNameQuery] = useState("");
+  const [country, setCountry] = useState("");
+  const [tag, setTag] = useState("");
+  const [countries, setCountries] = useState<RadioFacet[]>([]);
+  const [tags, setTags] = useState<RadioFacet[]>([]);
+  const [stations, setStations] = useState<RadioStation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [playing, setPlaying] = useState<RadioStation | null>(null);
+
+  useEffect(() => {
+    async function loadFacets() {
+      try {
+        const [countriesRes, tagsRes] = await Promise.all([fetch(buildTopRadioCountriesUrl()), fetch(buildTopTagsUrl())]);
+        setCountries(parseFacets(await countriesRes.json()));
+        setTags(parseFacets(await tagsRes.json()));
+      } catch {
+        // Filters are a nice-to-have — search still works with free-text name entry alone.
+      }
+    }
+    loadFacets();
+  }, []);
+
+  async function handleSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await fetch(
+        buildStationsSearchUrl({ name: nameQuery || undefined, country: country || undefined, tag: tag || undefined })
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setStations(parseStations(await res.json()));
+    } catch (err) {
+      toast.error(describeError(err, "Stanice se nepodařilo načíst."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function togglePlay(station: RadioStation) {
+    setPlaying((prev) => (prev?.id === station.id ? null : station));
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={handleSearch} className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Hledat stanici…"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            <Search size={16} /> Hledat
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+          >
+            <option value="">Všechny země</option>
+            {countries.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name} ({c.count})
+              </option>
+            ))}
+          </select>
+          <select
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+          >
+            <option value="">Všechny žánry</option>
+            {tags.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name} ({t.count})
+              </option>
+            ))}
+          </select>
+        </div>
+      </form>
+
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-muted" />
+          ))}
+        </div>
+      ) : stations.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
+          <RadioIcon size={40} />
+          <p className="text-lg">{searched ? "Žádné stanice nenalezeny." : "Vyhledej nebo filtruj stanice."}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {stations.map((station) => {
+            const isPlaying = playing?.id === station.id;
+            return (
+              <div key={station.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+                {station.favicon ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain station icons, not a static asset
+                  <img src={station.favicon} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
+                    <RadioIcon size={18} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{station.name}</p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {[station.country, station.tags.slice(0, 3).join(", "), station.bitrate ? `${station.bitrate} kbps` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => togglePlay(station)}
+                  aria-label={isPlaying ? "Pozastavit" : "Přehrát"}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                    isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
+                  }`}
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {playing && (
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-3 border-t border-border bg-surface px-4 py-2.5 shadow-lg">
+          <RadioIcon size={18} className="shrink-0 text-accent" />
+          <p className="min-w-0 flex-1 truncate text-sm font-medium">{playing.name}</p>
+          <audio
+            key={playing.id}
+            src={playing.streamUrl}
+            autoPlay
+            controls
+            onEnded={() => setPlaying(null)}
+            onError={() => {
+              toast.error("Stream se nepodařilo přehrát.");
+              setPlaying(null);
+            }}
+            className="h-9 max-w-[60%]"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TvTab() {
+  const toast = useToast();
+  const [nameQuery, setNameQuery] = useState("");
+  const [country, setCountry] = useState("");
+  const [category, setCategory] = useState("");
+  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [allChannels, setAllChannels] = useState<TvChannel[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [playing, setPlaying] = useState<TvChannel | null>(null);
+
+  useEffect(() => {
+    async function loadFacets() {
+      try {
+        const [countriesRes, categoriesRes] = await Promise.all([fetch(tvCountriesUrl()), fetch(categoriesUrl())]);
+        setCountries(parseCountries(await countriesRes.json()));
+        setCategories(parseCategories(await categoriesRes.json()));
+      } catch {
+        // Filters are a nice-to-have — search still works with free-text name entry alone.
+      }
+    }
+    loadFacets();
+  }, []);
+
+  async function handleSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    setLoading(true);
+    setSearched(true);
+    try {
+      // channels.json + streams.json are large static files with no
+      // server-side filtering — fetched once and cached, every further
+      // search just re-filters the already-downloaded data client-side.
+      let channels = allChannels;
+      if (!channels) {
+        const [channelsRes, streamsRes] = await Promise.all([fetch(channelsUrl()), fetch(streamsUrl())]);
+        if (!channelsRes.ok || !streamsRes.ok) throw new Error("HTTP error");
+        channels = joinChannelsWithStreams(await channelsRes.json(), await streamsRes.json());
+        setAllChannels(channels);
+      }
+    } catch (err) {
+      toast.error(describeError(err, "Kanály se nepodařilo načíst."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function togglePlay(channel: TvChannel) {
+    setPlaying((prev) => (prev?.id === channel.id ? null : channel));
+  }
+
+  const filtered = allChannels
+    ? filterChannels(allChannels, { name: nameQuery || undefined, country: country || undefined, category: category || undefined }).slice(
+        0,
+        TV_RESULT_LIMIT
+      )
+    : [];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={handleSearch} className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Hledat kanál…"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            <Search size={16} /> Hledat
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+          >
+            <option value="">Všechny země</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+          >
+            <option value="">Všechny kategorie</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </form>
+
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-muted" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
+          <Tv size={40} />
+          <p className="text-lg">{searched ? "Žádné kanály nenalezeny." : "Vyhledej nebo filtruj kanály."}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {allChannels && filterChannels(allChannels, {}).length > 0 && filtered.length === TV_RESULT_LIMIT && (
+            <p className="text-xs text-zinc-500">Zobrazeno prvních {TV_RESULT_LIMIT} — zpřesni hledání pro víc výsledků.</p>
+          )}
+          {filtered.map((channel) => {
+            const isPlaying = playing?.id === channel.id;
+            return (
+              <div key={channel.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+                {channel.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain channel logos, not a static asset
+                  <img src={channel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
+                    <Tv size={18} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{channel.name}</p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {[channel.country, channel.categories.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => togglePlay(channel)}
+                  aria-label={isPlaying ? "Zavřít" : "Přehrát"}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                    isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
+                  }`}
+                >
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {playing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setPlaying(null)}
+        >
+          <div className="flex w-full max-w-lg flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+            <p className="truncate text-center text-sm font-medium text-white">{playing.name}</p>
+            <video
+              key={playing.id}
+              src={playing.streamUrl}
+              autoPlay
+              controls
+              playsInline
+              onError={() => {
+                toast.error("Vysílání se nepodařilo přehrát — zkus jiný kanál.");
+                setPlaying(null);
+              }}
+              className="w-full rounded-lg"
+            />
+            <button
+              type="button"
+              onClick={() => setPlaying(null)}
+              className="self-center rounded-full border border-white/30 px-4 py-1.5 text-sm font-semibold text-white"
+            >
+              Zavřít
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MediaPage() {
+  const [tab, setTab] = useState<MediaTab>("radio");
+
+  return (
+    <div className="flex flex-col gap-4 pb-24">
+      <h1 className="text-xl font-semibold">Média</h1>
+      <p className="text-sm text-zinc-500">Internetové rádio a TV kanály z celého světa, zdarma.</p>
+
+      <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
+        <button
+          type="button"
+          onClick={() => setTab("radio")}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
+            tab === "radio" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+          }`}
+        >
+          <RadioIcon size={15} /> Rádio
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("tv")}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
+            tab === "tv" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+          }`}
+        >
+          <Tv size={15} /> TV
+        </button>
+      </div>
+
+      {tab === "radio" ? <RadioTab /> : <TvTab />}
+    </div>
+  );
+}
