@@ -106,6 +106,59 @@ export function parseLetterAvatar(value: string | undefined): LetterAvatarConfig
   }
 }
 
+// A curated subset of DiceBear 9.x's collection styles — see
+// https://www.dicebear.com/styles for the full list. Free, keyless SVG
+// generation by seed: the same seed always renders the same avatar, so
+// "Náhodné" in AvatarPicker just picks a new random seed string.
+export const DICEBEAR_STYLES = [
+  { id: "adventurer", label: "Dobrodruh" },
+  { id: "avataaars", label: "Kreslený" },
+  { id: "big-ears", label: "Velké uši" },
+  { id: "bottts", label: "Robot" },
+  { id: "croodles", label: "Čmáranice" },
+  { id: "fun-emoji", label: "Emoji" },
+  { id: "lorelei", label: "Lorelei" },
+  { id: "notionists", label: "Notionists" },
+  { id: "pixel-art", label: "Pixel Art" },
+  { id: "thumbs", label: "Palce" },
+] as const;
+
+export type DicebearStyle = (typeof DICEBEAR_STYLES)[number]["id"];
+
+export interface DicebearAvatarConfig {
+  style: string;
+  seed: string;
+}
+
+export function buildDicebearUrl(config: DicebearAvatarConfig): string {
+  const params = new URLSearchParams({ seed: config.seed });
+  return `https://api.dicebear.com/9.x/${encodeURIComponent(config.style)}/svg?${params.toString()}`;
+}
+
+/** A short random string suitable as a DiceBear seed — no cryptographic properties needed, just visual variety. */
+export function randomDicebearSeed(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+const DICEBEAR_PREFIX = "dicebear:";
+
+export function encodeDicebearAvatar(config: DicebearAvatarConfig): string {
+  return DICEBEAR_PREFIX + JSON.stringify(config);
+}
+
+export function parseDicebearAvatar(value: string | undefined): DicebearAvatarConfig | null {
+  if (!value || !value.startsWith(DICEBEAR_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(value.slice(DICEBEAR_PREFIX.length));
+    if (typeof parsed !== "object" || parsed === null || typeof parsed.style !== "string" || typeof parsed.seed !== "string") {
+      return null;
+    }
+    return parsed as DicebearAvatarConfig;
+  } catch {
+    return null;
+  }
+}
+
 const FACE_PREFIX = "face:";
 
 export function encodeFaceAvatar(config: FaceAvatarConfig): string {
