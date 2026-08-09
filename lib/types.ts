@@ -578,6 +578,7 @@ export interface PracticeProgress {
   finance?: string[];
   seberozvoj?: string[];
   ai?: string[];
+  digisafety?: string[];
 }
 
 export type PenaltyTaskStatus = "pending" | "resolved";
