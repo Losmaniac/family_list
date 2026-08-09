@@ -10,6 +10,7 @@ import { formatXp } from "@/lib/xp-engine";
 import { buildExampleSentence } from "@/lib/english-words";
 
 interface FlashcardEntry {
+  id: string;
   en: string;
   emoji: string;
   category: string;
@@ -17,6 +18,7 @@ interface FlashcardEntry {
 
 interface GenerateResponse {
   cards: FlashcardEntry[];
+  complete: boolean;
 }
 
 interface SubmitResponse {
@@ -32,7 +34,7 @@ function describeError(err: unknown, fallback: string): string {
   return message ? `${fallback} (${message})` : fallback;
 }
 
-type Phase = "idle" | "study" | "quiz" | "result";
+type Phase = "idle" | "study" | "quiz" | "result" | "complete";
 
 /**
  * Angličtina — 10 random word/emoji flashcards shown to study (picture +
@@ -66,6 +68,10 @@ export default function EnglishFlashcards() {
         getFirebaseFunctions(),
         "generateEnglishFlashcards"
       )({ familyId });
+      if (result.data.complete) {
+        setPhase("complete");
+        return;
+      }
       setCards(result.data.cards);
       setStudyIndex(0);
       setQuizIndex(0);
@@ -175,6 +181,15 @@ export default function EnglishFlashcards() {
           </button>
         </form>
         {feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
+      </div>
+    );
+  }
+
+  if (phase === "complete") {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-xl border border-border p-6 text-center">
+        <p className="text-lg font-semibold">🎉 Umíš už úplně všechna slovíčka!</p>
+        <p className="text-sm text-zinc-500">Víc kartiček zatím není — zkus jiný předmět.</p>
       </div>
     );
   }

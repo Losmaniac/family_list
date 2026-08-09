@@ -16,12 +16,23 @@ describe("normalizeAnswer / isAnswerCorrect", () => {
 describe("pickRandomLogicWordProblem", () => {
   it("respects the requested difficulty when problems exist for it", () => {
     const problem = pickRandomLogicWordProblem(1, () => 0);
-    expect(problem.difficulty).toBe(1);
+    expect(problem?.difficulty).toBe(1);
   });
 
   it("falls back to the full bank when no difficulty is given", () => {
     const problem = pickRandomLogicWordProblem(undefined, () => 0);
     expect(LOGIC_WORD_PROBLEMS).toContain(problem);
+  });
+
+  it("never returns an excluded problem", () => {
+    const excludeIds = new Set([LOGIC_WORD_PROBLEMS[0].id]);
+    const problem = pickRandomLogicWordProblem(undefined, () => 0, excludeIds);
+    expect(problem?.id).not.toBe(LOGIC_WORD_PROBLEMS[0].id);
+  });
+
+  it("returns undefined once every problem has been excluded", () => {
+    const excludeIds = new Set(LOGIC_WORD_PROBLEMS.map((p) => p.id));
+    expect(pickRandomLogicWordProblem(undefined, () => 0, excludeIds)).toBeUndefined();
   });
 });
 

@@ -5,6 +5,10 @@
  * unit-testable, same reasoning as xp-engine.ts: one source of truth, no
  * answer-checking logic duplicated between client and server.
  */
+import { CZECH_EXERCISES } from "./czech-language";
+import { PRIRODOVEDA_EXERCISES } from "./prirodoveda";
+import { VLASTIVEDA_EXERCISES } from "./vlastiveda";
+import { ENGLISH_WORDS } from "./english-words";
 
 /**
  * "Vzdělání" is organized by subject. Straight arithmetic generation
@@ -24,6 +28,9 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "english", label: "Angličtina", available: true },
   { id: "prirodoveda", label: "Přírodověda", available: true },
   { id: "vlastiveda", label: "Vlastivěda", available: true },
+  { id: "atlas", label: "Zeměpis", available: true },
+  { id: "food", label: "Potraviny", available: true },
+  { id: "wiki", label: "Encyklopedie", available: true },
 ];
 
 /** Flat XP for every correct answer — the daily cap is the only limiter. */
@@ -182,13 +189,26 @@ export const LOGIC_WORD_PROBLEMS: LogicWordProblem[] = [
   },
 ];
 
+/** Size of each subject's finite question bank — the denominator for "X/Y zvládnuto" progress. */
+export const PRACTICE_SUBJECT_TOTALS: Record<string, number> = {
+  math: LOGIC_WORD_PROBLEMS.length,
+  czech: CZECH_EXERCISES.length,
+  prirodoveda: PRIRODOVEDA_EXERCISES.length,
+  vlastiveda: VLASTIVEDA_EXERCISES.length,
+  english: ENGLISH_WORDS.length,
+};
+
+/** `excludeIds` keeps already-correctly-answered problems out of the draw; undefined means the finite bank is fully answered. */
 export function pickRandomLogicWordProblem(
   difficulty?: PracticeDifficulty,
-  random: () => number = Math.random
-): LogicWordProblem {
-  const pool = difficulty ? LOGIC_WORD_PROBLEMS.filter((p) => p.difficulty === difficulty) : LOGIC_WORD_PROBLEMS;
-  const list = pool.length > 0 ? pool : LOGIC_WORD_PROBLEMS;
-  return list[Math.floor(random() * list.length)];
+  random: () => number = Math.random,
+  excludeIds?: ReadonlySet<string>
+): LogicWordProblem | undefined {
+  const byDifficulty = difficulty ? LOGIC_WORD_PROBLEMS.filter((p) => p.difficulty === difficulty) : LOGIC_WORD_PROBLEMS;
+  const list = byDifficulty.length > 0 ? byDifficulty : LOGIC_WORD_PROBLEMS;
+  const pool = excludeIds ? list.filter((p) => !excludeIds.has(p.id)) : list;
+  if (pool.length === 0) return undefined;
+  return pool[Math.floor(random() * pool.length)];
 }
 
 export function normalizeAnswer(value: string): string {
