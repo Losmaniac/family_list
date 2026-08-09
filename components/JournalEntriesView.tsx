@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { addDoc, collection, onSnapshot, query, where } from "firebase/firestore";
 import { NotebookPen, Plus, Trash2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
+import { xpAdjustmentNeedsApproval as needsSecondParentApproval } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import type { Journal, JournalEntry, Member } from "@/lib/types";
 
@@ -16,6 +18,11 @@ function emptyForm() {
 }
 
 const dateFormatter = new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric", year: "numeric" });
+
+/** Module-scope (not component-body) so Date.now() here isn't subject to the react-compiler's render-purity analysis. */
+function nowMs(): number {
+  return Date.now();
+}
 
 /** Chronological (newest first) entry log for one diary — backed by families/{familyId}/journalEntries filtered to this journal's id. Mount with key={journal.id} so switching diaries resets the add-entry form. */
 export default function JournalEntriesView({
@@ -30,6 +37,7 @@ export default function JournalEntriesView({
   const { user } = useAuth();
   const { member } = useFamily();
   const toast = useToast();
+  const { confirm } = useDialog();
   const isParent = member?.role === "parent";
 
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -66,10 +74,29 @@ export default function JournalEntriesView({
   }
 
   async function handleDelete(entry: JournalEntry) {
+    if (!user) return;
+    const parentCount = Object.values(members).filter((m) => m.role === "parent").length;
+    const needsApproval = needsSecondParentApproval(parentCount);
+    const ok = await confirm({
+      title: "Smazat tento záznam?",
+      description: needsApproval ? "Bude smazán, jakmile žádost schválí druhý rodič." : undefined,
+      confirmLabel: "Smazat",
+      danger: true,
+    });
+    if (!ok) return;
+    const author = members[entry.authorId];
     try {
-      await deleteDoc(doc(getDb(), "families", familyId, "journalEntries", entry.id));
+      await addDoc(collection(getDb(), "families", familyId, "journalDeletionRequests"), {
+        targetType: "entry",
+        targetId: entry.id,
+        targetLabel: `${journal.title} · ${author?.name ?? entry.authorId} · ${entry.text.slice(0, 60)}`,
+        requestedBy: user.uid,
+        status: "requested",
+        timestamp: nowMs(),
+      });
+      toast.success(needsApproval ? "Žádost o smazání odeslána, čeká na schválení druhým rodičem." : "Záznam byl smazán.");
     } catch {
-      toast.error("Záznam se nepodařilo smazat.");
+      toast.error("Žádost o smazání se nepodařilo odeslat.");
     }
   }
 
@@ -131,7 +158,6 @@ export default function JournalEntriesView({
         <div className="flex flex-col gap-2">
           {sorted.map((entry) => {
             const author = members[entry.authorId];
-            const canDelete = entry.authorId === user?.uid || isParent;
             return (
               <div key={entry.id} className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-3">
                 <Avatar name={author?.name ?? "?"} avatarUrl={author?.avatarUrl} size="sm" />
@@ -143,7 +169,7 @@ export default function JournalEntriesView({
                   </div>
                   <p className="mt-0.5 whitespace-pre-wrap">{entry.text}</p>
                 </div>
-                {canDelete && (
+                {isParent && (
                   <button
                     type="button"
                     onClick={() => handleDelete(entry)}

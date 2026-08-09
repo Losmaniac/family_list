@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
+import { doc, updateDoc } from "firebase/firestore";
+import { Heart, Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
+import { getDb } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
+import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { isFavorite, toggleFavorite } from "@/lib/media-favorites";
 import {
   buildStationsSearchUrl,
   buildTopCountriesUrl as buildTopRadioCountriesUrl,
@@ -34,8 +39,72 @@ const TV_RESULT_LIMIT = 60;
 
 type MediaTab = "radio" | "tv";
 
+/** A heart toggle shared by the play/pause button pattern — same shape, different fill state, no play/pause side effects of its own. */
+function FavoriteButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={active ? "Odebrat z oblíbených" : "Přidat do oblíbených"}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+        active ? "text-danger" : "text-zinc-400"
+      }`}
+    >
+      <Heart size={18} fill={active ? "currentColor" : "none"} />
+    </button>
+  );
+}
+
+function StationRow({
+  station,
+  isPlaying,
+  isFavorite,
+  onTogglePlay,
+  onToggleFavorite,
+}: {
+  station: RadioStation;
+  isPlaying: boolean;
+  isFavorite: boolean;
+  onTogglePlay: () => void;
+  onToggleFavorite: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+      {station.favicon ? (
+        // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain station icons, not a static asset
+        <img src={station.favicon} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
+          <RadioIcon size={18} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{station.name}</p>
+        <p className="truncate text-xs text-zinc-500">
+          {[station.country, station.tags.slice(0, 3).join(", "), station.bitrate ? `${station.bitrate} kbps` : null]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+      <FavoriteButton active={isFavorite} onToggle={onToggleFavorite} />
+      <button
+        type="button"
+        onClick={onTogglePlay}
+        aria-label={isPlaying ? "Pozastavit" : "Přehrát"}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
+        }`}
+      >
+        {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+      </button>
+    </div>
+  );
+}
+
 function RadioTab() {
   const toast = useToast();
+  const { user } = useAuth();
+  const { familyId, member } = useFamily();
   const [nameQuery, setNameQuery] = useState("");
   const [country, setCountry] = useState("");
   const [tag, setTag] = useState("");
@@ -45,6 +114,7 @@ function RadioTab() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [playing, setPlaying] = useState<RadioStation | null>(null);
+  const favorites = member?.favoriteRadioStations ?? [];
 
   useEffect(() => {
     async function loadFacets() {
@@ -80,8 +150,37 @@ function RadioTab() {
     setPlaying((prev) => (prev?.id === station.id ? null : station));
   }
 
+  async function handleToggleFavorite(station: RadioStation) {
+    if (!familyId || !user) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
+        favoriteRadioStations: toggleFavorite(favorites, station),
+      });
+    } catch {
+      toast.error("Oblíbenou stanici se nepodařilo uložit.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {favorites.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-zinc-500">Oblíbené</p>
+          <div className="flex flex-col gap-2">
+            {favorites.map((station) => (
+              <StationRow
+                key={station.id}
+                station={station}
+                isPlaying={playing?.id === station.id}
+                isFavorite
+                onTogglePlay={() => togglePlay(station)}
+                onToggleFavorite={() => handleToggleFavorite(station)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSearch} className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input
@@ -140,39 +239,16 @@ function RadioTab() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {stations.map((station) => {
-            const isPlaying = playing?.id === station.id;
-            return (
-              <div key={station.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
-                {station.favicon ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain station icons, not a static asset
-                  <img src={station.favicon} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
-                    <RadioIcon size={18} />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{station.name}</p>
-                  <p className="truncate text-xs text-zinc-500">
-                    {[station.country, station.tags.slice(0, 3).join(", "), station.bitrate ? `${station.bitrate} kbps` : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => togglePlay(station)}
-                  aria-label={isPlaying ? "Pozastavit" : "Přehrát"}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
-                  }`}
-                >
-                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                </button>
-              </div>
-            );
-          })}
+          {stations.map((station) => (
+            <StationRow
+              key={station.id}
+              station={station}
+              isPlaying={playing?.id === station.id}
+              isFavorite={isFavorite(favorites, station.id)}
+              onTogglePlay={() => togglePlay(station)}
+              onToggleFavorite={() => handleToggleFavorite(station)}
+            />
+          ))}
         </div>
       )}
 
@@ -198,8 +274,54 @@ function RadioTab() {
   );
 }
 
+function ChannelRow({
+  channel,
+  isPlaying,
+  isFavorite,
+  onTogglePlay,
+  onToggleFavorite,
+}: {
+  channel: TvChannel;
+  isPlaying: boolean;
+  isFavorite: boolean;
+  onTogglePlay: () => void;
+  onToggleFavorite: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+      {channel.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain channel logos, not a static asset
+        <img src={channel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+      ) : (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
+          <Tv size={18} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{channel.name}</p>
+        <p className="truncate text-xs text-zinc-500">
+          {[channel.country, channel.categories.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
+        </p>
+      </div>
+      <FavoriteButton active={isFavorite} onToggle={onToggleFavorite} />
+      <button
+        type="button"
+        onClick={onTogglePlay}
+        aria-label={isPlaying ? "Zavřít" : "Přehrát"}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
+        }`}
+      >
+        {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+      </button>
+    </div>
+  );
+}
+
 function TvTab() {
   const toast = useToast();
+  const { user } = useAuth();
+  const { familyId, member } = useFamily();
   const [nameQuery, setNameQuery] = useState("");
   const [country, setCountry] = useState("");
   const [category, setCategory] = useState("");
@@ -209,6 +331,7 @@ function TvTab() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [playing, setPlaying] = useState<TvChannel | null>(null);
+  const favorites = member?.favoriteTvChannels ?? [];
 
   useEffect(() => {
     async function loadFacets() {
@@ -249,6 +372,17 @@ function TvTab() {
     setPlaying((prev) => (prev?.id === channel.id ? null : channel));
   }
 
+  async function handleToggleFavorite(channel: TvChannel) {
+    if (!familyId || !user) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
+        favoriteTvChannels: toggleFavorite(favorites, channel),
+      });
+    } catch {
+      toast.error("Oblíbený kanál se nepodařilo uložit.");
+    }
+  }
+
   const filtered = allChannels
     ? filterChannels(allChannels, { name: nameQuery || undefined, country: country || undefined, category: category || undefined }).slice(
         0,
@@ -258,6 +392,24 @@ function TvTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      {favorites.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-zinc-500">Oblíbené</p>
+          <div className="flex flex-col gap-2">
+            {favorites.map((channel) => (
+              <ChannelRow
+                key={channel.id}
+                channel={channel}
+                isPlaying={playing?.id === channel.id}
+                isFavorite
+                onTogglePlay={() => togglePlay(channel)}
+                onToggleFavorite={() => handleToggleFavorite(channel)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSearch} className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input
@@ -319,37 +471,16 @@ function TvTab() {
           {allChannels && filterChannels(allChannels, {}).length > 0 && filtered.length === TV_RESULT_LIMIT && (
             <p className="text-xs text-zinc-500">Zobrazeno prvních {TV_RESULT_LIMIT} — zpřesni hledání pro víc výsledků.</p>
           )}
-          {filtered.map((channel) => {
-            const isPlaying = playing?.id === channel.id;
-            return (
-              <div key={channel.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
-                {channel.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- external, unpredictable-domain channel logos, not a static asset
-                  <img src={channel.logo} alt="" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-zinc-400">
-                    <Tv size={18} />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{channel.name}</p>
-                  <p className="truncate text-xs text-zinc-500">
-                    {[channel.country, channel.categories.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => togglePlay(channel)}
-                  aria-label={isPlaying ? "Zavřít" : "Přehrát"}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    isPlaying ? "bg-accent text-accent-foreground" : "bg-surface-muted text-accent"
-                  }`}
-                >
-                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                </button>
-              </div>
-            );
-          })}
+          {filtered.map((channel) => (
+            <ChannelRow
+              key={channel.id}
+              channel={channel}
+              isPlaying={playing?.id === channel.id}
+              isFavorite={isFavorite(favorites, channel.id)}
+              onTogglePlay={() => togglePlay(channel)}
+              onToggleFavorite={() => handleToggleFavorite(channel)}
+            />
+          ))}
         </div>
       )}
 

@@ -75,7 +75,8 @@ service cloud.firestore {
           (isParent(familyId) &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'role'])) ||
           (isSignedIn() && request.auth.uid == userId &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId']));
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId', 'favoriteRadioStations', 'favoriteTvChannels']));
       }
 
       match /taskTemplates/{templateId} {
@@ -404,7 +405,10 @@ service cloud.firestore {
           request.resource.data.createdBy == request.auth.uid &&
           request.resource.data.title is string && request.resource.data.title.size() > 0 &&
           request.resource.data.kind is string;
-        allow delete: if isParent(familyId);
+        // Deleting a journal always goes through a JournalDeletionRequest
+        // (below) — only the onJournalDeletionRequestWritten Cloud
+        // Function (Admin SDK) ever deletes one directly.
+        allow delete: if false;
       }
 
       match /journalEntries/{entryId} {
@@ -414,12 +418,33 @@ service cloud.firestore {
           request.resource.data.journalId is string &&
           request.resource.data.text is string && request.resource.data.text.size() > 0 &&
           request.resource.data.date is string;
-        // Only the author may edit their own entry's date/text; deletion
-        // (below) is the only action a parent can take on someone else's.
+        // Only the author may edit their own entry's date/text.
         allow update: if isFamilyMember(familyId) &&
           resource.data.authorId == request.auth.uid &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'text']);
-        allow delete: if isFamilyMember(familyId) && (resource.data.authorId == request.auth.uid || isParent(familyId));
+        // Deleting an entry always goes through a JournalDeletionRequest
+        // (below), same as a whole journal — no direct client delete.
+        allow delete: if false;
+      }
+
+      match /journalDeletionRequests/{requestId} {
+        allow read: if isFamilyMember(familyId);
+        // Only a parent may request deleting a journal or one of its
+        // entries — always starts 'requested'.
+        allow create: if isParent(familyId) &&
+          request.resource.data.requestedBy == request.auth.uid &&
+          request.resource.data.status == 'requested' &&
+          request.resource.data.targetType in ['journal', 'entry'] &&
+          request.resource.data.targetId is string &&
+          request.resource.data.targetLabel is string;
+        // Only a *different* parent than the requester may decide it —
+        // "second parent must approve" — and only while still 'requested'.
+        allow update: if isParent(familyId) &&
+          request.auth.uid != resource.data.requestedBy &&
+          resource.data.status == 'requested' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status in ['approved', 'rejected'];
+        allow delete: if false;
       }
 
       match /adHocTaskTypes/{typeId} {
