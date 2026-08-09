@@ -9,6 +9,9 @@ import { CZECH_EXERCISES } from "./czech-language";
 import { PRIRODOVEDA_EXERCISES } from "./prirodoveda";
 import { VLASTIVEDA_EXERCISES } from "./vlastiveda";
 import { ENGLISH_WORDS } from "./english-words";
+import { FINANCIAL_LITERACY_EXERCISES } from "./financial-literacy";
+import { SELF_DEVELOPMENT_EXERCISES } from "./self-development";
+import { AI_LITERACY_EXERCISES } from "./ai-literacy";
 
 /**
  * "Vzdělání" is organized by subject. Straight arithmetic generation
@@ -29,6 +32,9 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "prirodoveda", label: "Přírodověda", available: true },
   { id: "vlastiveda", label: "Vlastivěda", available: true },
   { id: "atlas", label: "Zeměpis", available: true },
+  { id: "finance", label: "Finanční gramotnost", available: true },
+  { id: "seberozvoj", label: "Seberozvoj", available: true },
+  { id: "ai", label: "AI", available: true },
   { id: "food", label: "Potraviny", available: true },
   { id: "wiki", label: "Encyklopedie", available: true },
 ];
@@ -196,6 +202,9 @@ export const PRACTICE_SUBJECT_TOTALS: Record<string, number> = {
   prirodoveda: PRIRODOVEDA_EXERCISES.length,
   vlastiveda: VLASTIVEDA_EXERCISES.length,
   english: ENGLISH_WORDS.length,
+  finance: FINANCIAL_LITERACY_EXERCISES.length,
+  seberozvoj: SELF_DEVELOPMENT_EXERCISES.length,
+  ai: AI_LITERACY_EXERCISES.length,
 };
 
 /** `excludeIds` keeps already-correctly-answered problems out of the draw; undefined means the finite bank is fully answered. */
