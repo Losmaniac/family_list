@@ -99,6 +99,8 @@ export interface Member {
    */
   favoriteRadioStations?: RadioStation[];
   favoriteTvChannels?: TvChannel[];
+  /** UI language for this member specifically (not shared family-wide, like nav style) — absent = Czech. */
+  locale?: "cs" | "en";
 }
 
 export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { FamilyProvider } from "@/lib/family-context";
+import { LocaleProvider } from "@/lib/locale-context";
 import { ToastProvider } from "@/lib/toast-context";
 import { DialogProvider } from "@/lib/dialog-context";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
@@ -61,7 +62,9 @@ export default function RootLayout({
               <ServiceWorkerRegistration />
               <WakeLock />
               <AuthProvider>
-                <FamilyProvider>{children}</FamilyProvider>
+                <FamilyProvider>
+                  <LocaleProvider>{children}</LocaleProvider>
+                </FamilyProvider>
               </AuthProvider>
             </DialogProvider>
           </ToastProvider>

@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
+import { useLocale } from "@/lib/locale-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { logAction } from "@/lib/audit-log";
 import { compressImage } from "@/lib/image-compress";
@@ -32,6 +33,7 @@ export default function TodayPage() {
   const { familyId, member, family } = useFamily();
   const toast = useToast();
   const { promptText, confirm } = useDialog();
+  const { t } = useLocale();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [pendingApproval, setPendingApproval] = useState<DailyTask[]>([]);
   const [templates, setTemplates] = useState<Record<string, TaskTemplate>>({});
@@ -288,21 +290,21 @@ export default function TodayPage() {
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
       {hasOpenRequestToday ? (
         <>
-          <p className="text-sm text-zinc-500">Čekáš na návrh nového úkolu od rodiny.</p>
+          <p className="text-sm text-zinc-500">{t("today.waitingForRequest")}</p>
           <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
-            <X size={14} /> Zrušit žádost
+            <X size={14} /> {t("today.cancelRequest")}
           </button>
         </>
       ) : (
         <>
-          <p className="text-sm text-zinc-500">Nemáš žádné nesplněné úkoly. Chceš další?</p>
+          <p className="text-sm text-zinc-500">{t("today.wantAnotherTask")}</p>
           <button
             type="button"
             onClick={handleRequestTask}
             disabled={submittingRequest}
             className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
           >
-            <Star size={14} /> Chci nový úkol
+            <Star size={14} /> {t("today.requestTask")}
           </button>
         </>
       )}
@@ -354,7 +356,7 @@ export default function TodayPage() {
 
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-medium">Čeká na schválení</h2>
+          <h2 className="font-medium">{t("today.pendingApproval")}</h2>
           {pendingApproval.map((task) => {
             const template = templates[task.templateId];
             const requester = members[task.assignedTo];
@@ -394,14 +396,14 @@ export default function TodayPage() {
                     onClick={() => handleApprove(task)}
                     className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
                   >
-                    Schválit
+                    {t("today.approve")}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleReturn(task)}
                     className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
                   >
-                    Vrátit
+                    {t("today.return")}
                   </button>
                 </div>
               </div>
@@ -413,27 +415,25 @@ export default function TodayPage() {
       <section className="flex flex-1 flex-col gap-4">
         <div className="flex items-center gap-3">
           {familyId && <AdHocTasksButton familyId={familyId} />}
-          <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
+          <h1 className="text-xl font-semibold">{t("today.title")}</h1>
         </div>
         {tasks.length === 0 && Object.keys(templates).length === 0 ? (
           member?.role === "parent" ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-zinc-500">
               <Sparkles size={40} />
-              <p className="text-lg text-foreground">Vítej! Rodina ještě nemá žádné úkoly.</p>
-              <p className="max-w-xs text-sm">
-                Založ první úkoly na kartě Zadat — vyber si z připravených šablon nebo si vytvoř vlastní.
-              </p>
+              <p className="text-lg text-foreground">{t("today.noTasksParent")}</p>
+              <p className="max-w-xs text-sm">{t("today.noTasksParentHint")}</p>
               <Link
                 href="/assign"
                 className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground"
               >
-                Nastavit první úkoly
+                {t("today.noTasksParentCta")}
               </Link>
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-zinc-500">
               <PartyPopper size={40} />
-              <p className="text-lg">Rodiče ještě nenastavili žádné úkoly.</p>
+              <p className="text-lg">{t("today.noTasksChild")}</p>
             </div>
           )
         ) : tasks.length === 0 ? (

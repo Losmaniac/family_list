@@ -266,6 +266,25 @@ export default function PracticePage() {
     submitAnswer(option);
   }
 
+  async function handleGiveUp() {
+    if (!familyId || !current) return;
+    setSubmitting(true);
+    try {
+      const result = await httpsCallable<{ familyId: string }, { correctAnswer: string }>(
+        getFirebaseFunctions(),
+        "giveUpPracticeProblem"
+      )({ familyId });
+      setAnswer("");
+      setFeedback(`Správná odpověď byla: ${result.data.correctAnswer}. Za chvíli přijde další úloha…`);
+      setTransitioning(true);
+      scheduleAutoAdvance(AUTO_ADVANCE_REVEAL_DELAY_MS);
+    } catch (err) {
+      toast.error(describeError(err, "Nepodařilo se načíst odpověď."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function handleManualAdvance() {
     setRevealedExplanation(null);
     handleNewProblem();
@@ -429,6 +448,16 @@ export default function PracticePage() {
                   Odeslat
                 </button>
               </div>
+              {subject === "dictionary" && (
+                <button
+                  type="button"
+                  onClick={handleGiveUp}
+                  disabled={submitting || transitioning}
+                  className="self-start text-sm text-zinc-500 underline disabled:opacity-50"
+                >
+                  Nevím, ukaž mi odpověď
+                </button>
+              )}
             </form>
           )}
 
