@@ -52,6 +52,20 @@ export const DEFAULT_STREAK_BONUS_PER_DAY = 0.1;
 export const DEFAULT_STREAK_BONUS_CAP = 0.5;
 
 /**
+ * The +10 %/day (capped at +50 %) fraction a streak currently earns, on
+ * its own — split out from applyStreakBonus so the UI (StreakBadge) can
+ * show "what bonus am I currently at" without needing a base XP amount to
+ * apply it to.
+ */
+export function streakBonusFraction(
+  streak: number,
+  perDay: number = DEFAULT_STREAK_BONUS_PER_DAY,
+  cap: number = DEFAULT_STREAK_BONUS_CAP
+): number {
+  return Math.min(cap, perDay * Math.max(0, streak - 1));
+}
+
+/**
  * +10 % XP per consecutive streak day, capped at +50 % (1.5x base) by
  * default — no penalties, this only ever adds. A parent can override both
  * numbers per family (Settings → Herní nastavení, stored on the family doc
@@ -64,10 +78,9 @@ export function applyStreakBonus(
   perDay: number = DEFAULT_STREAK_BONUS_PER_DAY,
   cap: number = DEFAULT_STREAK_BONUS_CAP
 ): number {
-  const bonus = Math.min(cap, perDay * Math.max(0, streak - 1));
   // Kept exact (not rounded) — the ledger and xpBalance are decimal-capable;
   // only the UI floors XP for display.
-  return baseXp * (1 + bonus);
+  return baseXp * (1 + streakBonusFraction(streak, perDay, cap));
 }
 
 // Explicit thresholds matching the spec's example curve (L2=100, L3=250, ...,

@@ -147,7 +147,11 @@ service cloud.firestore {
             (resource.data.status == 'requested' && request.resource.data.status in ['approved', 'rejected']) ||
             (resource.data.status == 'approved' && request.resource.data.status == 'fulfilled')
           );
-        allow delete: if false;
+        // A parent may individually delete entries from their own "Moje
+        // odměny" history — purely a cleanup action: XP was already
+        // deducted at the requested->approved transition (onRedemptionApproved),
+        // so removing the record here never touches xpBalance.
+        allow delete: if isParent(familyId) && resource.data.userId == request.auth.uid;
       }
 
       match /investments/{investmentId} {
@@ -340,6 +344,49 @@ service cloud.firestore {
       // xpLedger, since it's both an XP award record and the source of
       // truth the server-side cooldown check reads from.
       match /adHocCompletions/{completionId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
+      // A parent-issued "do this or lose XP" deadline. penaltiesApplied is
+      // server-authoritative (only the penaltyTaskSweep Cloud Function,
+      // Admin SDK, ever changes it) — it's deliberately excluded from every
+      // affectedKeys() list below so no client update can ever touch it.
+      match /penaltyTasks/{taskId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.penaltiesApplied == 0 &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+          request.resource.data.assignedTo is list && request.resource.data.assignedTo.size() > 0 &&
+          request.resource.data.deadlineHours is number && request.resource.data.deadlineHours > 0 &&
+          request.resource.data.penaltyXp is number && request.resource.data.penaltyXp > 0 &&
+          request.resource.data.recurringXp is number && request.resource.data.recurringXp >= 0 &&
+          request.resource.data.recurringIntervalHours is number && request.resource.data.recurringIntervalHours >= 0;
+        // A parent resolves it (the only thing that stops the deduction) —
+        // never any other status transition, and 'resolved' is terminal.
+        // An assigned member may separately flag "please check this" with
+        // submittedAt/photoUrl — cosmetic only, doesn't touch status and
+        // never stops the deduction by itself.
+        allow update: if isFamilyMember(familyId) && resource.data.status == 'pending' &&
+          (
+            (isParent(familyId) &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedAt', 'resolvedBy']) &&
+              request.resource.data.status == 'resolved' &&
+              request.resource.data.resolvedBy == request.auth.uid) ||
+            (request.auth.uid in resource.data.assignedTo &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['submittedAt', 'photoUrl']))
+          );
+        allow delete: if isParent(familyId);
+      }
+
+      // Which Vzdělání exercises this member has already answered
+      // correctly, per subject — read by the member (their own progress)
+      // and by everyone else (parents see their children's progress too;
+      // not sensitive data). Only ever written by the generatePracticeProblem/
+      // submitPracticeAnswer/englishFlashcards Cloud Functions.
+      match /practiceProgress/{userId} {
         allow read: if isFamilyMember(familyId);
         allow write: if false;
       }

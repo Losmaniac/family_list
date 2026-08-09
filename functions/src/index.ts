@@ -17,6 +17,7 @@ export { sendTestNotification } from "./notifications";
 export { generatePracticeProblem, submitPracticeAnswer } from "./practice";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
+export { penaltyTaskSweep } from "./penaltyTasks";
 export {
   onTaskProposalCreated,
   onTaskRequestOpened,

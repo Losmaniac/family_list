@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { ShoppingBag } from "lucide-react";
+import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import { formatXp } from "@/lib/xp-engine";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
@@ -31,6 +32,7 @@ export default function ShopPage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
   const toast = useToast();
+  const { confirm } = useDialog();
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [myRedemptions, setMyRedemptions] = useState<RewardRedemption[]>([]);
   const [members, setMembers] = useState<Record<string, Member>>({});
@@ -116,6 +118,24 @@ export default function ShopPage() {
     }
   }
 
+  async function handleDeleteRedemption(redemption: RewardRedemption) {
+    if (!familyId) return;
+    const reward = rewards.find((r) => r.id === redemption.rewardId);
+    const ok = await confirm({
+      title: `Smazat „${reward?.title ?? redemption.rewardId}“ z historie?`,
+      description: "Tuto akci nelze vrátit zpět. Případně už odečtené XP se tím nevrátí.",
+      confirmLabel: "Smazat",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id));
+      toast.success("Odměna byla smazána z historie.");
+    } catch {
+      toast.error("Nepodařilo se smazat.");
+    }
+  }
+
   async function handlePledge(pool: PooledContribution) {
     if (!familyId || !user) return;
     const amount = Number(pledgeAmounts[pool.id]);
@@ -178,9 +198,21 @@ export default function ShopPage() {
             return (
               <div key={redemption.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
                 <p className="font-medium">{reward?.title ?? redemption.rewardId}</p>
-                <span className={`text-sm font-medium ${STATUS_COLORS[redemption.status]}`}>
-                  {STATUS_LABELS[redemption.status]}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm font-medium ${STATUS_COLORS[redemption.status]}`}>
+                    {STATUS_LABELS[redemption.status]}
+                  </span>
+                  {member?.role === "parent" && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRedemption(redemption)}
+                      aria-label="Smazat z historie"
+                      className="text-zinc-400 hover:text-danger"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

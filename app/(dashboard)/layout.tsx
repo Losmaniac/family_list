@@ -18,6 +18,7 @@ import {
   CalendarCheck,
   CalendarDays,
   CalendarClock,
+  CloudSun,
   GraduationCap,
   ListChecks,
   MessageCircle,
@@ -25,6 +26,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   TrendingUp,
+  Tv,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +62,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
   { href: "/schedule", label: "Rozvrh", icon: CalendarClock, parentOnly: false },
   { href: "/shopping", label: "Nákup", icon: ShoppingCart, parentOnly: false },
+  { href: "/media", label: "Média", icon: Tv, parentOnly: false },
+  { href: "/weather", label: "Počasí", icon: CloudSun, parentOnly: false },
 ];
 
 function navOrderStorageKey(uid: string): string {
@@ -173,6 +177,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         item.href === "/practice" &&
         member?.role !== "parent" &&
         !family?.practiceVisibleTo?.includes(member?.id ?? "")
+      ) {
+        return false;
+      }
+      // A parent can individually hide any non-parent-only card per child
+      // (Settings → Viditelnost karet) — parents always see every card
+      // themselves regardless of this setting.
+      if (
+        member?.role !== "parent" &&
+        family?.hiddenNavHrefsByMember?.[member?.id ?? ""]?.includes(item.href)
       ) {
         return false;
       }
@@ -292,7 +305,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{member.name}</p>
-            <StreakBadge currentStreak={member.currentStreak} />
+            <StreakBadge
+              currentStreak={member.currentStreak}
+              streakBonusPerDay={family?.streakBonusPerDay}
+              streakBonusCap={family?.streakBonusCap}
+            />
           </div>
           <XPBar xpBalance={member.xpBalance} levelTitles={family?.levelTitles} levelThresholds={family?.levelThresholds} />
         </div>
