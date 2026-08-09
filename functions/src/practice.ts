@@ -122,8 +122,10 @@ export const getPracticeCapStatus = onCall<CapStatusRequest>(async (request) => 
 
   const db = getFirestore();
   const familyRef = db.collection("families").doc(familyId);
-  const headroom = await getPracticeXpHeadroomToday(familyRef, uid);
-  return { capReached: headroom <= 0 };
+  const [headroom, familySnap] = await Promise.all([getPracticeXpHeadroomToday(familyRef, uid), familyRef.get()]);
+  const family = familySnap.data() as Family | undefined;
+  const dailyCap = family?.practiceDailyXpCap ?? DEFAULT_PRACTICE_DAILY_XP_CAP;
+  return { capReached: headroom <= 0, headroom, dailyCap };
 });
 
 interface GenerateRequest {
