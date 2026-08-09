@@ -1,3 +1,6 @@
+import type { RadioStation } from "./radio-browser";
+import type { TvChannel } from "./iptv-org";
+
 /**
  * users/{userId} — top-level lookup so the client can resolve which family a
  * signed-in user belongs to without scanning every families/{familyId} doc.
@@ -81,6 +84,15 @@ export interface Member {
   fcmToken?: string;
   /** rewards/{id} this member is currently saving toward — drives the progress bar on /shop. */
   savingsGoalRewardId?: string;
+  /**
+   * Stations/channels this member has hearted on the Rádio/TV tabs — a full
+   * snapshot of each RadioStation/TvChannel (not just its id) so favorites
+   * still show without a fresh Radio Browser/IPTV-org lookup, since there's
+   * no per-user favorites collection for something this lightweight and
+   * purely personal.
+   */
+  favoriteRadioStations?: RadioStation[];
+  favoriteTvChannels?: TvChannel[];
 }
 
 export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";
@@ -478,7 +490,7 @@ export interface Journal {
   createdAt: number;
 }
 
-/** families/{familyId}/journalEntries/{id} — flat collection, each entry pointing at its journal via `journalId`. Only the author (or a parent) may delete their entry; entries are otherwise immutable once written. */
+/** families/{familyId}/journalEntries/{id} — flat collection, each entry pointing at its journal via `journalId`. Deleting one always goes through a JournalDeletionRequest — see below — entries are otherwise immutable once written (the author may still edit date/text). */
 export interface JournalEntry {
   id: string;
   journalId: string;
@@ -486,6 +498,30 @@ export interface JournalEntry {
   /** YYYY-MM-DD, family zone — defaults to "today" when logged, but freely backdatable. */
   date: string;
   text: string;
+  timestamp: number;
+}
+
+export type JournalDeletionTargetType = "journal" | "entry";
+
+/**
+ * A parent's request to delete an entire journal (and all its entries) or
+ * a single entry from one — same second-parent-approval shape as
+ * XpAdjustmentRequest: requested -> approved (a *different* parent
+ * approves, which is what actually performs the deletion server-side) |
+ * rejected. Auto-approved on creation if the family has no second parent
+ * to ever approve it. `targetLabel` is a denormalized snapshot (journal
+ * title, or "<journal title> · <date> · <text preview>" for an entry) so
+ * the request stays readable even after the target itself is deleted.
+ */
+export type JournalDeletionStatus = "requested" | "approved" | "rejected";
+
+export interface JournalDeletionRequest {
+  id: string;
+  targetType: JournalDeletionTargetType;
+  targetId: string;
+  targetLabel: string;
+  requestedBy: string;
+  status: JournalDeletionStatus;
   timestamp: number;
 }
 

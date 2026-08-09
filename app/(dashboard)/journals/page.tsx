@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
+import { addDoc, collection, onSnapshot } from "firebase/firestore";
 import { BookOpen, Dumbbell, Plus, Trash2, Utensils } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -9,6 +9,7 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { JOURNAL_PRESETS } from "@/lib/journals";
+import { xpAdjustmentNeedsApproval as needsSecondParentApproval } from "@/lib/xp-engine";
 import JournalEntriesView from "@/components/JournalEntriesView";
 import type { Journal, JournalKind, Member } from "@/lib/types";
 
@@ -94,19 +95,30 @@ export default function JournalsPage() {
   }
 
   async function handleDeleteJournal(journal: Journal) {
-    if (!familyId) return;
+    if (!familyId || !user) return;
+    const parentCount = Object.values(members).filter((m) => m.role === "parent").length;
+    const needsApproval = needsSecondParentApproval(parentCount);
     const ok = await confirm({
       title: `Smazat deník „${journal.title}“?`,
-      description: "Všechny jeho záznamy budou nenávratně smazány.",
+      description: needsApproval
+        ? "Všechny jeho záznamy budou nenávratně smazány, jakmile žádost schválí druhý rodič."
+        : "Všechny jeho záznamy budou nenávratně smazány.",
       confirmLabel: "Smazat",
       danger: true,
     });
     if (!ok) return;
     try {
-      await deleteDoc(doc(getDb(), "families", familyId, "journals", journal.id));
-      if (selectedId === journal.id) setSelectedId(null);
+      await addDoc(collection(getDb(), "families", familyId, "journalDeletionRequests"), {
+        targetType: "journal",
+        targetId: journal.id,
+        targetLabel: journal.title,
+        requestedBy: user.uid,
+        status: "requested",
+        timestamp: Date.now(),
+      });
+      toast.success(needsApproval ? "Žádost o smazání odeslána, čeká na schválení druhým rodičem." : "Deník byl smazán.");
     } catch {
-      toast.error("Deník se nepodařilo smazat.");
+      toast.error("Žádost o smazání se nepodařilo odeslat.");
     }
   }
 

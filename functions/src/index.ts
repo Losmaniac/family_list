@@ -9,6 +9,7 @@ export { onTaskCompleted, reconcileTaskXpSweep } from "./onTaskCompleted";
 export { onRedemptionApproved } from "./onRedemptionApproved";
 export { onTaskTemplateWritten } from "./onTaskTemplateWritten";
 export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
+export { onJournalDeletionRequestWritten } from "./journalDeletions";
 export { onTaskProposalWritten } from "./taskProposals";
 export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";

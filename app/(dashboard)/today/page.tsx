@@ -18,6 +18,7 @@ import Avatar from "@/components/Avatar";
 import AdHocTasksButton from "@/components/AdHocTasksButton";
 import MyPenaltyTasks from "@/components/MyPenaltyTasks";
 import PendingXpAdjustments from "@/components/PendingXpAdjustments";
+import PendingJournalDeletions from "@/components/PendingJournalDeletions";
 import Link from "next/link";
 import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
@@ -345,6 +346,8 @@ export default function TodayPage() {
       {familyId && <MyPenaltyTasks familyId={familyId} />}
 
       {familyId && member?.role === "parent" && <PendingXpAdjustments familyId={familyId} />}
+
+      {familyId && member?.role === "parent" && <PendingJournalDeletions familyId={familyId} />}
 
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
