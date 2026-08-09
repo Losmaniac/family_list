@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Gamepad2, Pause, Play, Radio as RadioIcon, Search, Tv, X } from "lucide-react";
+import { Gamepad2, Info, Pause, Play, Radio as RadioIcon, Search, Tv, X } from "lucide-react";
 import { useToast } from "@/lib/toast-context";
 import {
   buildStationsSearchUrl,
@@ -401,6 +401,11 @@ function GamesTab() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [playing, setPlaying] = useState<ArchiveGame | null>(null);
+  const [noKeyboardNotice, setNoKeyboardNotice] = useState(true);
+  // No fine pointer (mouse/trackpad) usually means no physical keyboard either —
+  // the archive.org DOS emulator only reads real keyboard/gamepad input, it has
+  // no on-screen touch controls, so warn instead of leaving touch users stuck.
+  const [likelyNoKeyboard] = useState(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
 
   async function handleSearch(e?: React.FormEvent) {
     e?.preventDefault();
@@ -472,7 +477,10 @@ function GamesTab() {
             <button
               key={game.id}
               type="button"
-              onClick={() => setPlaying(game)}
+              onClick={() => {
+                setNoKeyboardNotice(true);
+                setPlaying(game);
+              }}
               className="flex flex-col gap-1.5 rounded-xl border border-border bg-surface p-2 text-left"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- external Internet Archive thumbnail, not a static asset */}
@@ -496,6 +504,26 @@ function GamesTab() {
               <X size={20} />
             </button>
           </div>
+          {likelyNoKeyboard && noKeyboardNotice && (
+            <div
+              className="mx-3 mb-2 flex items-start gap-2 rounded-xl bg-amber-500/15 px-3 py-2.5 text-sm text-amber-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Info size={16} className="mt-0.5 shrink-0" />
+              <p className="flex-1">
+                Tahle hra se ovládá klávesnicí (šipky, mezerník…) — přehrávač na archive.org nemá dotykové ovládání.
+                Bez fyzické nebo Bluetooth klávesnice/ovladače nepůjde hrát; funguje jen u her ovládaných myší/klikáním.
+              </p>
+              <button
+                type="button"
+                onClick={() => setNoKeyboardNotice(false)}
+                aria-label="Zavřít upozornění"
+                className="shrink-0 text-amber-200/70"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           <iframe
             title={playing.title}
             src={buildGameEmbedUrl(playing.id)}
