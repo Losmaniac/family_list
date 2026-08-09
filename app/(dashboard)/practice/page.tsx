@@ -70,6 +70,12 @@ export default function PracticePage() {
   // of which subject tab is selected — never cleared back to false client-
   // side, only a fresh day (i.e. a fresh page load) resets it.
   const [capReached, setCapReached] = useState(false);
+  // How much of today's shared Vzdělání XP cap is left, for the "Dnes lze
+  // ještě získat X/Y XP" line — best-effort display info only, refreshed
+  // from the same cap-status check triggered on load and whenever a parent
+  // changes the cap; a correct answer also nudges it down locally so it
+  // doesn't visibly lag until the next server round-trip.
+  const [capInfo, setCapInfo] = useState<{ headroom: number; dailyCap: number } | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answerInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -109,11 +115,13 @@ export default function PracticePage() {
     let cancelled = false;
     async function checkCapStatus() {
       try {
-        const result = await httpsCallable<{ familyId: string }, { capReached: boolean }>(
+        const result = await httpsCallable<{ familyId: string }, { capReached: boolean; headroom: number; dailyCap: number }>(
           getFirebaseFunctions(),
           "getPracticeCapStatus"
         )({ familyId: fid });
-        if (cancelled || !result.data.capReached) return;
+        if (cancelled) return;
+        setCapInfo({ headroom: result.data.headroom, dailyCap: result.data.dailyCap });
+        if (!result.data.capReached) return;
         setCapReached(true);
         if (autoAdvanceTimer.current) {
           clearTimeout(autoAdvanceTimer.current);
@@ -172,6 +180,7 @@ export default function PracticePage() {
         setAnswer("");
         if (data.awarded > 0) {
           toast.success(`Správně! +${formatXp(data.awarded)} XP`);
+          setCapInfo((prev) => (prev ? { ...prev, headroom: Math.max(0, prev.headroom - data.awarded) } : prev));
         }
         if (data.capReached) {
           setCapReached(true);
@@ -230,6 +239,12 @@ export default function PracticePage() {
             ? "Bez XP — jen k nahlédnutí a hledání."
             : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
+
+      {capInfo && subject !== "food" && subject !== "wiki" && (
+        <p className="text-xs text-zinc-500">
+          Dnes lze z Vzdělání ještě získat {formatXp(capInfo.headroom)}/{formatXp(capInfo.dailyCap)} XP.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {PRACTICE_SUBJECTS.map((s) => (
