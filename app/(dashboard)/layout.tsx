@@ -49,6 +49,7 @@ import TaskCompleteFireworks from "@/components/TaskCompleteFireworks";
 import OfflineBanner from "@/components/OfflineBanner";
 import AccentColorSync from "@/components/AccentColorSync";
 import AppBadgeSync from "@/components/AppBadgeSync";
+import ForegroundPushNotifications from "@/components/ForegroundPushNotifications";
 import FloatingNavMenu from "@/components/FloatingNavMenu";
 
 interface NavItem {
@@ -352,6 +353,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       <AccentColorSync />
       <AppBadgeSync />
+      <ForegroundPushNotifications />
       <header ref={headerRef} className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />
