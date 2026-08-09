@@ -76,6 +76,16 @@ export default function PracticePage() {
   // changes the cap; a correct answer also nudges it down locally so it
   // doesn't visibly lag until the next server round-trip.
   const [capInfo, setCapInfo] = useState<{ headroom: number; dailyCap: number } | null>(null);
+  // True from the moment an answer resolves (correct or attempts
+  // exhausted) until the next question actually arrives. Deliberately
+  // does *not* null out `current` in the meantime — swapping the form back
+  // to the "Nová úloha" button and then back to a fresh <input> would
+  // destroy and recreate the DOM node, which drops focus and, on mobile,
+  // closes the on-screen keyboard (reopening it needs a real tap — a
+  // programmatic focus() from a timer callback can't do that). Keeping the
+  // same <input> mounted throughout, just read-only while transitioning,
+  // is the only way to carry focus/keyboard across auto-advance.
+  const [transitioning, setTransitioning] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answerInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -99,11 +109,11 @@ export default function PracticePage() {
   // view: on mobile the on-screen keyboard covers the bottom of the page,
   // pushing the field below the fold until the user manually scrolls.
   useEffect(() => {
-    if (current && !current.complete) {
+    if (current && !current.complete && !transitioning) {
       answerInputRef.current?.select();
       answerInputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-  }, [current]);
+  }, [current, transitioning]);
 
   // A parent can lower family.practiceDailyXpCap mid-day from Settings —
   // if the member already earned more than the new cap, practice needs to
@@ -128,6 +138,7 @@ export default function PracticePage() {
           autoAdvanceTimer.current = null;
         }
         setCurrent(null);
+        setTransitioning(false);
         setFeedback("Rodič upravil dnešní limit XP z Vzdělání — dnes už bohužel nejde dál pokračovat.");
       } catch {
         // Best-effort — the next explicit generate/submit call still enforces the cap server-side.
@@ -155,6 +166,7 @@ export default function PracticePage() {
       toast.error(describeError(err, "Úlohu se nepodařilo připravit."));
     } finally {
       setLoading(false);
+      setTransitioning(false);
     }
   }
 
@@ -176,7 +188,6 @@ export default function PracticePage() {
       )({ familyId, answer: value.trim() });
       const data = result.data;
       if (data.correct) {
-        setCurrent(null);
         setAnswer("");
         if (data.awarded > 0) {
           toast.success(`Správně! +${formatXp(data.awarded)} XP`);
@@ -184,8 +195,10 @@ export default function PracticePage() {
         }
         if (data.capReached) {
           setCapReached(true);
+          setCurrent(null);
           setFeedback("Skvělá práce! Dnešní limit XP z Vzdělání je vyčerpaný — zkus to znovu zítra.");
         } else {
+          setTransitioning(true);
           scheduleAutoAdvance(AUTO_ADVANCE_CORRECT_DELAY_MS);
         }
       } else if (data.attemptsLeft && data.attemptsLeft > 0) {
@@ -193,9 +206,13 @@ export default function PracticePage() {
         setAnswer("");
       } else {
         setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Za chvíli přijde další úloha…`);
-        setCurrent(null);
         setAnswer("");
-        if (!capReached) scheduleAutoAdvance(AUTO_ADVANCE_REVEAL_DELAY_MS);
+        if (capReached) {
+          setCurrent(null);
+        } else {
+          setTransitioning(true);
+          scheduleAutoAdvance(AUTO_ADVANCE_REVEAL_DELAY_MS);
+        }
       }
     } catch (err) {
       toast.error(describeError(err, "Odpověď se nepodařilo odeslat."));
@@ -221,6 +238,7 @@ export default function PracticePage() {
     }
     setSubject(next);
     setCurrent(null);
+    setTransitioning(false);
     setAnswer("");
     setFeedback(null);
   }
@@ -310,7 +328,7 @@ export default function PracticePage() {
                     key={letter}
                     type="button"
                     onClick={() => handleLetterClick(letter)}
-                    disabled={submitting}
+                    disabled={submitting || transitioning}
                     className="flex h-12 w-12 items-center justify-center rounded-full border border-border text-lg font-semibold disabled:opacity-50"
                   >
                     {letter}
@@ -326,6 +344,7 @@ export default function PracticePage() {
                   ref={answerInputRef}
                   type="text"
                   autoFocus
+                  readOnly={transitioning}
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder="Tvoje odpověď"
@@ -333,7 +352,7 @@ export default function PracticePage() {
                 />
                 <button
                   type="submit"
-                  disabled={submitting || !answer.trim()}
+                  disabled={submitting || transitioning || !answer.trim()}
                   className="shrink-0 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
                 >
                   Odeslat
@@ -343,6 +362,7 @@ export default function PracticePage() {
           )}
 
           {feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
+          {transitioning && !feedback && <p className="text-sm text-zinc-400">Za chvíli přijde další úloha…</p>}
         </>
       )}
 
