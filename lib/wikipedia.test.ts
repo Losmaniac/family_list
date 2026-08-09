@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildWikiSearchUrl, buildWikiSummaryUrl, parseOpenSearch, parseWikiSummary } from "./wikipedia";
+import {
+  buildWikiCategoriesUrl,
+  buildWikiCategoryMembersUrl,
+  buildWikiFullExtractUrl,
+  buildWikiSearchUrl,
+  buildWikiSummaryUrl,
+  parseOpenSearch,
+  parseWikiCategories,
+  parseWikiCategoryMembers,
+  parseWikiFullExtract,
+  parseWikiSummary,
+} from "./wikipedia";
 
 describe("buildWikiSearchUrl / buildWikiSummaryUrl", () => {
   it("builds an opensearch URL against Czech Wikipedia", () => {
@@ -51,5 +62,55 @@ describe("parseWikiSummary", () => {
   it("defaults missing thumbnail/url to empty strings", () => {
     const summary = parseWikiSummary({ title: "X", extract: "Y" });
     expect(summary).toEqual({ title: "X", extract: "Y", thumbnail: "", pageUrl: "" });
+  });
+});
+
+describe("buildWikiFullExtractUrl / buildWikiCategoriesUrl / buildWikiCategoryMembersUrl", () => {
+  it("build Action API URLs against Czech Wikipedia with the expected query params", () => {
+    expect(buildWikiFullExtractUrl("Karel IV.")).toContain("prop=extracts");
+    expect(buildWikiCategoriesUrl("Karel IV.")).toContain("prop=categories");
+    expect(buildWikiCategoryMembersUrl("Kategorie:Čeští králové")).toContain("list=categorymembers");
+  });
+});
+
+describe("parseWikiFullExtract", () => {
+  it("extracts the plain-text body from a single-page query response", () => {
+    const raw = { query: { pages: { "123": { title: "Praha", extract: "Praha je hlavní město…" } } } };
+    expect(parseWikiFullExtract(raw)).toBe("Praha je hlavní město…");
+  });
+
+  it("returns undefined for a missing or empty extract", () => {
+    expect(parseWikiFullExtract({ query: { pages: { "-1": { title: "X", missing: true } } } })).toBeUndefined();
+    expect(parseWikiFullExtract({})).toBeUndefined();
+  });
+});
+
+describe("parseWikiCategories", () => {
+  it("strips the 'Kategorie:' namespace prefix", () => {
+    const raw = {
+      query: {
+        pages: {
+          "123": { title: "Karel IV.", categories: [{ ns: 14, title: "Kategorie:Čeští králové" }, { ns: 14, title: "Kategorie:Lucemburkové" }] },
+        },
+      },
+    };
+    expect(parseWikiCategories(raw)).toEqual(["Čeští králové", "Lucemburkové"]);
+  });
+
+  it("returns an empty array when there are no categories", () => {
+    expect(parseWikiCategories({ query: { pages: { "1": { title: "X" } } } })).toEqual([]);
+    expect(parseWikiCategories({})).toEqual([]);
+  });
+});
+
+describe("parseWikiCategoryMembers", () => {
+  it("extracts member titles", () => {
+    const raw = { query: { categorymembers: [{ title: "Karel IV." }, { title: "Václav IV." }] } };
+    expect(parseWikiCategoryMembers(raw)).toEqual(["Karel IV.", "Václav IV."]);
+  });
+
+  it("returns an empty array for a malformed response", () => {
+    expect(parseWikiCategoryMembers({})).toEqual([]);
+    expect(parseWikiCategoryMembers(null)).toEqual([]);
   });
 });
