@@ -27,6 +27,7 @@ import StreakSettingsPanel from "@/components/StreakSettingsPanel";
 import PracticeSettingsPanel from "@/components/PracticeSettingsPanel";
 import ScheduleSettingsPanel from "@/components/ScheduleSettingsPanel";
 import ShoppingSettingsPanel from "@/components/ShoppingSettingsPanel";
+import AdHocTaskSettingsPanel from "@/components/AdHocTaskSettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
@@ -460,6 +461,13 @@ export default function SettingsPage() {
         <section className="flex flex-col gap-3">
           <h2 className="font-medium">Nákupní seznam</h2>
           <ShoppingSettingsPanel familyId={familyId} shoppingCategories={family?.shoppingCategories} />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Jednorázové úkoly</h2>
+          <AdHocTaskSettingsPanel familyId={familyId} />
         </section>
       )}
 

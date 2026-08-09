@@ -330,6 +330,20 @@ service cloud.firestore {
         allow delete: if isFamilyMember(familyId);
       }
 
+      match /adHocTaskTypes/{typeId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if isParent(familyId);
+      }
+
+      // Append-only log written only by the completeAdHocTask Cloud
+      // Function (Admin SDK, bypasses rules) — same trust tier as
+      // xpLedger, since it's both an XP award record and the source of
+      // truth the server-side cooldown check reads from.
+      match /adHocCompletions/{completionId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
       match /xpAdjustmentRequests/{requestId} {
         allow read: if isFamilyMember(familyId);
         // Any parent can request an adjustment for any member (including

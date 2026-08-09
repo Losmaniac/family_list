@@ -380,3 +380,34 @@ export interface ShoppingItem {
   addedBy: string;
   timestamp: number;
 }
+
+/**
+ * families/{familyId}/adHocTaskTypes/{id} — a parent-defined irregular
+ * ("jednorázový") task that doesn't fit a daily recurrence, e.g. emptying
+ * the dishwasher — done on demand rather than scheduled, with a per-type
+ * cooldown so it can't be marked done again (re-awarding XP) before it
+ * plausibly needs doing again.
+ */
+export interface AdHocTaskType {
+  id: string;
+  title: string;
+  xpValue: number;
+  /** Minimum minutes between two completions of this type (family-wide) before it's available again. */
+  cooldownMinutes: number;
+  active: boolean;
+}
+
+/**
+ * families/{familyId}/adHocCompletions/{id} — append-only log of completed
+ * ad-hoc tasks, only ever written by the completeAdHocTask Cloud Function
+ * (same trust tier as xpLedger). It's both the XP award record and the
+ * source of truth for "when was this type last done" that the server-side
+ * cooldown check and the client's countdown display both read from.
+ */
+export interface AdHocTaskCompletion {
+  id: string;
+  typeId: string;
+  completedBy: string;
+  timestamp: number;
+  xpAwarded: number;
+}
