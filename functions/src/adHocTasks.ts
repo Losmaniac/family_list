@@ -17,12 +17,14 @@ import type { AdHocTaskType } from "../../lib/types";
 interface CompleteRequest {
   familyId: string;
   typeId: string;
+  /** Required when the type's photoRequired is set — uploaded client-side before this call, same trust model as taskTemplates.photoRequired. */
+  photoUrl?: string;
 }
 
 export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
-  const { familyId, typeId } = request.data;
+  const { familyId, typeId, photoUrl } = request.data;
   if (!familyId || !typeId) throw new HttpsError("invalid-argument", "familyId and typeId are required.");
   await requireFamilyMember(familyId, uid);
 
@@ -40,6 +42,7 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     const [typeSnap, lastSnap] = await Promise.all([tx.get(typeRef), tx.get(lastCompletionQuery)]);
     const type = typeSnap.data() as AdHocTaskType | undefined;
     if (!type || !type.active) throw new HttpsError("failed-precondition", "Tento úkol už není dostupný.");
+    if (type.photoRequired && !photoUrl) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
 
     const lastCompletedAt = lastSnap.empty ? undefined : (lastSnap.docs[0].data().timestamp as number);
     const cooldown = adHocCooldownInfo(type.cooldownMinutes, lastCompletedAt);
@@ -55,6 +58,7 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
       completedBy: uid,
       timestamp: Date.now(),
       xpAwarded: type.xpValue,
+      ...(photoUrl ? { photoUrl } : {}),
     });
     tx.set(
       familyRef.collection("xpLedger").doc(),

@@ -411,6 +411,8 @@ export interface AdHocTaskType {
   /** Minimum minutes between two completions of this type (family-wide) before it's available again. */
   cooldownMinutes: number;
   active: boolean;
+  /** When true, completing this type requires a proof photo — same idea as taskTemplates.photoRequired. */
+  photoRequired?: boolean;
 }
 
 /**
@@ -426,6 +428,7 @@ export interface AdHocTaskCompletion {
   completedBy: string;
   timestamp: number;
   xpAwarded: number;
+  photoUrl?: string;
 }
 
 /**

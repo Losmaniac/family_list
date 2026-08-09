@@ -31,5 +31,18 @@ service firebase.storage {
         request.resource.contentType.matches('image/.*');
       allow delete: if isParent(familyId);
     }
+
+    // Ad-hoc task proof photos: families/{familyId}/adHocTaskPhotos/{uid}/{fileId}
+    // — there's no pre-existing per-task Firestore doc to check assignment
+    // against like taskPhotos above (an ad-hoc completion doc is only ever
+    // created after this upload, by completeAdHocTask), so the uid segment
+    // of the path itself is the assignment check instead.
+    match /families/{familyId}/adHocTaskPhotos/{uid}/{fileId} {
+      allow read: if isFamilyMember(familyId);
+      allow write: if isFamilyMember(familyId) && uid == request.auth.uid &&
+        request.resource.size < 8 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isParent(familyId);
+    }
   }
 }

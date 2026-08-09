@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { Plus, X } from "lucide-react";
-import { getDb, getFirebaseFunctions } from "@/lib/firebase";
+import { getDb, getFirebaseFunctions, getFirebaseStorage } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
+import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { compressImage } from "@/lib/image-compress";
 import { formatXp } from "@/lib/xp-engine";
 import { adHocCooldownInfo, formatCooldownRemaining, latestCompletionByType } from "@/lib/adhoc-tasks";
 import type { AdHocTaskCompletion, AdHocTaskType } from "@/lib/types";
@@ -18,6 +22,11 @@ function describeError(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
 
+/** Module-scope (not component-body) so Date.now() here isn't subject to the react-compiler's render-purity analysis. */
+function buildAdHocPhotoPath(familyId: string, uid: string, typeId: string): string {
+  return `families/${familyId}/adHocTaskPhotos/${uid}/${typeId}_${Date.now()}`;
+}
+
 /**
  * "+" entry point for irregular ("jednorázové") tasks that don't fit the
  * daily schedule — e.g. emptying the dishwasher. Types are parent-defined
@@ -26,12 +35,16 @@ function describeError(err: unknown, fallback: string): string {
  * last time someone did it.
  */
 export default function AdHocTasksButton({ familyId }: { familyId: string }) {
+  const { user } = useAuth();
+  const { family } = useFamily();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [types, setTypes] = useState<AdHocTaskType[]>([]);
   const [completions, setCompletions] = useState<AdHocTaskCompletion[]>([]);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const photoTypeRef = useRef<AdHocTaskType | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return onSnapshot(collection(getDb(), "families", familyId, "adHocTaskTypes"), (snapshot) => {
@@ -61,13 +74,13 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   const latestByType = latestCompletionByType(completions);
   const activeTypes = types.filter((t) => t.active);
 
-  async function handleComplete(type: AdHocTaskType) {
+  async function submitCompletion(type: AdHocTaskType, photoUrl?: string) {
     setSubmittingId(type.id);
     try {
-      const result = await httpsCallable<{ familyId: string; typeId: string }, SubmitResponse>(
+      const result = await httpsCallable<{ familyId: string; typeId: string; photoUrl?: string }, SubmitResponse>(
         getFirebaseFunctions(),
         "completeAdHocTask"
-      )({ familyId, typeId: type.id });
+      )({ familyId, typeId: type.id, photoUrl });
       toast.success(`Hotovo! +${formatXp(result.data.awarded)} XP`);
     } catch (err) {
       toast.error(describeError(err, "Úkol se nepodařilo splnit."));
@@ -76,8 +89,41 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
     }
   }
 
+  function handleComplete(type: AdHocTaskType) {
+    if (type.photoRequired) {
+      photoTypeRef.current = type;
+      photoInputRef.current?.click();
+      return;
+    }
+    submitCompletion(type);
+  }
+
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const type = photoTypeRef.current;
+    e.target.value = "";
+    photoTypeRef.current = null;
+    if (!file || !type || !user) return;
+
+    setSubmittingId(type.id);
+    try {
+      const compressed = await compressImage(file, {
+        quality: family?.photoCompressionQuality,
+        maxDimension: family?.photoMaxDimension,
+      });
+      const photoRef = storageRef(getFirebaseStorage(), buildAdHocPhotoPath(familyId, user.uid, type.id));
+      await uploadBytes(photoRef, compressed, { contentType: compressed.type || file.type });
+      const photoUrl = await getDownloadURL(photoRef);
+      await submitCompletion(type, photoUrl);
+    } catch {
+      toast.error("Foto se nepodařilo nahrát.");
+      setSubmittingId(null);
+    }
+  }
+
   return (
     <>
+      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handlePhotoSelected} />
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -123,7 +169,9 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
                     >
                       <div className="min-w-0">
                         <p className="truncate font-medium">{type.title}</p>
-                        <p className="text-sm text-zinc-500">+{formatXp(type.xpValue)} XP</p>
+                        <p className="text-sm text-zinc-500">
+                          +{formatXp(type.xpValue)} XP{type.photoRequired ? " · vyžaduje foto" : ""}
+                        </p>
                       </div>
                       {cooldown.onCooldown ? (
                         <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1.5 text-sm text-zinc-500">
