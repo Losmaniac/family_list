@@ -9,13 +9,26 @@ export function emptyScheduleDays(): string[][] {
 }
 
 /**
- * Normalizes a stored `days` array to always have exactly
+ * Normalizes a stored `days` map to always produce exactly
  * SCHEDULE_DAY_LABELS.length days of SCHEDULE_MAX_PERIODS periods each —
  * a schedule saved before the period count changed, or missing entirely,
  * still renders as a full grid instead of crashing on a short array.
  */
-export function normalizeScheduleDays(days: string[][] | undefined): string[][] {
+export function normalizeScheduleDays(days: Record<string, string[]> | undefined): string[][] {
   const base = emptyScheduleDays();
   if (!days) return base;
-  return base.map((periods, dayIndex) => periods.map((_, periodIndex) => days[dayIndex]?.[periodIndex] ?? ""));
+  return base.map((periods, dayIndex) => periods.map((_, periodIndex) => days[String(dayIndex)]?.[periodIndex] ?? ""));
+}
+
+/**
+ * Firestore rejects an array whose elements are themselves arrays ("nested
+ * arrays are not supported"), so the UI's string[][] grid is converted to a
+ * day-index-keyed map before every write — see ClassSchedule in lib/types.ts.
+ */
+export function daysToFirestoreMap(days: string[][]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  days.forEach((periods, dayIndex) => {
+    map[String(dayIndex)] = periods;
+  });
+  return map;
 }

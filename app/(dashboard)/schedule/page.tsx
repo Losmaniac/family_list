@@ -6,7 +6,7 @@ import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
-import { SCHEDULE_DAY_LABELS, SCHEDULE_MAX_PERIODS, normalizeScheduleDays } from "@/lib/schedule";
+import { SCHEDULE_DAY_LABELS, SCHEDULE_MAX_PERIODS, daysToFirestoreMap, normalizeScheduleDays } from "@/lib/schedule";
 import Avatar from "@/components/Avatar";
 import type { ClassSchedule, Member } from "@/lib/types";
 
@@ -52,7 +52,7 @@ export default function SchedulePage() {
       );
       try {
         await setDoc(doc(getDb(), "families", familyId, "schedules", memberId), {
-          days: nextDays,
+          days: daysToFirestoreMap(nextDays),
           updatedAt: Date.now(),
         });
       } catch {
@@ -123,7 +123,11 @@ export default function SchedulePage() {
                       );
                       return {
                         ...prev,
-                        [selected]: { memberId: selected, days: nextDays, updatedAt: prev[selected]?.updatedAt ?? 0 },
+                        [selected]: {
+                          memberId: selected,
+                          days: daysToFirestoreMap(nextDays),
+                          updatedAt: prev[selected]?.updatedAt ?? 0,
+                        },
                       };
                     });
                   }}

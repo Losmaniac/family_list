@@ -5,7 +5,8 @@ import type { CalendarEvent } from "./types";
 function makeEvent(
   date: string,
   recurrence?: CalendarEvent["recurrence"],
-  recurrenceUntil?: string
+  recurrenceUntil?: string,
+  endDate?: string
 ): CalendarEvent {
   return {
     id: "e1",
@@ -17,6 +18,7 @@ function makeEvent(
     timestamp: 0,
     recurrence,
     recurrenceUntil,
+    endDate,
   };
 }
 
@@ -62,5 +64,19 @@ describe("eventOccursOnDate", () => {
   it("recurrenceUntil never hides the event's own start date", () => {
     const evt = makeEvent("2026-08-10", "weekly", "2026-08-01");
     expect(eventOccursOnDate(evt, "2026-08-10")).toBe(true);
+  });
+
+  it("occurs on every day of a multi-day span, inclusive of both ends", () => {
+    const vacation = makeEvent("2026-08-10", "none", undefined, "2026-08-14");
+    expect(eventOccursOnDate(vacation, "2026-08-09")).toBe(false);
+    expect(eventOccursOnDate(vacation, "2026-08-10")).toBe(true);
+    expect(eventOccursOnDate(vacation, "2026-08-12")).toBe(true);
+    expect(eventOccursOnDate(vacation, "2026-08-14")).toBe(true);
+    expect(eventOccursOnDate(vacation, "2026-08-15")).toBe(false);
+  });
+
+  it("a one-off event without endDate still only matches its own day", () => {
+    const evt = makeEvent("2026-08-10");
+    expect(eventOccursOnDate(evt, "2026-08-11")).toBe(false);
   });
 });

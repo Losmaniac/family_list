@@ -350,6 +350,13 @@ export interface CalendarEvent {
   recurrence?: CalendarRecurrence;
   /** Last date (YYYY-MM-DD, inclusive) a recurring event still applies; absent = repeats forever. Ignored when recurrence is 'none'. */
   recurrenceUntil?: string;
+  /**
+   * Last date (YYYY-MM-DD, inclusive) of a multi-day span starting at
+   * `date` — a vacation running straight through, not a repeat pattern.
+   * Only meaningful when recurrence is 'none'/absent; a recurring event
+   * ignores it.
+   */
+  endDate?: string;
 }
 
 /**
@@ -363,7 +370,14 @@ export interface CalendarEvent {
  */
 export interface ClassSchedule {
   memberId: string;
-  days: string[][];
+  /**
+   * Keyed by day index as a string ("0".."4") rather than a plain
+   * string[][] — Firestore rejects an array whose elements are themselves
+   * arrays ("nested arrays are not supported"), so this is the on-disk
+   * shape. See lib/schedule.ts for the string[][] <-> map conversion used
+   * at the UI boundary.
+   */
+  days: Record<string, string[]>;
   updatedAt: number;
 }
 

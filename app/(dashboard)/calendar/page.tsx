@@ -17,11 +17,17 @@ import type { CalendarEvent, CalendarEventCategory, CalendarRecurrence, Member }
 // Monday-first display order, matching how the grid below is laid out.
 const WEEKDAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" });
+const DAY_MONTH_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric" });
+
+function formatDayMonth(dateKey: string): string {
+  return DAY_MONTH_FORMATTER.format(new Date(`${dateKey}T00:00:00`));
+}
 
 function emptyForm(dateKey: string, defaultMemberIds: string[]) {
   return {
     title: "",
     date: dateKey,
+    endDate: "",
     category: "other" as CalendarEventCategory,
     recurrence: "none" as CalendarRecurrence,
     recurrenceUntil: "",
@@ -114,6 +120,7 @@ export default function CalendarPage() {
           category: form.category,
           recurrence: form.recurrence,
           ...(form.recurrence !== "none" && form.recurrenceUntil ? { recurrenceUntil: form.recurrenceUntil } : {}),
+          ...(form.recurrence === "none" && form.endDate && form.endDate > form.date ? { endDate: form.endDate } : {}),
           memberId,
           createdBy: user.uid,
           timestamp: Date.now(),
@@ -258,6 +265,11 @@ export default function CalendarPage() {
                       {evtMember && <Avatar name={evtMember.name} avatarUrl={evtMember.avatarUrl} size="sm" />}
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{evt.title}</p>
+                        {evt.endDate && evt.endDate !== evt.date && (
+                          <p className="truncate text-xs text-zinc-500">
+                            {formatDayMonth(evt.date)}–{formatDayMonth(evt.endDate)}
+                          </p>
+                        )}
                         {evtMember && <p className="truncate text-xs text-zinc-500">{evtMember.name}</p>}
                       </div>
                       {canDelete(evt) && (
@@ -296,15 +308,34 @@ export default function CalendarPage() {
                   className="rounded-lg border border-border bg-surface px-4 py-2"
                 />
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-zinc-500">Datum</p>
+                  <p className="text-xs text-zinc-500">{form.recurrence === "none" ? "Od" : "Datum"}</p>
                   <input
                     type="date"
                     required
                     value={form.date}
-                    onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        // Keep "do" from landing before "od" when the start moves past it.
+                        endDate: prev.endDate && prev.endDate < e.target.value ? "" : prev.endDate,
+                      }))
+                    }
                     className="rounded-lg border border-border bg-surface px-4 py-2"
                   />
                 </div>
+                {form.recurrence === "none" && (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-zinc-500">Do (nepovinné — pro víc dní v kuse, např. dovolenou)</p>
+                    <input
+                      type="date"
+                      min={form.date || undefined}
+                      value={form.endDate}
+                      onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                      className="rounded-lg border border-border bg-surface px-4 py-2"
+                    />
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {CALENDAR_EVENT_CATEGORIES.map((cat) => (
                     <button
@@ -331,6 +362,7 @@ export default function CalendarPage() {
                             ...prev,
                             recurrence: rec.value,
                             recurrenceUntil: rec.value === "none" ? "" : prev.recurrenceUntil,
+                            endDate: rec.value === "none" ? prev.endDate : "",
                           }))
                         }
                         className={`rounded-full px-3 py-1.5 text-sm ${
