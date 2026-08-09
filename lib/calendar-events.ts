@@ -33,7 +33,11 @@ export function eventOccursOnDate(event: CalendarEvent, dateKey: string): boolea
   if (dateKey === event.date) return true;
   if (dateKey < event.date) return false;
   const recurrence = event.recurrence ?? "none";
-  if (recurrence === "none") return false;
+  if (recurrence === "none") {
+    // A multi-day span (e.g. a vacation running from `date` through
+    // `endDate`) — not a repeat pattern, just every day in between.
+    return Boolean(event.endDate) && dateKey <= event.endDate!;
+  }
   if (event.recurrenceUntil && dateKey > event.recurrenceUntil) return false;
 
   const [ey, em, ed] = event.date.split("-").map(Number);
