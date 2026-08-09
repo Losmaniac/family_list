@@ -56,6 +56,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Only the app shell is ours to cache/replay offline. Third-party API
+  // calls (REST Countries, Wikipedia, Open-Meteo, radio/TV lookups, …) must
+  // pass through untouched — intercepting them here meant any transient
+  // failure on a URL we'd never cached fell through to caches.match()
+  // resolving to undefined, and respondWith(undefined) throws
+  // "Returned response is null", which is what broke Zeměpis.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -63,7 +70,7 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => caches.match(event.request).then((cached) => cached ?? Response.error()))
   );
 });
 `;
