@@ -35,6 +35,7 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "finance", label: "Finanční gramotnost", available: true },
   { id: "ai", label: "AI", available: true },
   { id: "digisafety", label: "Digitální bezpečnost", available: true },
+  { id: "dictionary", label: "Anglický slovník", available: true },
   { id: "food", label: "Potraviny", available: true },
   { id: "wiki", label: "Encyklopedie", available: true },
 ];
@@ -220,6 +221,7 @@ export const PRACTICE_SUBJECT_TOTALS: Record<string, number> = {
   finance: FINANCIAL_LITERACY_EXERCISES.length,
   ai: AI_LITERACY_EXERCISES.length,
   digisafety: DIGITAL_SAFETY_EXERCISES.length,
+  dictionary: ENGLISH_WORDS.length,
 };
 
 /** `excludeIds` keeps already-correctly-answered problems out of the draw; undefined means the finite bank is fully answered. */

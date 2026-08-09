@@ -32,6 +32,7 @@ import { pickRandomFinancialLiteracyExercise } from "../../lib/financial-literac
 import { pickRandomAiLiteracyExercise } from "../../lib/ai-literacy";
 import { pickRandomDigitalSafetyExercise } from "../../lib/digital-safety";
 import { pickRandomAtlasQuestion } from "./atlas";
+import { pickRandomDictionaryQuestion } from "./dictionary";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import type { Family, XpLedgerEntry } from "../../lib/types";
@@ -134,10 +135,12 @@ export const getPracticeCapStatus = onCall<CapStatusRequest>(async (request) => 
 
 interface GenerateRequest {
   familyId: string;
-  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "atlas";
+  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "atlas" | "dictionary";
 }
 
-type SyncSubject = Exclude<GenerateRequest["subject"], "atlas">;
+const ASYNC_SUBJECTS = ["atlas", "dictionary"] as const;
+type AsyncSubject = (typeof ASYNC_SUBJECTS)[number];
+type SyncSubject = Exclude<GenerateRequest["subject"], AsyncSubject>;
 
 const SUBJECT_PICKERS: Record<SyncSubject, (excludeIds: Set<string>) => PracticeProblem | undefined> = {
   math: (excludeIds) => pickRandomLogicWordProblem(undefined, Math.random, excludeIds),
@@ -153,7 +156,7 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, subject } = request.data;
-  if (!familyId || !(subject === "atlas" || SUBJECT_PICKERS[subject])) {
+  if (!familyId || !((ASYNC_SUBJECTS as readonly string[]).includes(subject) || SUBJECT_PICKERS[subject as SyncSubject])) {
     throw new HttpsError("invalid-argument", "familyId and a valid subject are required.");
   }
   await requireFamilyMember(familyId, uid);
@@ -173,7 +176,12 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
   const progressSnap = await familyRef.collection("practiceProgress").doc(uid).get();
   const excludeIds = new Set<string>((progressSnap.data()?.[subject] as string[] | undefined) ?? []);
 
-  const problem = subject === "atlas" ? await pickRandomAtlasQuestion(excludeIds) : SUBJECT_PICKERS[subject](excludeIds);
+  const problem =
+    subject === "atlas"
+      ? await pickRandomAtlasQuestion(excludeIds)
+      : subject === "dictionary"
+        ? await pickRandomDictionaryQuestion(excludeIds)
+        : SUBJECT_PICKERS[subject](excludeIds);
   if (!problem) {
     // Every exercise in this subject's finite bank has already been
     // answered correctly — nothing left to ask.
