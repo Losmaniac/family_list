@@ -36,7 +36,7 @@ export default function Marketplace({ familyId }: { familyId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [kind, setKind] = useState<MarketplaceOfferKind>("offer");
   const [title, setTitle] = useState("");
-  const [targetUserId, setTargetUserId] = useState("");
+  const [targetUserIds, setTargetUserIds] = useState<string[]>([]);
   const [xp, setXp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [counterAmounts, setCounterAmounts] = useState<Record<string, string>>({});
@@ -80,30 +80,42 @@ export default function Marketplace({ familyId }: { familyId: string }) {
 
   const otherMembers = Object.values(members).filter((m) => m.id !== user?.uid);
 
+  function toggleTarget(id: string) {
+    setTargetUserIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  }
+
+  // Checking several people fans out into one independent offer per
+  // person — each can accept/decline/counter on their own — rather than a
+  // single shared offer, since a "first to accept wins" race would need
+  // its own set of rules the rest of this feature doesn't have.
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !title.trim() || !targetUserId) return;
+    if (!user || !title.trim() || targetUserIds.length === 0) return;
     const amount = Number(xp);
     if (!Number.isFinite(amount) || amount <= 0) return;
 
     setSubmitting(true);
     try {
-      await addDoc(collection(getDb(), "families", familyId, "marketplaceOffers"), {
-        kind,
-        title: title.trim(),
-        proposedBy: user.uid,
-        targetUserId,
-        suggestedXp: amount,
-        currentXp: amount,
-        lastActionBy: user.uid,
-        status: "pending",
-        timestamp: Date.now(),
-        updatedAt: Date.now(),
-      });
-      toast.success("Nabídka odeslána.");
+      await Promise.all(
+        targetUserIds.map((targetUserId) =>
+          addDoc(collection(getDb(), "families", familyId, "marketplaceOffers"), {
+            kind,
+            title: title.trim(),
+            proposedBy: user.uid,
+            targetUserId,
+            suggestedXp: amount,
+            currentXp: amount,
+            lastActionBy: user.uid,
+            status: "pending",
+            timestamp: Date.now(),
+            updatedAt: Date.now(),
+          })
+        )
+      );
+      toast.success(targetUserIds.length > 1 ? "Nabídky odeslány." : "Nabídka odeslána.");
       setTitle("");
       setXp("");
-      setTargetUserId("");
+      setTargetUserIds([]);
       setShowForm(false);
     } catch (err) {
       toast.error(describeError(err, "Nabídku se nepodařilo odeslat."));
@@ -188,20 +200,27 @@ export default function Marketplace({ familyId }: { familyId: string }) {
             placeholder="Např. Masáž"
             className="rounded-lg border border-border bg-surface px-4 py-2"
           />
-          <select
-            value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-4 py-2"
-          >
-            <option value="">
-              {kind === "offer" ? "Komu nabízíš…" : "Koho poptáváš…"}
-            </option>
-            {otherMembers.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-sm text-zinc-500">{kind === "offer" ? "Komu nabízíš — vyber jednoho nebo víc:" : "Koho poptáváš — vyber jednoho nebo víc:"}</p>
+            <div className="flex flex-col gap-1">
+              {otherMembers.length > 1 && (
+                <label className="flex items-center gap-2 border-b border-border pb-1.5 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={targetUserIds.length === otherMembers.length}
+                    onChange={(e) => setTargetUserIds(e.target.checked ? otherMembers.map((m) => m.id) : [])}
+                  />
+                  Všichni
+                </label>
+              )}
+              {otherMembers.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={targetUserIds.includes(m.id)} onChange={() => toggleTarget(m.id)} />
+                  {m.name}
+                </label>
+              ))}
+            </div>
+          </div>
           <input
             type="number"
             min={1}
@@ -213,7 +232,7 @@ export default function Marketplace({ familyId }: { familyId: string }) {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={submitting || !title.trim() || !targetUserId || !xp}
+              disabled={submitting || !title.trim() || targetUserIds.length === 0 || !xp}
               className="flex-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
             >
               Odeslat
