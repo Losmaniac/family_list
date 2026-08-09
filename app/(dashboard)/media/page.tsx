@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { Heart, Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
-import { getDb } from "@/lib/firebase";
+import { getDb, getFirebaseFunctions } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { isFavorite, toggleFavorite } from "@/lib/media-favorites";
+import { billableBlocksElapsed, MEDIA_XP_COST_PER_BLOCK, type MediaKind } from "@/lib/media-billing";
+import { formatXp } from "@/lib/xp-engine";
 import {
   buildStationsSearchUrl,
   buildTopCountriesUrl as buildTopRadioCountriesUrl,
@@ -36,8 +39,67 @@ function describeError(err: unknown, fallback: string): string {
 }
 
 const TV_RESULT_LIMIT = 60;
+// How often to check whether a new billable block has started — fine
+// enough that a charge lands within a few seconds of crossing the
+// threshold, coarse enough not to hammer the callable.
+const BILLING_CHECK_INTERVAL_MS = 5000;
 
 type MediaTab = "radio" | "tv";
+
+/**
+ * Charges XP for a Rádio/TV stream while it plays — see lib/media-billing.ts
+ * for the free-grace-period + per-block schedule. `toast`/`onInsufficientFunds`
+ * are captured via refs rather than effect dependencies since useToast()
+ * returns a new object every render (including it directly would restart
+ * the billing timer, and the elapsed-time tracking, on every render).
+ */
+function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: string | null, onInsufficientFunds: () => void) {
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  useEffect(() => {
+    toastRef.current = toast;
+  });
+  const onInsufficientFundsRef = useRef(onInsufficientFunds);
+  useEffect(() => {
+    onInsufficientFundsRef.current = onInsufficientFunds;
+  });
+
+  useEffect(() => {
+    if (!familyId || !playingId) return;
+    const startedAt = Date.now();
+    let charged = 0;
+    let cancelled = false;
+
+    const interval = setInterval(async () => {
+      const due = billableBlocksElapsed(Date.now() - startedAt);
+      while (!cancelled && charged < due) {
+        try {
+          const result = await httpsCallable<{ familyId: string; kind: MediaKind }, { charged: boolean }>(
+            getFirebaseFunctions(),
+            "chargeMediaListening"
+          )({ familyId, kind });
+          if (cancelled) return;
+          if (!result.data.charged) {
+            toastRef.current.error(
+              kind === "radio" ? "Došly ti XP na poslech — přehrávání bylo zastaveno." : "Došly ti XP na sledování — přehrávání bylo zastaveno."
+            );
+            onInsufficientFundsRef.current();
+            return;
+          }
+          charged += 1;
+        } catch {
+          // Best-effort — a transient failure is retried on the next tick rather than interrupting playback.
+          break;
+        }
+      }
+    }, BILLING_CHECK_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [familyId, kind, playingId]);
+}
 
 /** A heart toggle shared by the play/pause button pattern — same shape, different fill state, no play/pause side effects of its own. */
 function FavoriteButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
@@ -116,6 +178,8 @@ function RadioTab() {
   const [playing, setPlaying] = useState<RadioStation | null>(null);
   const favorites = member?.favoriteRadioStations ?? [];
 
+  useMediaBilling(familyId, "radio", playing?.id ?? null, () => setPlaying(null));
+
   useEffect(() => {
     async function loadFacets() {
       try {
@@ -163,6 +227,10 @@ function RadioTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs text-zinc-500">
+        Poslech stojí XP: první 2 minuty zdarma, poté {formatXp(MEDIA_XP_COST_PER_BLOCK.radio)} XP za každých započatých 5 minut.
+      </p>
+
       {favorites.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-zinc-500">Oblíbené</p>
@@ -333,6 +401,8 @@ function TvTab() {
   const [playing, setPlaying] = useState<TvChannel | null>(null);
   const favorites = member?.favoriteTvChannels ?? [];
 
+  useMediaBilling(familyId, "tv", playing?.id ?? null, () => setPlaying(null));
+
   useEffect(() => {
     async function loadFacets() {
       try {
@@ -392,6 +462,10 @@ function TvTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs text-zinc-500">
+        Sledování stojí XP: první 2 minuty zdarma, poté {formatXp(MEDIA_XP_COST_PER_BLOCK.tv)} XP za každých započatých 5 minut.
+      </p>
+
       {favorites.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-zinc-500">Oblíbené</p>
