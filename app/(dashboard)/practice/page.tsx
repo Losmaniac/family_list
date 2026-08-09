@@ -71,6 +71,7 @@ export default function PracticePage() {
   // side, only a fresh day (i.e. a fresh page load) resets it.
   const [capReached, setCapReached] = useState(false);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answerInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -84,6 +85,14 @@ export default function PracticePage() {
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
     };
   }, []);
+
+  // Auto-advance swaps `current` without remounting the form, so the
+  // input's `autoFocus` attribute (mount-only) wouldn't fire again on the
+  // next question — focus (and select any leftover text) explicitly here
+  // instead so the user can start typing immediately.
+  useEffect(() => {
+    if (current && !current.complete) answerInputRef.current?.select();
+  }, [current]);
 
   async function handleNewProblem() {
     if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject) || capReached) return;
@@ -262,6 +271,7 @@ export default function PracticePage() {
               <p className="text-lg font-medium">{current.question}</p>
               <div className="flex gap-2">
                 <input
+                  ref={answerInputRef}
                   type="text"
                   autoFocus
                   value={answer}
