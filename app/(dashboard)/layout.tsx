@@ -11,7 +11,14 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+  rectSortingStrategy,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   BookOpen,
@@ -90,10 +97,13 @@ function SortableNavButton({
   item,
   active,
   onSelect,
+  grow = true,
 }: {
   item: NavItem;
   active: boolean;
   onSelect: () => void;
+  /** false in a scrollable vertical column — each button keeps its natural size instead of being force-stretched to fill an equal share of the column's height. */
+  grow?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.href });
   const Icon = item.icon;
@@ -111,7 +121,7 @@ function SortableNavButton({
       // (see sensors below), so a normal tap falls through to this like a
       // regular button click.
       onClick={onSelect}
-      className={`flex min-w-0 flex-1 touch-none flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
+      className={`flex min-w-0 ${grow ? "flex-1" : "shrink-0"} touch-none flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[11px] font-medium ${
         active ? "text-accent" : "text-zinc-500"
       } ${isDragging ? "opacity-60" : ""}`}
     >
@@ -140,6 +150,24 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((item) => item.href));
   const [loadedOrderForUid, setLoadedOrderForUid] = useState<string | null>(null);
+
+  // A column-style nav is `position: fixed` (so it doesn't disrupt the
+  // existing page-scroll behavior the bottom-bar/floating styles rely on),
+  // which means it isn't naturally pushed below the header the way normal
+  // in-flow content is — it has to be told the header's actual height so it
+  // starts under it instead of overlapping it. Measured live (not a
+  // hardcoded pixel guess) so it stays correct if the header's content ever
+  // changes height.
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    observer.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
 
   // Adjust state during rendering (React's documented pattern for "sync
   // once when an external identity becomes available/changes") instead of
@@ -292,6 +320,30 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   const items = visibleNavItems();
+  const activeHref = items.find((item) => pathname?.startsWith(item.href))?.href;
+
+  const mainPaddingClass =
+    navStyle === "radial"
+      ? "pb-20"
+      : navStyle === "bar-2row"
+        ? "pb-40"
+        : navStyle === "column-left"
+          ? "pl-20"
+          : navStyle === "column-right"
+            ? "pr-20"
+            : "pb-28";
+
+  function renderSortableItems(grow: boolean = true) {
+    return items.map((item) => (
+      <SortableNavButton
+        key={item.href}
+        item={item}
+        active={item.href === activeHref}
+        onSelect={() => navigateToTab(item.href)}
+        grow={grow}
+      />
+    ));
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -300,7 +352,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       <AccentColorSync />
       <AppBadgeSync />
-      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
+      <header ref={headerRef} className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
         <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
           <Avatar name={member.name} avatarUrl={member.avatarUrl} />
         </Link>
@@ -325,7 +377,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       </header>
 
       <main
-        className={`flex-1 p-4 ${navStyle === "radial" ? "pb-20" : "pb-28"}`}
+        className={`flex-1 p-4 ${mainPaddingClass}`}
         style={{ viewTransitionName: "page-content" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -334,11 +386,39 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {navStyle === "radial" ? (
-        <FloatingNavMenu
-          items={items}
-          activeHref={items.find((item) => pathname?.startsWith(item.href))?.href}
-          onSelect={navigateToTab}
-        />
+        <FloatingNavMenu items={items} activeHref={activeHref} onSelect={navigateToTab} />
+      ) : navStyle === "bar-2row" ? (
+        <nav
+          className="fixed inset-x-0 bottom-0 grid border-t border-border bg-surface pt-2"
+          style={{
+            gridTemplateColumns: `repeat(${Math.ceil(items.length / 2)}, 1fr)`,
+            paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <SortableContext items={items.map((item) => item.href)} strategy={rectSortingStrategy}>
+              {renderSortableItems()}
+            </SortableContext>
+          </DndContext>
+        </nav>
+      ) : navStyle === "column-left" || navStyle === "column-right" ? (
+        <nav
+          className={`fixed bottom-0 z-30 flex w-20 flex-col overflow-y-auto bg-surface ${
+            navStyle === "column-left" ? "left-0 border-r border-border" : "right-0 border-l border-border"
+          }`}
+          style={{
+            top: headerHeight,
+            paddingLeft: navStyle === "column-left" ? "max(0.25rem, env(safe-area-inset-left))" : undefined,
+            paddingRight: navStyle === "column-right" ? "max(0.25rem, env(safe-area-inset-right))" : undefined,
+            paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <SortableContext items={items.map((item) => item.href)} strategy={verticalListSortingStrategy}>
+              {renderSortableItems(false)}
+            </SortableContext>
+          </DndContext>
+        </nav>
       ) : (
         <nav
           className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
@@ -346,14 +426,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         >
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <SortableContext items={items.map((item) => item.href)} strategy={horizontalListSortingStrategy}>
-              {items.map((item) => (
-                <SortableNavButton
-                  key={item.href}
-                  item={item}
-                  active={Boolean(pathname?.startsWith(item.href))}
-                  onSelect={() => navigateToTab(item.href)}
-                />
-              ))}
+              {renderSortableItems()}
             </SortableContext>
           </DndContext>
         </nav>
