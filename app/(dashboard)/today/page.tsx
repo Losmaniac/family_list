@@ -19,6 +19,7 @@ import AdHocTasksButton from "@/components/AdHocTasksButton";
 import MyPenaltyTasks from "@/components/MyPenaltyTasks";
 import PendingXpAdjustments from "@/components/PendingXpAdjustments";
 import PendingJournalDeletions from "@/components/PendingJournalDeletions";
+import TodayDateBanner from "@/components/TodayDateBanner";
 import Link from "next/link";
 import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
@@ -334,6 +335,8 @@ export default function TodayPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
+      <TodayDateBanner />
+
       <input
         ref={photoInputRef}
         type="file"
