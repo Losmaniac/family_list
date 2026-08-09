@@ -273,6 +273,30 @@ function RadioTab() {
         Poslech stojí XP: první 2 minuty zdarma, poté {formatXp(MEDIA_XP_COST_PER_BLOCK.radio)} XP za každých započatých 5 minut.
       </p>
 
+      {playing && (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 shadow-sm">
+          <RadioIcon size={18} className="shrink-0 text-accent" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{playing.name}</p>
+            <p className="text-xs text-zinc-500">
+              {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
+            </p>
+          </div>
+          <audio
+            key={playing.id}
+            src={playing.streamUrl}
+            autoPlay
+            controls
+            onEnded={() => setPlaying(null)}
+            onError={() => {
+              toast.error("Stream se nepodařilo přehrát.");
+              setPlaying(null);
+            }}
+            className="h-9 max-w-[60%]"
+          />
+        </div>
+      )}
+
       {favorites.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-zinc-500">Oblíbené</p>
@@ -359,30 +383,6 @@ function RadioTab() {
               onToggleFavorite={() => handleToggleFavorite(station)}
             />
           ))}
-        </div>
-      )}
-
-      {playing && (
-        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-3 border-t border-border bg-surface px-4 py-2.5 shadow-lg">
-          <RadioIcon size={18} className="shrink-0 text-accent" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{playing.name}</p>
-            <p className="text-xs text-zinc-500">
-              {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
-            </p>
-          </div>
-          <audio
-            key={playing.id}
-            src={playing.streamUrl}
-            autoPlay
-            controls
-            onEnded={() => setPlaying(null)}
-            onError={() => {
-              toast.error("Stream se nepodařilo přehrát.");
-              setPlaying(null);
-            }}
-            className="h-9 max-w-[60%]"
-          />
         </div>
       )}
     </div>
