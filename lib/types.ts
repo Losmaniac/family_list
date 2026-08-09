@@ -398,6 +398,64 @@ export interface ShoppingItem {
   timestamp: number;
 }
 
+export type ListKind = "wishlist" | "ideas" | "howto" | "custom";
+
+/**
+ * families/{familyId}/lists/{id} — a list living on the "Seznamy" card
+ * alongside the (separately-collectioned, unchanged) shopping list. Only a
+ * parent can create or delete a list; any family member can read/add/check/
+ * remove its items, same permission split as the shopping list.
+ */
+export interface FamilyList {
+  id: string;
+  title: string;
+  kind: ListKind;
+  /** Grouping labels for items' `category` field (e.g. wishlist's occasions) — flat list (no grouping) when absent. */
+  categories?: string[];
+  createdBy: string;
+  createdAt: number;
+}
+
+/** families/{familyId}/listItems/{id} — flat collection, each item pointing at its list via `listId` (same flat-collection convention as dailyTasks→templateId, rewardRedemptions→rewardId, etc.). */
+export interface FamilyListItem {
+  id: string;
+  listId: string;
+  name: string;
+  /** Free-form elaboration — a wishlist link/size, a how-to's actual instructions. Unused by "ideas". */
+  note?: string;
+  /** One of the parent list's `categories`, when it has any. */
+  category?: string;
+  checked: boolean;
+  addedBy: string;
+  timestamp: number;
+}
+
+export type JournalKind = "food" | "training" | "custom";
+
+/**
+ * families/{familyId}/journals/{id} — a diary on the "Deníky" card (e.g. a
+ * food or training log). Only a parent can create or delete one; any family
+ * member can read and add their own entries.
+ */
+export interface Journal {
+  id: string;
+  title: string;
+  kind: JournalKind;
+  createdBy: string;
+  createdAt: number;
+}
+
+/** families/{familyId}/journalEntries/{id} — flat collection, each entry pointing at its journal via `journalId`. Only the author (or a parent) may delete their entry; entries are otherwise immutable once written. */
+export interface JournalEntry {
+  id: string;
+  journalId: string;
+  authorId: string;
+  /** YYYY-MM-DD, family zone — defaults to "today" when logged, but freely backdatable. */
+  date: string;
+  text: string;
+  timestamp: number;
+}
+
 /**
  * families/{familyId}/adHocTaskTypes/{id} — a parent-defined irregular
  * ("jednorázový") task that doesn't fit a daily recurrence, e.g. emptying

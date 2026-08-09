@@ -14,17 +14,18 @@ import {
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  BookOpen,
   Camera,
   CalendarCheck,
   CalendarDays,
   CalendarClock,
+  ClipboardList,
   CloudSun,
   GraduationCap,
   ListChecks,
   MessageCircle,
   Settings,
   ShoppingBag,
-  ShoppingCart,
   TrendingUp,
   Tv,
   Users,
@@ -61,7 +62,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
   { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
   { href: "/schedule", label: "Rozvrh", icon: CalendarClock, parentOnly: false },
-  { href: "/shopping", label: "Nákup", icon: ShoppingCart, parentOnly: false },
+  { href: "/lists", label: "Seznamy", icon: ClipboardList, parentOnly: false },
+  { href: "/journals", label: "Deníky", icon: BookOpen, parentOnly: false },
   { href: "/media", label: "Média", icon: Tv, parentOnly: false },
   { href: "/weather", label: "Počasí", icon: CloudSun, parentOnly: false },
 ];
