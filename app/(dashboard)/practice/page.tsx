@@ -10,7 +10,8 @@ import { PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
 import { formatXp } from "@/lib/xp-engine";
 import EnglishFlashcards from "@/components/EnglishFlashcards";
 
-type Subject = "math" | "czech";
+type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda";
+const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda"];
 
 interface GenerateResponse {
   question: string;
@@ -42,7 +43,7 @@ export default function PracticePage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleNewProblem() {
-    if (!familyId || (subject !== "math" && subject !== "czech")) return;
+    if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject)) return;
     setLoading(true);
     setFeedback(null);
     setAnswer("");
@@ -50,7 +51,7 @@ export default function PracticePage() {
       const result = await httpsCallable<{ familyId: string; subject: Subject }, GenerateResponse>(
         getFirebaseFunctions(),
         "generatePracticeProblem"
-      )({ familyId, subject });
+      )({ familyId, subject: subject as Subject });
       setCurrent(result.data);
     } catch (err) {
       toast.error(describeError(err, "Úlohu se nepodařilo připravit."));
@@ -127,7 +128,7 @@ export default function PracticePage() {
 
       {subject === "english" && <EnglishFlashcards />}
 
-      {(subject === "math" || subject === "czech") && (
+      {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
           {!current ? (
             <button

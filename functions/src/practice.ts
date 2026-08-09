@@ -24,6 +24,8 @@ import {
   pickRandomLogicWordProblem,
 } from "../../lib/practice";
 import { pickRandomCzechExercise } from "../../lib/czech-language";
+import { pickRandomPrirodovedaExercise } from "../../lib/prirodoveda";
+import { pickRandomVlastivedaExercise } from "../../lib/vlastiveda";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import type { Family, XpLedgerEntry } from "../../lib/types";
@@ -86,14 +88,21 @@ export async function awardCappedPracticeXp(
 
 interface GenerateRequest {
   familyId: string;
-  subject: "math" | "czech";
+  subject: "math" | "czech" | "prirodoveda" | "vlastiveda";
 }
+
+const SUBJECT_PICKERS: Record<GenerateRequest["subject"], () => { question: string; answer: string }> = {
+  math: pickRandomLogicWordProblem,
+  czech: pickRandomCzechExercise,
+  prirodoveda: pickRandomPrirodovedaExercise,
+  vlastiveda: pickRandomVlastivedaExercise,
+};
 
 export const generatePracticeProblem = onCall<GenerateRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, subject } = request.data;
-  if (!familyId || (subject !== "math" && subject !== "czech")) {
+  if (!familyId || !SUBJECT_PICKERS[subject]) {
     throw new HttpsError("invalid-argument", "familyId and a valid subject are required.");
   }
   await requireFamilyMember(familyId, uid);
@@ -101,7 +110,7 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
   const db = getFirestore();
   const pendingRef = db.collection("families").doc(familyId).collection("practicePending").doc(uid);
 
-  const problem = subject === "math" ? pickRandomLogicWordProblem() : pickRandomCzechExercise();
+  const problem = SUBJECT_PICKERS[subject]();
   await pendingRef.set({
     subject,
     correctAnswer: problem.answer,
