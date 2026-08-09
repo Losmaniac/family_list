@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ANIMAL_AVATAR_OPTIONS,
   DEFAULT_FACE_AVATAR,
+  DICEBEAR_STYLES,
   EYE_STYLES,
   FACIAL_HAIR_STYLES,
   HAIR_COLORS,
@@ -11,17 +12,26 @@ import {
   LETTER_COLORS,
   MOUTH_STYLES,
   SKIN_TONES,
+  buildDicebearUrl,
+  encodeDicebearAvatar,
   encodeFaceAvatar,
   encodeLetterAvatar,
   isAnimalAvatar,
+  parseDicebearAvatar,
   parseFaceAvatar,
   parseLetterAvatar,
+  randomDicebearSeed,
+  type DicebearAvatarConfig,
   type FaceAvatarConfig,
   type LetterAvatarConfig,
 } from "@/lib/avatars";
 import FaceAvatar from "@/components/FaceAvatar";
 
 const DEFAULT_LETTER_AVATAR: LetterAvatarConfig = { text: "AB", color: 0 };
+
+function defaultDicebearAvatar(): DicebearAvatarConfig {
+  return { style: DICEBEAR_STYLES[0].id, seed: randomDicebearSeed() };
+}
 
 export default function AvatarPicker({
   value,
@@ -32,11 +42,19 @@ export default function AvatarPicker({
 }) {
   const initialConfig = parseFaceAvatar(value) ?? DEFAULT_FACE_AVATAR;
   const initialLetterConfig = parseLetterAvatar(value) ?? DEFAULT_LETTER_AVATAR;
-  const [tab, setTab] = useState<"face" | "letters" | "animal">(
-    isAnimalAvatar(value) ? "animal" : parseLetterAvatar(value) ? "letters" : "face"
+  const initialDicebearConfig = parseDicebearAvatar(value) ?? defaultDicebearAvatar();
+  const [tab, setTab] = useState<"face" | "letters" | "animal" | "dicebear">(
+    parseDicebearAvatar(value) ? "dicebear" : isAnimalAvatar(value) ? "animal" : parseLetterAvatar(value) ? "letters" : "face"
   );
   const [config, setConfig] = useState<FaceAvatarConfig>(initialConfig);
   const [letterConfig, setLetterConfig] = useState<LetterAvatarConfig>(initialLetterConfig);
+  const [dicebearConfig, setDicebearConfig] = useState<DicebearAvatarConfig>(initialDicebearConfig);
+
+  function updateDicebearConfig(patch: Partial<DicebearAvatarConfig>) {
+    const next = { ...dicebearConfig, ...patch };
+    setDicebearConfig(next);
+    onChange(encodeDicebearAvatar(next));
+  }
 
   function updateConfig(patch: Partial<FaceAvatarConfig>) {
     const next = { ...config, ...patch };
@@ -79,6 +97,16 @@ export default function AvatarPicker({
           className={`rounded-full px-3 py-1 ${tab === "animal" ? "bg-accent text-accent-foreground" : "text-zinc-500"}`}
         >
           Zvířata
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTab("dicebear");
+            onChange(encodeDicebearAvatar(dicebearConfig));
+          }}
+          className={`rounded-full px-3 py-1 ${tab === "dicebear" ? "bg-accent text-accent-foreground" : "text-zinc-500"}`}
+        >
+          Generovaný
         </button>
       </div>
 
@@ -224,7 +252,7 @@ export default function AvatarPicker({
             </div>
           </div>
         </div>
-      ) : (
+      ) : tab === "animal" ? (
         <div className="flex flex-wrap gap-1.5">
           {ANIMAL_AVATAR_OPTIONS.map((emoji) => (
             <button
@@ -238,6 +266,42 @@ export default function AvatarPicker({
               {emoji}
             </button>
           ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- external DiceBear SVG, not a static asset */}
+            <img
+              src={buildDicebearUrl(dicebearConfig)}
+              alt=""
+              className="h-20 w-20 shrink-0 rounded-full bg-accent/10"
+            />
+            <button
+              type="button"
+              onClick={() => updateDicebearConfig({ seed: randomDicebearSeed() })}
+              className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+            >
+              🎲 Náhodné
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm">
+            <p className="text-zinc-500">Styl</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DICEBEAR_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => updateDicebearConfig({ style: style.id })}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    dicebearConfig.style === style.id ? "border-accent bg-accent/10 text-accent" : "border-border"
+                  }`}
+                >
+                  {style.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

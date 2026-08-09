@@ -1,4 +1,4 @@
-import { isAnimalAvatar, LETTER_COLORS, parseFaceAvatar, parseLetterAvatar } from "@/lib/avatars";
+import { buildDicebearUrl, isAnimalAvatar, LETTER_COLORS, parseDicebearAvatar, parseFaceAvatar, parseLetterAvatar } from "@/lib/avatars";
 import FaceAvatar from "@/components/FaceAvatar";
 
 interface AvatarProps {
@@ -25,6 +25,7 @@ function initials(name: string): string {
 export default function Avatar({ name, avatarUrl, size = "md" }: AvatarProps) {
   const faceConfig = parseFaceAvatar(avatarUrl);
   const letterConfig = parseLetterAvatar(avatarUrl);
+  const dicebearConfig = parseDicebearAvatar(avatarUrl);
   const isAnimal = isAnimalAvatar(avatarUrl);
 
   if (letterConfig) {
@@ -45,6 +46,9 @@ export default function Avatar({ name, avatarUrl, size = "md" }: AvatarProps) {
     >
       {faceConfig ? (
         <FaceAvatar config={faceConfig} className="h-full w-full" />
+      ) : dicebearConfig ? (
+        // eslint-disable-next-line @next/next/no-img-element -- external DiceBear SVG, not a static asset
+        <img src={buildDicebearUrl(dicebearConfig)} alt="" className="h-full w-full" />
       ) : isAnimal ? (
         avatarUrl
       ) : (
