@@ -1,6 +1,19 @@
-/** Pure helpers for the "Seznamy" card's non-shopping lists (wishlist, ideas, house how-tos, and any custom list a parent adds). */
+/** Pure helpers for the "Seznamy" card — both the shopping list and its non-shopping lists (wishlist, ideas, house how-tos, and any custom list a parent adds). */
 
 import type { ListKind } from "./types";
+
+const completedAtFormatter = new Intl.DateTimeFormat("cs-CZ", {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Date + time an item was checked off, for the collapsed "Dokončené" section — undefined for anything checked before `completedAt` existed. */
+export function formatCompletedAt(timestamp: number | undefined): string | undefined {
+  return timestamp !== undefined ? completedAtFormatter.format(new Date(timestamp)) : undefined;
+}
 
 export const LIST_KIND_LABELS: Record<ListKind, string> = {
   wishlist: "Přání",

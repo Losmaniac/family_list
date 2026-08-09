@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Plus, Trash2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
-import { groupItemsByCategory } from "@/lib/lists";
+import { formatCompletedAt, groupItemsByCategory } from "@/lib/lists";
 import type { FamilyList, FamilyListItem } from "@/lib/types";
 
 function emptyForm(defaultCategory: string) {
   return { name: "", note: "", category: defaultCategory };
+}
+
+/** Module-scope (not component-body) so Date.now() here isn't subject to the react-compiler's render-purity analysis. */
+function nowMs(): number {
+  return Date.now();
 }
 
 /** Any non-shopping list on the Seznamy card (wishlist, ideas, house how-tos, or a parent's custom one) — backed by families/{familyId}/listItems, filtered to this list's id. Mount with key={list.id} so switching lists resets the add-item form cleanly. */
@@ -21,6 +26,7 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => emptyForm(list.categories?.[0] ?? ""));
   const [submitting, setSubmitting] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     const itemsQuery = query(collection(getDb(), "families", familyId, "listItems"), where("listId", "==", list.id));
@@ -52,8 +58,12 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
   }
 
   async function toggleChecked(item: FamilyListItem) {
+    const next = !item.checked;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "listItems", item.id), { checked: !item.checked });
+      await updateDoc(doc(getDb(), "families", familyId, "listItems", item.id), {
+        checked: next,
+        completedAt: next ? nowMs() : null,
+      });
     } catch {
       toast.error("Nepodařilo se uložit změnu.");
     }
@@ -89,6 +99,9 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
         <div className="min-w-0 flex-1">
           <p className={checked ? "truncate text-zinc-400 line-through" : "truncate"}>{item.name}</p>
           {item.note && <p className="mt-0.5 whitespace-pre-wrap text-sm text-zinc-500">{item.note}</p>}
+          {checked && formatCompletedAt(item.completedAt) && (
+            <p className="mt-0.5 text-xs text-zinc-400">{formatCompletedAt(item.completedAt)}</p>
+          )}
         </div>
         <button
           type="button"
@@ -182,16 +195,21 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
           ))}
 
           {checkedItems.length > 0 && (
-            <div className="flex flex-col gap-5 border-t border-border pt-4">
-              <h2 className="-mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                Hotovo ({checkedItems.length})
-              </h2>
-              {checkedGroups.map(({ category, items: groupItems }) => (
-                <section key={category ?? "_flat"} className="flex flex-col gap-2">
-                  {category && <h3 className="text-sm font-medium text-zinc-500">{category}</h3>}
-                  <div className="flex flex-col gap-1.5">{groupItems.map((item) => renderItem(item, true))}</div>
-                </section>
-              ))}
+            <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCompleted((prev) => !prev)}
+                className="-mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400"
+              >
+                {showCompleted ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Dokončené ({checkedItems.length})
+              </button>
+              {showCompleted &&
+                checkedGroups.map(({ category, items: groupItems }) => (
+                  <section key={category ?? "_flat"} className="flex flex-col gap-2">
+                    {category && <h3 className="text-sm font-medium text-zinc-500">{category}</h3>}
+                    <div className="flex flex-col gap-1.5">{groupItems.map((item) => renderItem(item, true))}</div>
+                  </section>
+                ))}
             </div>
           )}
         </div>

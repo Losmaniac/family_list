@@ -363,7 +363,7 @@ service cloud.firestore {
           request.resource.data.name is string && request.resource.data.name.size() > 0 &&
           request.resource.data.category is string;
         allow update: if isFamilyMember(familyId) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'quantity', 'category', 'checked']);
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'quantity', 'category', 'checked', 'completedAt']);
         allow delete: if isFamilyMember(familyId);
       }
 
@@ -393,7 +393,7 @@ service cloud.firestore {
           request.resource.data.listId is string &&
           request.resource.data.name is string && request.resource.data.name.size() > 0;
         allow update: if isFamilyMember(familyId) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'note', 'category', 'checked']);
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'note', 'category', 'checked', 'completedAt']);
         allow delete: if isFamilyMember(familyId);
       }
 

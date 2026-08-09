@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { clampQuantity, effectiveShoppingCategories, SHOPPING_MIN_QUANTITY } from "@/lib/shopping";
+import { formatCompletedAt } from "@/lib/lists";
 import type { ShoppingItem } from "@/lib/types";
 
 function emptyForm(defaultCategory: string) {
   return { name: "", quantity: SHOPPING_MIN_QUANTITY, category: defaultCategory };
+}
+
+/** Module-scope (not component-body) so Date.now() here isn't subject to the react-compiler's render-purity analysis. */
+function nowMs(): number {
+  return Date.now();
 }
 
 /** Compact inline -/+ stepper — never opens a dialog, every click writes straight through onChange. */
@@ -50,6 +56,7 @@ export default function ShoppingListView() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => emptyForm(categories[0]));
   const [submitting, setSubmitting] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     if (!familyId) return;
@@ -81,8 +88,12 @@ export default function ShoppingListView() {
 
   async function toggleChecked(item: ShoppingItem) {
     if (!familyId) return;
+    const next = !item.checked;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "shoppingItems", item.id), { checked: !item.checked });
+      await updateDoc(doc(getDb(), "families", familyId, "shoppingItems", item.id), {
+        checked: next,
+        completedAt: next ? nowMs() : null,
+      });
     } catch {
       toast.error("Nepodařilo se uložit změnu.");
     }
@@ -224,42 +235,52 @@ export default function ShoppingListView() {
           ))}
 
           {checkedItems.length > 0 && (
-            <div className="flex flex-col gap-5 border-t border-border pt-4">
-              <h2 className="-mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                Odškrtnuté ({checkedItems.length})
-              </h2>
-              {checkedByCategory.map(({ category, items: groupItems }) => (
-                <section key={category} className="flex flex-col gap-2">
-                  <h3 className="text-sm font-medium text-zinc-500">{category}</h3>
-                  <div className="flex flex-col gap-1.5">
-                    {groupItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-surface-muted px-4 py-2.5"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleChecked(item)}
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-accent"
-                          aria-label="Vrátit zpět na seznam"
-                        />
-                        <p className="min-w-0 flex-1 truncate text-zinc-400 line-through">
-                          {item.name}
-                          {item.quantity && <span> · {item.quantity}</span>}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item)}
-                          aria-label="Odebrat"
-                          className="shrink-0 text-zinc-400 hover:text-danger"
+            <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCompleted((prev) => !prev)}
+                className="-mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-zinc-400"
+              >
+                {showCompleted ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Dokončené ({checkedItems.length})
+              </button>
+              {showCompleted &&
+                checkedByCategory.map(({ category, items: groupItems }) => (
+                  <section key={category} className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-zinc-500">{category}</h3>
+                    <div className="flex flex-col gap-1.5">
+                      {groupItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 rounded-xl border border-border bg-surface-muted px-4 py-2.5"
                         >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
+                          <button
+                            type="button"
+                            onClick={() => toggleChecked(item)}
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-accent"
+                            aria-label="Vrátit zpět na seznam"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-zinc-400 line-through">
+                              {item.name}
+                              {item.quantity && <span> · {item.quantity}</span>}
+                            </p>
+                            {formatCompletedAt(item.completedAt) && (
+                              <p className="text-xs text-zinc-400">{formatCompletedAt(item.completedAt)}</p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item)}
+                            aria-label="Odebrat"
+                            className="shrink-0 text-zinc-400 hover:text-danger"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
             </div>
           )}
         </div>
