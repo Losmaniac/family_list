@@ -14,6 +14,7 @@ import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import WeekSchedule from "@/components/WeekSchedule";
+import PenaltyTaskPanel from "@/components/PenaltyTaskPanel";
 import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types";
 
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
@@ -472,6 +473,13 @@ export default function AssignPage() {
           </div>
         ))}
       </div>
+
+      {familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Postihové úkoly</h2>
+          <PenaltyTaskPanel familyId={familyId} members={members} />
+        </section>
+      )}
     </div>
   );
 }

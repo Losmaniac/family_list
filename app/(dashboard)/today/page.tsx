@@ -16,6 +16,7 @@ import { formatXp } from "@/lib/xp-engine";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import AdHocTasksButton from "@/components/AdHocTasksButton";
+import MyPenaltyTasks from "@/components/MyPenaltyTasks";
 import Link from "next/link";
 import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
@@ -339,6 +340,8 @@ export default function TodayPage() {
         onChange={handlePhotoSelected}
         className="hidden"
       />
+
+      {familyId && <MyPenaltyTasks familyId={familyId} />}
 
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">

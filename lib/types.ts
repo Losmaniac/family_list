@@ -58,6 +58,8 @@ export interface Family {
   scheduleVisibleToAll?: boolean;
   /** Category list for the shared shopping list, parent-managed; absent/empty = the built-in default categories. */
   shoppingCategories?: string[];
+  /** memberId -> nav hrefs hidden from that (non-parent) member; absent/empty = everything shown. Parents always see every card themselves regardless of this. */
+  hiddenNavHrefsByMember?: Record<string, string[]>;
 }
 
 export type MemberRole = "parent" | "child";
@@ -410,4 +412,55 @@ export interface AdHocTaskCompletion {
   completedBy: string;
   timestamp: number;
   xpAwarded: number;
+}
+
+/**
+ * families/{familyId}/practiceProgress/{uid} — which Vzdělání exercises
+ * this member has already answered correctly, per subject, so the same
+ * question is never asked again and progress ("12/30 zvládnuto") can be
+ * shown to both the member and their parents. Server-authoritative — only
+ * generatePracticeProblem/submitPracticeAnswer/englishFlashcards Cloud
+ * Functions ever write it, same trust tier as xpLedger.
+ */
+export interface PracticeProgress {
+  id: string;
+  math?: string[];
+  czech?: string[];
+  prirodoveda?: string[];
+  vlastiveda?: string[];
+  english?: string[];
+  atlas?: string[];
+}
+
+export type PenaltyTaskStatus = "pending" | "resolved";
+
+/**
+ * families/{familyId}/penaltyTasks/{id} — a parent-issued "do this or you
+ * lose XP" warning for something repeatedly ignored (e.g. "clean your
+ * room, I've told you three times"). If not resolved by a parent within
+ * `deadlineHours` of creation, every assigned member loses `penaltyXp`;
+ * after that they keep losing `recurringXp` every further
+ * `recurringIntervalHours` until a parent resolves it. An assigned member
+ * submitting (optionally with a photo) only flags "please check this" for
+ * a parent — it never stops the deduction by itself; only a parent's
+ * confirmation (status -> 'resolved') does.
+ */
+export interface PenaltyTask {
+  id: string;
+  title: string;
+  assignedTo: string[];
+  createdBy: string;
+  createdAt: number;
+  deadlineHours: number;
+  penaltyXp: number;
+  recurringXp: number;
+  recurringIntervalHours: number;
+  status: PenaltyTaskStatus;
+  /** How many penalty "units" (the initial deadline miss + each elapsed recurring interval) have already been deducted. Server-authoritative — never client-writable. */
+  penaltiesApplied: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+  /** Set by an assigned member saying "I think I did it" — cosmetic only, never stops the deduction by itself. */
+  submittedAt?: number;
+  photoUrl?: string;
 }

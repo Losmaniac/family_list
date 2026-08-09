@@ -4,6 +4,7 @@ import {
   effectiveInvestmentTerms,
   findInvestmentTerm,
   findTermInList,
+  investmentProgress,
   maturityPayout,
   totalInvested,
 } from "./investments";
@@ -93,5 +94,27 @@ describe("totalInvested", () => {
 
   it("returns 0 for a user with no investments", () => {
     expect(totalInvested(investments, "u3")).toBe(0);
+  });
+});
+
+describe("investmentProgress", () => {
+  it("is 0 right at the start", () => {
+    expect(investmentProgress(1000, 5000, 1000)).toBe(0);
+  });
+
+  it("is 1 right at maturity", () => {
+    expect(investmentProgress(1000, 5000, 5000)).toBe(1);
+  });
+
+  it("is 0.5 halfway through the term", () => {
+    expect(investmentProgress(1000, 5000, 3000)).toBe(0.5);
+  });
+
+  it("clamps to 1 past maturity", () => {
+    expect(investmentProgress(1000, 5000, 9000)).toBe(1);
+  });
+
+  it("clamps to 0 before the start", () => {
+    expect(investmentProgress(1000, 5000, 0)).toBe(0);
   });
 });

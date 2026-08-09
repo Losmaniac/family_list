@@ -50,6 +50,17 @@ export function maturityPayout(principal: number, rate: number): number {
 }
 
 /**
+ * How far through its term an active investment is, as a 0-1 fraction —
+ * drives the per-investment progress bar. Clamped so a not-yet-synced
+ * clock or a slightly stale `now` never renders past 100% or before 0%.
+ */
+export function investmentProgress(startedAt: number, maturesAt: number, now: number = Date.now()): number {
+  const span = maturesAt - startedAt;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (now - startedAt) / span));
+}
+
+/**
  * How much of a member's XP is currently locked up — 'active' investments,
  * plus 'withdrawal_requested' ones (the principal hasn't actually been
  * returned to their balance yet, that only happens once the server

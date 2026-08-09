@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import InfoButton from "@/components/InfoButton";
-import { MIN_INVESTMENT_AMOUNT, maturityPayout, type InvestmentTerm } from "@/lib/investments";
+import { MIN_INVESTMENT_AMOUNT, investmentProgress, maturityPayout, type InvestmentTerm } from "@/lib/investments";
 import { formatXp } from "@/lib/xp-engine";
 import type { Investment } from "@/lib/types";
 
@@ -11,6 +11,8 @@ const PAST_STATUS_LABELS: Record<"withdrawn" | "matured", string> = {
   withdrawn: "Vybráno předčasně",
   matured: "Vyplaceno",
 };
+
+const DATE_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric" });
 
 function daysRemaining(maturesAt: number): number {
   return Math.max(0, Math.ceil((maturesAt - Date.now()) / (1000 * 60 * 60 * 24)));
@@ -157,8 +159,17 @@ export default function Investments({
                     )} úrok). Vybrat lze i dřív, ale úrok pak propadá a vrátí se jen vklad.`}
                   />
                 </p>
-                <p className="text-sm text-zinc-500">Běží · ještě {daysRemaining(inv.maturesAt)} dní</p>
                 <p className="text-sm text-zinc-500">
+                  {DATE_FORMATTER.format(inv.startedAt)} – {DATE_FORMATTER.format(inv.maturesAt)} · ještě{" "}
+                  {daysRemaining(inv.maturesAt)} dní
+                </p>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                  <div
+                    className="h-full rounded-full bg-accent transition-all"
+                    style={{ width: `${Math.round(investmentProgress(inv.startedAt, inv.maturesAt) * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-sm text-zinc-500">
                   Při dokončení:{" "}
                   <span className="font-semibold text-success">
                     +{formatXp(maturityPayout(inv.principal, inv.rate) - inv.principal)} XP
