@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { eventOccursOnDate } from "./calendar-events";
 import type { CalendarEvent } from "./types";
 
-function makeEvent(date: string, recurrence?: CalendarEvent["recurrence"]): CalendarEvent {
+function makeEvent(
+  date: string,
+  recurrence?: CalendarEvent["recurrence"],
+  recurrenceUntil?: string
+): CalendarEvent {
   return {
     id: "e1",
     title: "Test",
@@ -12,6 +16,7 @@ function makeEvent(date: string, recurrence?: CalendarEvent["recurrence"]): Cale
     createdBy: "m1",
     timestamp: 0,
     recurrence,
+    recurrenceUntil,
   };
 }
 
@@ -46,5 +51,16 @@ describe("eventOccursOnDate", () => {
     const evt = makeEvent("2026-08-10", "yearly");
     expect(eventOccursOnDate(evt, "2027-08-10")).toBe(true);
     expect(eventOccursOnDate(evt, "2027-09-10")).toBe(false);
+  });
+
+  it("stops recurring after recurrenceUntil", () => {
+    const evt = makeEvent("2026-08-10", "weekly", "2026-08-17");
+    expect(eventOccursOnDate(evt, "2026-08-17")).toBe(true);
+    expect(eventOccursOnDate(evt, "2026-08-24")).toBe(false);
+  });
+
+  it("recurrenceUntil never hides the event's own start date", () => {
+    const evt = makeEvent("2026-08-10", "weekly", "2026-08-01");
+    expect(eventOccursOnDate(evt, "2026-08-10")).toBe(true);
   });
 });

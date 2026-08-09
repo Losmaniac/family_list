@@ -24,6 +24,7 @@ function emptyForm(dateKey: string, defaultMemberIds: string[]) {
     date: dateKey,
     category: "other" as CalendarEventCategory,
     recurrence: "none" as CalendarRecurrence,
+    recurrenceUntil: "",
     memberIds: defaultMemberIds,
   };
 }
@@ -112,6 +113,7 @@ export default function CalendarPage() {
           date: form.date,
           category: form.category,
           recurrence: form.recurrence,
+          ...(form.recurrence !== "none" && form.recurrenceUntil ? { recurrenceUntil: form.recurrenceUntil } : {}),
           memberId,
           createdBy: user.uid,
           timestamp: Date.now(),
@@ -228,11 +230,8 @@ export default function CalendarPage() {
       </div>
 
       {openDateKey && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        >
-          <div className="flex max-h-[88vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold capitalize">{openDayLabel}</h2>
               <button
@@ -321,13 +320,19 @@ export default function CalendarPage() {
                   ))}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-zinc-500">Opakování</p>
+                  <p className="text-xs text-zinc-500">Opakování — od {form.date || "?"}</p>
                   <div className="flex flex-wrap gap-2">
                     {CALENDAR_RECURRENCES.map((rec) => (
                       <button
                         key={rec.value}
                         type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, recurrence: rec.value }))}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            recurrence: rec.value,
+                            recurrenceUntil: rec.value === "none" ? "" : prev.recurrenceUntil,
+                          }))
+                        }
                         className={`rounded-full px-3 py-1.5 text-sm ${
                           form.recurrence === rec.value ? "bg-accent text-accent-foreground" : "border border-border"
                         }`}
@@ -336,6 +341,18 @@ export default function CalendarPage() {
                       </button>
                     ))}
                   </div>
+                  {form.recurrence !== "none" && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-zinc-500">Opakovat do (nepovinné — prázdné = navždy)</p>
+                      <input
+                        type="date"
+                        min={form.date || undefined}
+                        value={form.recurrenceUntil}
+                        onChange={(e) => setForm((prev) => ({ ...prev, recurrenceUntil: e.target.value }))}
+                        className="rounded-lg border border-border bg-surface px-4 py-2"
+                      />
+                    </div>
+                  )}
                 </div>
                 {isParent && (
                   <div className="flex flex-col gap-1.5">
