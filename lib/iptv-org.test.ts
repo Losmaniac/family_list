@@ -48,6 +48,21 @@ describe("joinChannelsWithStreams", () => {
     const result = joinChannelsWithStreams(channels, dupStreams);
     expect(result.find((c) => c.id === "c1")?.streamUrl).toBe("https://first.example.com");
   });
+
+  it("drops plain http:// streams — mixed content the browser blocks outright on our https app", () => {
+    const result = joinChannelsWithStreams(channels, [
+      { channel: "c1", url: "http://stream.example.com/c1.m3u8" },
+    ]);
+    expect(result.find((c) => c.id === "c1")).toBeUndefined();
+  });
+
+  it("falls through to a later https:// stream when an earlier one for the same channel is http://", () => {
+    const result = joinChannelsWithStreams(channels, [
+      { channel: "c1", url: "http://insecure.example.com/c1.m3u8" },
+      { channel: "c1", url: "https://secure.example.com/c1.m3u8" },
+    ]);
+    expect(result.find((c) => c.id === "c1")?.streamUrl).toBe("https://secure.example.com/c1.m3u8");
+  });
 });
 
 describe("filterChannels", () => {

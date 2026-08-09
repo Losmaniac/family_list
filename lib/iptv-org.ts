@@ -52,14 +52,20 @@ interface RawStream {
 
 /**
  * Joins channels with their stream URL. A channel is dropped if it's
- * closed, was replaced by another entry, or has no matching stream — same
- * spirit as radio-browser's hidebroken filter, just done client-side since
- * these are static files with no server-side query support.
+ * closed, was replaced by another entry, has no matching stream, or the
+ * stream is plain http:// — same spirit as radio-browser's hidebroken
+ * filter, just done client-side since these are static files with no
+ * server-side query support. The http:// exclusion isn't a health check,
+ * it's a certainty: our app is served over https, so an http:// stream is
+ * mixed content the browser blocks outright, no matter how "live" the
+ * stream itself is — about a fifth of all listed streams are like this.
  */
 export function joinChannelsWithStreams(rawChannels: RawChannel[], rawStreams: RawStream[]): TvChannel[] {
   const streamByChannel = new Map<string, string>();
   for (const s of rawStreams) {
-    if (s.channel && s.url && !streamByChannel.has(s.channel)) streamByChannel.set(s.channel, s.url);
+    if (s.channel && s.url?.startsWith("https://") && !streamByChannel.has(s.channel)) {
+      streamByChannel.set(s.channel, s.url);
+    }
   }
 
   const channels: TvChannel[] = [];

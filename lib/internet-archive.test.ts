@@ -22,11 +22,17 @@ describe("buildGameSearchUrl", () => {
 
   it("defaults rows to 30 and respects a custom limit", () => {
     expect(buildGameSearchUrl("")).toContain("rows=30");
-    expect(buildGameSearchUrl("", 10)).toContain("rows=10");
+    expect(buildGameSearchUrl("", { limit: 10 })).toContain("rows=10");
   });
 
   it("requests JSON output", () => {
     expect(buildGameSearchUrl("")).toContain("output=json");
+  });
+
+  it("adds a mobile-friendly genre filter only when requested", () => {
+    expect(decodeURIComponent(buildGameSearchUrl("").replace(/\+/g, " "))).not.toContain("subject:");
+    const url = decodeURIComponent(buildGameSearchUrl("", { mobileFriendly: true }).replace(/\+/g, " "));
+    expect(url).toContain("subject:(point-and-click OR");
   });
 });
 

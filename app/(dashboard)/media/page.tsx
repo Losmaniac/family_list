@@ -406,13 +406,16 @@ function GamesTab() {
   // the archive.org DOS emulator only reads real keyboard/gamepad input, it has
   // no on-screen touch controls, so warn instead of leaving touch users stuck.
   const [likelyNoKeyboard] = useState(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+  // Defaults on for touch devices — no on-screen keyboard means keyboard-only
+  // games are unplayable anyway, so start from the subset that has a chance.
+  const [mobileFriendly, setMobileFriendly] = useState(likelyNoKeyboard);
 
   async function handleSearch(e?: React.FormEvent) {
     e?.preventDefault();
     setLoading(true);
     setSearched(true);
     try {
-      const res = await fetch(buildGameSearchUrl(nameQuery));
+      const res = await fetch(buildGameSearchUrl(nameQuery, { mobileFriendly }));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setGames(parseGames(await res.json()));
     } catch (err) {
@@ -428,7 +431,7 @@ function GamesTab() {
       setLoading(true);
       setSearched(true);
       try {
-        const res = await fetch(buildGameSearchUrl(""));
+        const res = await fetch(buildGameSearchUrl("", { mobileFriendly }));
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setGames(parseGames(await res.json()));
       } catch (err) {
@@ -438,7 +441,7 @@ function GamesTab() {
       }
     }
     loadDefault();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch the default list once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch the default list once on mount only, using whatever mobileFriendly defaulted to
   }, []);
 
   return (
@@ -459,6 +462,15 @@ function GamesTab() {
           <Search size={16} /> Hledat
         </button>
       </form>
+      <label className="flex items-center gap-2 text-sm text-zinc-500">
+        <input
+          type="checkbox"
+          checked={mobileFriendly}
+          onChange={(e) => setMobileFriendly(e.target.checked)}
+          className="h-4 w-4 accent-accent"
+        />
+        Jen hry ovládané myší/klikáním (bez klávesnice se dá hrát jen tohle)
+      </label>
 
       {loading ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
