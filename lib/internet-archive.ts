@@ -11,35 +11,11 @@
 export const INTERNET_ARCHIVE_SEARCH_URL = "https://archive.org/advancedsearch.php";
 export const MSDOS_GAMES_COLLECTION = "softwarelibrary_msdos_games";
 
-/**
- * archive.org's DOS emulator has no on-screen touch controls at all (see
- * MediaPage's Hry tab) — only real keyboard/gamepad input works. There's no
- * "control scheme" field to filter on directly, but games tagged with one of
- * these genres are usually mouse-driven, which taps-as-clicks already handle
- * fine on touch. Best-effort, not a guarantee: sparse/inconsistent tagging
- * means plenty of genuinely mouse-only games aren't tagged this way at all.
- */
-const MOBILE_FRIENDLY_SUBJECTS = [
-  "point-and-click",
-  "puzzle",
-  "solitaire",
-  '"card game"',
-  "mahjong",
-  '"board game"',
-  "simulation",
-];
-
-export interface GameSearchOptions {
-  limit?: number;
-  /** Restrict to genres that are usually mouse-driven — see MOBILE_FRIENDLY_SUBJECTS. */
-  mobileFriendly?: boolean;
-}
-
-export function buildGameSearchUrl(query: string, options: GameSearchOptions = {}): string {
-  const { limit = 30, mobileFriendly = false } = options;
+export function buildGameSearchUrl(query: string, limit: number = 30): string {
   const trimmed = query.trim();
-  let q = trimmed ? `collection:(${MSDOS_GAMES_COLLECTION}) AND title:(${trimmed})` : `collection:(${MSDOS_GAMES_COLLECTION})`;
-  if (mobileFriendly) q += ` AND subject:(${MOBILE_FRIENDLY_SUBJECTS.join(" OR ")})`;
+  const q = trimmed
+    ? `collection:(${MSDOS_GAMES_COLLECTION}) AND title:(${trimmed})`
+    : `collection:(${MSDOS_GAMES_COLLECTION})`;
   const params = new URLSearchParams();
   params.set("q", q);
   params.append("fl[]", "identifier");
@@ -82,4 +58,44 @@ export function parseGames(raw: RawSearchResponse): ArchiveGame[] {
   return docs
     .filter((d): d is RawDoc & { identifier: string; title: string } => Boolean(d.identifier && d.title))
     .map((d) => ({ id: d.identifier, title: d.title, year: d.year ? String(d.year) : "" }));
+}
+
+/**
+ * archive.org's DOS emulator has no on-screen touch controls at all (see
+ * MediaPage's Hry tab), and there's no "requires a keyboard" field in its
+ * metadata to filter on — a genre tag like "puzzle" or "card game" doesn't
+ * actually tell you the control scheme (plenty of DOS card/puzzle ports
+ * from that era are keyboard-only despite the genre). So instead of
+ * guessing from tags, this is a small hand-checked list of point-and-click
+ * adventures confirmed to be entirely mouse-driven (tap-as-click already
+ * works fine on touch) — every title here was designed by its original
+ * developer specifically to need no keyboard at all, not inferred from
+ * crowd-sourced metadata.
+ */
+export const MOBILE_FRIENDLY_GAMES: ArchiveGame[] = [
+  { id: "msdos_Loom_1990", title: "Loom", year: "1990" },
+  { id: "mnkyega", title: "The Secret of Monkey Island", year: "1990" },
+  { id: "msdos_Monkey_Island_2_-_LeChucks_Revenge_1991", title: "Monkey Island 2: LeChuck's Revenge", year: "1991" },
+  { id: "msdos_Maniac_Mansion_Enhanced_1988", title: "Maniac Mansion", year: "1988" },
+  {
+    id: "msdos_Zak_McKracken_and_the_Alien_Mindbenders_Enhanced_1988",
+    title: "Zak McKracken and the Alien Mindbenders",
+    year: "1988",
+  },
+  {
+    id: "msdos_Kings_Quest_V_-_Absence_Makes_the_Heart_Go_Yonder_1990",
+    title: "King's Quest V",
+    year: "1990",
+  },
+  { id: "msdos_Return_to_Zork", title: "Return to Zork", year: "1993" },
+  { id: "msdos_Rise_of_the_Dragon_1990", title: "Rise of the Dragon", year: "1990" },
+  { id: "msdos_Discworld_1995", title: "Discworld", year: "1995" },
+  { id: "msdos_Simon_the_Sorcerer_1993", title: "Simon the Sorcerer", year: "1993" },
+];
+
+/** Case-insensitive title-substring filter over MOBILE_FRIENDLY_GAMES — same search-box behavior as the full catalog, just over the small curated list. */
+export function filterMobileFriendlyGames(query: string): ArchiveGame[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return MOBILE_FRIENDLY_GAMES;
+  return MOBILE_FRIENDLY_GAMES.filter((g) => g.title.toLowerCase().includes(q));
 }

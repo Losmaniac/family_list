@@ -29,6 +29,8 @@ import {
   buildGameEmbedUrl,
   buildGameSearchUrl,
   buildGameThumbnailUrl,
+  filterMobileFriendlyGames,
+  MOBILE_FRIENDLY_GAMES,
   parseGames,
   type ArchiveGame,
 } from "@/lib/internet-archive";
@@ -407,15 +409,24 @@ function GamesTab() {
   // no on-screen touch controls, so warn instead of leaving touch users stuck.
   const [likelyNoKeyboard] = useState(() => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
   // Defaults on for touch devices — no on-screen keyboard means keyboard-only
-  // games are unplayable anyway, so start from the subset that has a chance.
+  // games are unplayable anyway, so start from the small hand-checked list
+  // of confirmed mouse-only games (see MOBILE_FRIENDLY_GAMES) instead of
+  // the full catalog, which is overwhelmingly keyboard-driven.
   const [mobileFriendly, setMobileFriendly] = useState(likelyNoKeyboard);
 
-  async function handleSearch(e?: React.FormEvent) {
-    e?.preventDefault();
+  async function runSearch(query: string) {
+    // The curated list is a small in-memory array, not a real search — no
+    // network round trip, no loading state, filters instantly on every
+    // toggle/keystroke.
+    if (mobileFriendly) {
+      setSearched(true);
+      setGames(filterMobileFriendlyGames(query));
+      return;
+    }
     setLoading(true);
     setSearched(true);
     try {
-      const res = await fetch(buildGameSearchUrl(nameQuery, { mobileFriendly }));
+      const res = await fetch(buildGameSearchUrl(query));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setGames(parseGames(await res.json()));
     } catch (err) {
@@ -425,24 +436,21 @@ function GamesTab() {
     }
   }
 
-  // Load the popular default list once, on first visit to this tab.
+  function handleSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    runSearch(nameQuery);
+  }
+
+  // Load the default list on first visit, and again whenever the
+  // mobile-friendly toggle changes — cheap for the curated list, and
+  // matches the existing "current filters win" search behavior otherwise.
   useEffect(() => {
-    async function loadDefault() {
-      setLoading(true);
-      setSearched(true);
-      try {
-        const res = await fetch(buildGameSearchUrl("", { mobileFriendly }));
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setGames(parseGames(await res.json()));
-      } catch (err) {
-        toast.error(describeError(err, "Hry se nepodařilo najít."));
-      } finally {
-        setLoading(false);
-      }
+    async function run() {
+      await runSearch(nameQuery);
     }
-    loadDefault();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch the default list once on mount only, using whatever mobileFriendly defaulted to
-  }, []);
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run search on the toggle only, not on every keystroke in nameQuery
+  }, [mobileFriendly]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -469,7 +477,7 @@ function GamesTab() {
           onChange={(e) => setMobileFriendly(e.target.checked)}
           className="h-4 w-4 accent-accent"
         />
-        Jen hry ovládané myší/klikáním (bez klávesnice se dá hrát jen tohle)
+        Jen ověřené hry bez klávesnice (malý ručně vybraný výběr — archive.org neumí ovládání her filtrovat)
       </label>
 
       {loading ? (
@@ -481,7 +489,13 @@ function GamesTab() {
       ) : games.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
           <Gamepad2 size={40} />
-          <p className="text-lg">{searched ? "Žádné hry nenalezeny." : "Vyhledej hru pro MS-DOS."}</p>
+          <p className="text-lg">
+            {searched
+              ? mobileFriendly
+                ? "Žádná hra v tomhle výběru neodpovídá hledání."
+                : "Žádné hry nenalezeny."
+              : "Vyhledej hru pro MS-DOS."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -523,8 +537,9 @@ function GamesTab() {
             >
               <Info size={16} className="mt-0.5 shrink-0" />
               <p className="flex-1">
-                Tahle hra se ovládá klávesnicí (šipky, mezerník…) — přehrávač na archive.org nemá dotykové ovládání.
-                Bez fyzické nebo Bluetooth klávesnice/ovladače nepůjde hrát; funguje jen u her ovládaných myší/klikáním.
+                {MOBILE_FRIENDLY_GAMES.some((g) => g.id === playing.id)
+                  ? "Tahle hra je z ověřeného výběru ovládaného jen myší/klikáním — na dotykové obrazovce by měla jít hrát."
+                  : "Tahle hra se ovládá klávesnicí (šipky, mezerník…) — přehrávač na archive.org nemá dotykové ovládání. Bez fyzické nebo Bluetooth klávesnice/ovladače nepůjde hrát."}
               </p>
               <button
                 type="button"
