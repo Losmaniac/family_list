@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupItemsByCategory, LIST_PRESETS, WISHLIST_CATEGORIES } from "./lists";
+import { formatCompletedAt, groupItemsByCategory, LIST_PRESETS, WISHLIST_CATEGORIES } from "./lists";
 
 describe("groupItemsByCategory", () => {
   it("groups items by category in the given order, dropping empty groups", () => {
@@ -35,6 +35,18 @@ describe("groupItemsByCategory", () => {
     const empty: { category?: string }[] = [];
     expect(groupItemsByCategory(empty, undefined)).toEqual([]);
     expect(groupItemsByCategory(empty, ["Narozeniny"])).toEqual([]);
+  });
+});
+
+describe("formatCompletedAt", () => {
+  it("formats a timestamp with date and time", () => {
+    const formatted = formatCompletedAt(new Date("2026-03-05T14:30:00").getTime());
+    expect(formatted).toContain("2026");
+    expect(formatted).toMatch(/14[.:]30|2:30/);
+  });
+
+  it("returns undefined for an absent timestamp", () => {
+    expect(formatCompletedAt(undefined)).toBeUndefined();
   });
 });
 

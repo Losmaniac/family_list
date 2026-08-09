@@ -439,6 +439,8 @@ export interface ShoppingItem {
   quantity?: number;
   category: string;
   checked: boolean;
+  /** Set when `checked` becomes true, cleared when unchecked — shown in the collapsed "Dokončené" section and absent for anything checked before this field existed. */
+  completedAt?: number;
   addedBy: string;
   timestamp: number;
 }
@@ -471,6 +473,8 @@ export interface FamilyListItem {
   /** One of the parent list's `categories`, when it has any. */
   category?: string;
   checked: boolean;
+  /** Set when `checked` becomes true, cleared when unchecked — shown in the collapsed "Dokončené" section and absent for anything checked before this field existed. */
+  completedAt?: number;
   addedBy: string;
   timestamp: number;
 }
