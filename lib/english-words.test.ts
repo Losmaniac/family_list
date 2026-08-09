@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENGLISH_WORDS } from "./english-words";
+import { ENGLISH_WORDS, buildExampleSentence } from "./english-words";
 
 describe("ENGLISH_WORDS", () => {
   it("has at least 500 entries", () => {
@@ -22,5 +22,21 @@ describe("ENGLISH_WORDS", () => {
       expect(word.cs.length).toBeGreaterThan(0);
       expect(word.category.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("buildExampleSentence", () => {
+  it("produces a non-empty, English-only sentence containing the word for every entry", () => {
+    for (const word of ENGLISH_WORDS) {
+      const sentence = buildExampleSentence(word);
+      expect(sentence.length).toBeGreaterThan(0);
+      expect(sentence.toLowerCase()).toContain(word.en.toLowerCase());
+      expect(sentence.endsWith(".")).toBe(true);
+    }
+  });
+
+  it("picks a/an correctly based on the word's first sound", () => {
+    expect(buildExampleSentence({ en: "ant", category: "Zvířata" })).toContain("an ant");
+    expect(buildExampleSentence({ en: "cat", category: "Zvířata" })).toContain("a cat");
   });
 });

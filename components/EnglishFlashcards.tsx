@@ -7,10 +7,12 @@ import { getFirebaseFunctions } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { formatXp } from "@/lib/xp-engine";
+import { buildExampleSentence } from "@/lib/english-words";
 
 interface FlashcardEntry {
   en: string;
   emoji: string;
+  category: string;
 }
 
 interface GenerateResponse {
@@ -135,6 +137,7 @@ export default function EnglishFlashcards() {
         </p>
         <p className="text-7xl">{card.emoji}</p>
         <p className="text-2xl font-semibold">{card.en}</p>
+        <p className="text-center text-sm italic text-zinc-500">{buildExampleSentence(card)}</p>
         <button
           type="button"
           onClick={handleNextStudyCard}

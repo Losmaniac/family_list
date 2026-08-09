@@ -92,53 +92,51 @@ export default function SchedulePage() {
       )}
 
       {selected && (
-        <div className="overflow-x-auto overscroll-x-contain">
-          <div
-            className="grid min-w-max gap-px overflow-hidden rounded-xl border border-border bg-border"
-            style={{ gridTemplateColumns: `36px repeat(${SCHEDULE_DAY_LABELS.length}, minmax(96px, 1fr))` }}
-          >
-            <div className="bg-surface" />
-            {SCHEDULE_DAY_LABELS.map((label) => (
-              <div key={label} className="bg-surface px-1 py-2 text-center text-xs font-semibold text-zinc-500">
-                {label.slice(0, 2)}
-              </div>
-            ))}
+        <div
+          className="grid w-full gap-px overflow-hidden rounded-xl border border-border bg-border"
+          style={{ gridTemplateColumns: `22px repeat(${SCHEDULE_DAY_LABELS.length}, 1fr)` }}
+        >
+          <div className="bg-surface" />
+          {SCHEDULE_DAY_LABELS.map((label) => (
+            <div key={label} className="bg-surface px-0.5 py-1.5 text-center text-[10px] font-semibold text-zinc-500">
+              {label.slice(0, 2)}
+            </div>
+          ))}
 
-            {Array.from({ length: SCHEDULE_MAX_PERIODS }, (_, periodIndex) => (
-              <div key={periodIndex} className="contents">
-                <div className="flex items-center justify-center bg-surface text-xs font-semibold text-zinc-400">
-                  {periodIndex + 1}.
-                </div>
-                {SCHEDULE_DAY_LABELS.map((_, dayIndex) => (
-                  <input
-                    key={dayIndex}
-                    type="text"
-                    disabled={!canEditSelected}
-                    value={days[dayIndex][periodIndex]}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSchedules((prev) => {
-                        const current = normalizeScheduleDays(prev[selected]?.days);
-                        const nextDays = current.map((periods, di) =>
-                          di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? value : p)) : periods
-                        );
-                        return {
-                          ...prev,
-                          [selected]: { memberId: selected, days: nextDays, updatedAt: prev[selected]?.updatedAt ?? 0 },
-                        };
-                      });
-                    }}
-                    onBlur={(e) => {
-                      if (!selected || !canEditSelected) return;
-                      handleCellChange(selected, dayIndex, periodIndex, e.target.value);
-                    }}
-                    placeholder="—"
-                    className="min-w-0 bg-surface px-1.5 py-2 text-center text-xs disabled:text-zinc-400"
-                  />
-                ))}
+          {Array.from({ length: SCHEDULE_MAX_PERIODS }, (_, periodIndex) => (
+            <div key={periodIndex} className="contents">
+              <div className="flex items-center justify-center bg-surface text-[10px] font-semibold text-zinc-400">
+                {periodIndex + 1}.
               </div>
-            ))}
-          </div>
+              {SCHEDULE_DAY_LABELS.map((_, dayIndex) => (
+                <input
+                  key={dayIndex}
+                  type="text"
+                  disabled={!canEditSelected}
+                  value={days[dayIndex][periodIndex]}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSchedules((prev) => {
+                      const current = normalizeScheduleDays(prev[selected]?.days);
+                      const nextDays = current.map((periods, di) =>
+                        di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? value : p)) : periods
+                      );
+                      return {
+                        ...prev,
+                        [selected]: { memberId: selected, days: nextDays, updatedAt: prev[selected]?.updatedAt ?? 0 },
+                      };
+                    });
+                  }}
+                  onBlur={(e) => {
+                    if (!selected || !canEditSelected) return;
+                    handleCellChange(selected, dayIndex, periodIndex, e.target.value);
+                  }}
+                  placeholder="—"
+                  className="min-w-0 bg-surface px-0.5 py-1.5 text-center text-[11px] disabled:text-zinc-400"
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </div>

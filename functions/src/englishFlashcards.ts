@@ -14,13 +14,13 @@ import { requireAuth, requireFamilyMember, awardCappedPracticeXp } from "./pract
 
 const FLASHCARD_COUNT = 10;
 
-function pickRandomWords(count: number): { en: string; emoji: string }[] {
+function pickRandomWords(count: number): { en: string; emoji: string; category: string }[] {
   const pool = [...ENGLISH_WORDS];
-  const picked: { en: string; emoji: string }[] = [];
+  const picked: { en: string; emoji: string; category: string }[] = [];
   for (let i = 0; i < count && pool.length > 0; i++) {
     const index = Math.floor(Math.random() * pool.length);
     const [word] = pool.splice(index, 1);
-    picked.push({ en: word.en, emoji: word.emoji });
+    picked.push({ en: word.en, emoji: word.emoji, category: word.category });
   }
   return picked;
 }
@@ -71,7 +71,7 @@ export const submitEnglishFlashcardAnswer = onCall<SubmitRequest>(async (request
     throw new HttpsError("failed-precondition", "Žádný test nečeká — vyžádej si nové kartičky.");
   }
 
-  const cards = pending.cards as { en: string; emoji: string }[];
+  const cards = pending.cards as { en: string; emoji: string; category: string }[];
   const index = pending.index as number;
   const current = cards[index];
   const correct = isAnswerCorrect(answer, current.en);
