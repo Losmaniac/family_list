@@ -10,16 +10,22 @@ import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { addMonths, dateKeyInFamilyZone, daysInMonth, startOfMonth } from "@/lib/date-utils";
 import { czechHolidayName } from "@/lib/czech-holidays";
-import { CALENDAR_EVENT_CATEGORIES, calendarEventCategoryInfo } from "@/lib/calendar-events";
+import { CALENDAR_EVENT_CATEGORIES, CALENDAR_RECURRENCES, calendarEventCategoryInfo, eventOccursOnDate } from "@/lib/calendar-events";
 import Avatar from "@/components/Avatar";
-import type { CalendarEvent, CalendarEventCategory, Member } from "@/lib/types";
+import type { CalendarEvent, CalendarEventCategory, CalendarRecurrence, Member } from "@/lib/types";
 
 // Monday-first display order, matching how the grid below is laid out.
 const WEEKDAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat("cs-CZ", { month: "long", year: "numeric" });
 
-function emptyForm(defaultMemberIds: string[]) {
-  return { title: "", category: "other" as CalendarEventCategory, memberIds: defaultMemberIds };
+function emptyForm(dateKey: string, defaultMemberIds: string[]) {
+  return {
+    title: "",
+    date: dateKey,
+    category: "other" as CalendarEventCategory,
+    recurrence: "none" as CalendarRecurrence,
+    memberIds: defaultMemberIds,
+  };
 }
 
 export default function CalendarPage() {
@@ -38,7 +44,7 @@ export default function CalendarPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   // Safe to read user.uid synchronously here — DashboardLayout only ever
   // renders this page once auth has resolved.
-  const [form, setForm] = useState(() => emptyForm(user ? [user.uid] : []));
+  const [form, setForm] = useState(() => emptyForm(dateKeyInFamilyZone(new Date()), user ? [user.uid] : []));
   const [submitting, setSubmitting] = useState(false);
 
   const isParent = member?.role === "parent";
@@ -65,7 +71,7 @@ export default function CalendarPage() {
   );
 
   function eventsFor(dateKey: string): CalendarEvent[] {
-    return events.filter((e) => e.date === dateKey).sort((a, b) => a.timestamp - b.timestamp);
+    return events.filter((e) => eventOccursOnDate(e, dateKey)).sort((a, b) => a.timestamp - b.timestamp);
   }
 
   function canDelete(evt: CalendarEvent): boolean {
@@ -75,7 +81,7 @@ export default function CalendarPage() {
   function openDay(dateKey: string) {
     setOpenDateKey(dateKey);
     setShowAddForm(false);
-    setForm(emptyForm(user ? [user.uid] : []));
+    setForm(emptyForm(dateKey, user ? [user.uid] : []));
   }
 
   function toggleFormMember(memberId: string) {
@@ -90,7 +96,7 @@ export default function CalendarPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!familyId || !user || !openDateKey || !form.title.trim()) return;
+    if (!familyId || !user || !form.date || !form.title.trim()) return;
     const memberIds = isParent ? form.memberIds : [user.uid];
     if (memberIds.length === 0) return;
     setSubmitting(true);
@@ -103,8 +109,9 @@ export default function CalendarPage() {
       for (const memberId of memberIds) {
         batch.set(doc(collection(getDb(), "families", familyId, "calendarEvents")), {
           title: form.title.trim(),
-          date: openDateKey,
+          date: form.date,
           category: form.category,
+          recurrence: form.recurrence,
           memberId,
           createdBy: user.uid,
           timestamp: Date.now(),
@@ -113,7 +120,7 @@ export default function CalendarPage() {
       await batch.commit();
       toast.success(memberIds.length > 1 ? "Přidáno do kalendáře pro vybrané členy." : "Přidáno do kalendáře.");
       setShowAddForm(false);
-      setForm(emptyForm([user.uid]));
+      setForm(emptyForm(openDateKey ?? form.date, [user.uid]));
     } catch {
       toast.error("Nepodařilo se přidat záznam.");
     } finally {
@@ -225,7 +232,7 @@ export default function CalendarPage() {
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
           style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
         >
-          <div className="flex max-h-[80vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
+          <div className="flex max-h-[88vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold capitalize">{openDayLabel}</h2>
               <button
@@ -289,6 +296,16 @@ export default function CalendarPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                   className="rounded-lg border border-border bg-surface px-4 py-2"
                 />
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-zinc-500">Datum</p>
+                  <input
+                    type="date"
+                    required
+                    value={form.date}
+                    onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
+                    className="rounded-lg border border-border bg-surface px-4 py-2"
+                  />
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {CALENDAR_EVENT_CATEGORIES.map((cat) => (
                     <button
@@ -302,6 +319,23 @@ export default function CalendarPage() {
                       {cat.icon} {cat.label}
                     </button>
                   ))}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs text-zinc-500">Opakování</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CALENDAR_RECURRENCES.map((rec) => (
+                      <button
+                        key={rec.value}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, recurrence: rec.value }))}
+                        className={`rounded-full px-3 py-1.5 text-sm ${
+                          form.recurrence === rec.value ? "bg-accent text-accent-foreground" : "border border-border"
+                        }`}
+                      >
+                        {rec.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {isParent && (
                   <div className="flex flex-col gap-1.5">
@@ -327,7 +361,7 @@ export default function CalendarPage() {
                 <div className="flex gap-2">
                   <button
                     type="submit"
-                    disabled={submitting || !form.title.trim() || (isParent && form.memberIds.length === 0)}
+                    disabled={submitting || !form.title.trim() || !form.date || (isParent && form.memberIds.length === 0)}
                     className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
                   >
                     Uložit

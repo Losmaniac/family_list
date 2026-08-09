@@ -323,6 +323,9 @@ export interface AuditLogEntry {
 
 export type CalendarEventCategory = "doctor" | "birthday" | "holiday" | "vacation" | "other";
 
+/** How an event repeats — 'none' (or absent) is a one-off, everything else recurs forever from `date` onward. */
+export type CalendarRecurrence = "none" | "weekly" | "monthly" | "yearly";
+
 /**
  * A plain reminder on the family's planning calendar — doctor visits,
  * birthdays, holidays, vacations, anything worth remembering that isn't a
@@ -341,6 +344,8 @@ export interface CalendarEvent {
   memberId: string;
   createdBy: string;
   timestamp: number;
+  /** Repeat rule from `date` onward; absent = one-off ('none'). */
+  recurrence?: CalendarRecurrence;
 }
 
 /**

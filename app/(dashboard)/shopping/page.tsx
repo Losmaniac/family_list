@@ -71,14 +71,22 @@ export default function ShoppingPage() {
     }
   }
 
-  const byCategory = categories
-    .map((category) => ({ category, items: items.filter((i) => i.category === category) }))
-    .filter((group) => group.items.length > 0);
-  // A leftover item whose category no longer exists in the family's current
-  // list (e.g. a parent removed/renamed a category after it was used)
-  // still needs somewhere to show up, instead of silently disappearing.
-  const uncategorized = items.filter((i) => !categories.includes(i.category));
-  if (uncategorized.length > 0) byCategory.push({ category: "Ostatní", items: uncategorized });
+  function groupByCategory(itemList: ShoppingItem[]) {
+    const grouped = categories
+      .map((category) => ({ category, items: itemList.filter((i) => i.category === category) }))
+      .filter((group) => group.items.length > 0);
+    // A leftover item whose category no longer exists in the family's current
+    // list (e.g. a parent removed/renamed a category after it was used)
+    // still needs somewhere to show up, instead of silently disappearing.
+    const uncategorized = itemList.filter((i) => !categories.includes(i.category));
+    if (uncategorized.length > 0) grouped.push({ category: "Ostatní", items: uncategorized });
+    return grouped;
+  }
+
+  const activeItems = items.filter((i) => !i.checked);
+  const checkedItems = items.filter((i) => i.checked);
+  const activeByCategory = groupByCategory(activeItems);
+  const checkedByCategory = groupByCategory(checkedItems);
 
   return (
     <div className="flex flex-col gap-4">
@@ -151,33 +159,29 @@ export default function ShoppingPage() {
         </form>
       )}
 
-      {byCategory.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
           <ShoppingCart size={40} />
           <p className="text-lg">Seznam je prázdný.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          {byCategory.map(({ category, items: groupItems }) => (
+          {activeByCategory.map(({ category, items: groupItems }) => (
             <section key={category} className="flex flex-col gap-2">
               <h2 className="text-sm font-medium text-zinc-500">{category}</h2>
               <div className="flex flex-col gap-1.5">
                 {groupItems.map((item) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 ${
-                      item.checked ? "border-border bg-surface-muted" : "border-border bg-surface"
-                    }`}
+                    className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5"
                   >
                     <button
                       type="button"
                       onClick={() => toggleChecked(item)}
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                        item.checked ? "border-accent bg-accent" : "border-zinc-300"
-                      }`}
-                      aria-label={item.checked ? "Odškrtnout" : "Odškrtnout jako koupené"}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-zinc-300"
+                      aria-label="Odškrtnout jako koupené"
                     />
-                    <p className={`min-w-0 flex-1 truncate ${item.checked ? "text-zinc-400 line-through" : ""}`}>
+                    <p className="min-w-0 flex-1 truncate">
                       {item.name}
                       {item.quantity && <span className="text-zinc-500"> · {item.quantity}</span>}
                     </p>
@@ -194,6 +198,46 @@ export default function ShoppingPage() {
               </div>
             </section>
           ))}
+
+          {checkedItems.length > 0 && (
+            <div className="flex flex-col gap-5 border-t border-border pt-4">
+              <h2 className="-mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                Odškrtnuté ({checkedItems.length})
+              </h2>
+              {checkedByCategory.map(({ category, items: groupItems }) => (
+                <section key={category} className="flex flex-col gap-2">
+                  <h3 className="text-sm font-medium text-zinc-500">{category}</h3>
+                  <div className="flex flex-col gap-1.5">
+                    {groupItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-xl border border-border bg-surface-muted px-4 py-2.5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleChecked(item)}
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-accent"
+                          aria-label="Vrátit zpět na seznam"
+                        />
+                        <p className="min-w-0 flex-1 truncate text-zinc-400 line-through">
+                          {item.name}
+                          {item.quantity && <span> · {item.quantity}</span>}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item)}
+                          aria-label="Odebrat"
+                          className="shrink-0 text-zinc-400 hover:text-danger"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

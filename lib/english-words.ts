@@ -602,3 +602,59 @@ export const ENGLISH_WORDS: EnglishWord[] = [
   { id: "shield", en: "shield", cs: "štít", emoji: "🛡️", category: "Různé" },
   { id: "sword", en: "sword", cs: "meč", emoji: "⚔️", category: "Různé" },
 ];
+
+function startsWithVowelSound(word: string): boolean {
+  return /^[aeiou]/i.test(word);
+}
+
+function withArticle(word: string): string {
+  return `${startsWithVowelSound(word) ? "an" : "a"} ${word}`;
+}
+
+/**
+ * A short, English-only example sentence for a flashcard word — simple
+ * present-tense templates by grammatical category (animals, food, verbs,
+ * adjectives, ...) so a 5-year-old-learner-level sentence reads naturally
+ * instead of a generic "I see X" for every word regardless of part of
+ * speech. Every template uses only basic function words (I, is, a, the,
+ * my, like...) alongside the target word itself.
+ */
+export function buildExampleSentence(word: Pick<EnglishWord, "en" | "category">): string {
+  const w = word.en;
+  switch (word.category) {
+    case "Zvířata":
+    case "Různé":
+    case "Škola":
+      return `I see ${withArticle(w)}.`;
+    case "Jídlo":
+      return `I like to eat ${w}.`;
+    case "Oblečení":
+      return `I wear ${w}.`;
+    case "Doprava":
+      return `I go by ${w}.`;
+    case "Doma":
+      return `There is ${withArticle(w)} in my house.`;
+    case "Povolání":
+      return `She is ${withArticle(w)}.`;
+    case "Přídavná jména":
+      return `The dog is ${w}.`;
+    case "Příroda a počasí":
+      return `I see the ${w}.`;
+    case "Rodina":
+      return `This is my ${w}.`;
+    case "Slovesa":
+      return `I like to ${w}.`;
+    case "Sport a koníčky":
+      return `I like ${w}.`;
+    case "Tělo":
+      return `My ${w} hurts.`;
+    case "Čas a kalendář":
+      return `I like the ${w}.`;
+    case "Čísla":
+      return `I have ${w} apples.`;
+    case "Barvy":
+      return `I like the color ${w}.`;
+    default:
+      return `I like ${w}.`;
+  }
+}
