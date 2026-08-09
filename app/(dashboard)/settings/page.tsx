@@ -20,6 +20,8 @@ import AvatarPicker from "@/components/AvatarPicker";
 import InfoButton from "@/components/InfoButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import NavStyleToggle from "@/components/NavStyleToggle";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useLocale } from "@/lib/locale-context";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
@@ -43,6 +45,7 @@ export default function SettingsPage() {
   const { familyId, member, family } = useFamily();
   const toast = useToast();
   const { confirm } = useDialog();
+  const { t: tLang } = useLocale();
   const [members, setMembers] = useState<Member[]>([]);
   const [adjustingMemberId, setAdjustingMemberId] = useState<string | null>(null);
   const [adjustDelta, setAdjustDelta] = useState("");
@@ -383,6 +386,11 @@ export default function SettingsPage() {
             <AccentColorPicker familyId={familyId} currentColor={family?.accentColor} />
           </div>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-medium">{tLang("settings.language")}</h2>
+        <LanguageToggle />
       </section>
 
       {member.role === "parent" && familyId && (

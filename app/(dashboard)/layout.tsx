@@ -43,6 +43,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { isWithinCurfew } from "@/lib/date-utils";
 import { NavStyleProvider, useNavStyle } from "@/lib/nav-style-context";
+import { useLocale } from "@/lib/locale-context";
+import type { TranslationKey } from "@/lib/i18n";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
 import StreakBadge from "@/components/StreakBadge";
@@ -56,26 +58,30 @@ import FloatingNavMenu from "@/components/FloatingNavMenu";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: TranslationKey;
   icon: LucideIcon;
   parentOnly: boolean;
 }
 
+interface LabeledNavItem extends NavItem {
+  label: string;
+}
+
 const NAV_ITEMS: NavItem[] = [
-  { href: "/today", label: "Dnes", icon: CalendarCheck, parentOnly: false },
-  { href: "/family", label: "Rodina", icon: Users, parentOnly: false },
-  { href: "/assign", label: "Zadat", icon: ListChecks, parentOnly: true },
-  { href: "/chat", label: "Chat", icon: MessageCircle, parentOnly: false },
-  { href: "/shop", label: "Obchod", icon: ShoppingBag, parentOnly: false },
-  { href: "/investments", label: "Investice", icon: TrendingUp, parentOnly: false },
-  { href: "/photos", label: "Fotky", icon: Camera, parentOnly: true },
-  { href: "/practice", label: "Vzdělání", icon: GraduationCap, parentOnly: false },
-  { href: "/calendar", label: "Kalendář", icon: CalendarDays, parentOnly: false },
-  { href: "/schedule", label: "Rozvrh", icon: CalendarClock, parentOnly: false },
-  { href: "/lists", label: "Seznamy", icon: ClipboardList, parentOnly: false },
-  { href: "/journals", label: "Deníky", icon: BookOpen, parentOnly: false },
-  { href: "/media", label: "Média", icon: Tv, parentOnly: false },
-  { href: "/weather", label: "Počasí", icon: CloudSun, parentOnly: false },
+  { href: "/today", labelKey: "nav.today", icon: CalendarCheck, parentOnly: false },
+  { href: "/family", labelKey: "nav.family", icon: Users, parentOnly: false },
+  { href: "/assign", labelKey: "nav.assign", icon: ListChecks, parentOnly: true },
+  { href: "/chat", labelKey: "nav.chat", icon: MessageCircle, parentOnly: false },
+  { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag, parentOnly: false },
+  { href: "/investments", labelKey: "nav.investments", icon: TrendingUp, parentOnly: false },
+  { href: "/photos", labelKey: "nav.photos", icon: Camera, parentOnly: true },
+  { href: "/practice", labelKey: "nav.practice", icon: GraduationCap, parentOnly: false },
+  { href: "/calendar", labelKey: "nav.calendar", icon: CalendarDays, parentOnly: false },
+  { href: "/schedule", labelKey: "nav.schedule", icon: CalendarClock, parentOnly: false },
+  { href: "/lists", labelKey: "nav.lists", icon: ClipboardList, parentOnly: false },
+  { href: "/journals", labelKey: "nav.journals", icon: BookOpen, parentOnly: false },
+  { href: "/media", labelKey: "nav.media", icon: Tv, parentOnly: false },
+  { href: "/weather", labelKey: "nav.weather", icon: CloudSun, parentOnly: false },
 ];
 
 function navOrderStorageKey(uid: string): string {
@@ -102,7 +108,7 @@ function SortableNavButton({
   onSelect,
   grow = true,
 }: {
-  item: NavItem;
+  item: LabeledNavItem;
   active: boolean;
   onSelect: () => void;
   /** false in a scrollable vertical column — each button keeps its natural size instead of being force-stretched to fill an equal share of the column's height. */
@@ -148,6 +154,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { loading: familyLoading, member, family } = useFamily();
   const { style: navStyle } = useNavStyle();
+  const { t } = useLocale();
 
   const loading = authLoading || familyLoading;
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -326,7 +333,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   if (loading || !user || !member) {
     return (
       <main className="flex flex-1 items-center justify-center p-8">
-        <p className="text-zinc-500">Načítání…</p>
+        <p className="text-zinc-500">{t("common.loading")}</p>
       </main>
     );
   }
@@ -348,7 +355,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const items = visibleNavItems();
+  const items: LabeledNavItem[] = visibleNavItems().map((item) => ({ ...item, label: t(item.labelKey) }));
   const activeHref = items.find((item) => pathname?.startsWith(item.href))?.href;
 
   const mainPaddingClass =
@@ -400,7 +407,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <Link
           href="/settings"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-surface-muted"
-          aria-label="Nastavení"
+          aria-label={t("nav.settings")}
         >
           <Settings size={20} />
         </Link>

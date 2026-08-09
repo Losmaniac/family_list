@@ -39,9 +39,48 @@ export const WORLD_BANK_INDICATORS: WorldBankIndicator[] = [
   { id: "SL.UEM.TOTL.ZS", label: "Nezaměstnanost", format: formatPercent },
 ];
 
+/**
+ * More detailed indicators, hidden behind a "show more" toggle so the
+ * default view stays a short, digestible list for a kid — these are shown
+ * only if the user asks for them.
+ */
+export const WORLD_BANK_EXTRA_INDICATORS: WorldBankIndicator[] = [
+  { id: "FP.CPI.TOTL.ZG", label: "Inflace (meziroční růst cen)", format: formatPercent },
+  { id: "IT.NET.USER.ZS", label: "Lidé používající internet", format: formatPercent },
+  { id: "SE.PRM.ENRR", label: "Zápis do základní školy", format: formatPercent },
+  { id: "NE.EXP.GNFS.ZS", label: "Vývoz zboží a služeb (podíl na HDP)", format: formatPercent },
+  { id: "SH.XPD.CHEX.GD.ZS", label: "Výdaje na zdravotnictví (podíl na HDP)", format: formatPercent },
+];
+
 export function buildIndicatorUrl(countryCode: string, indicatorId: string): string {
   const params = new URLSearchParams({ format: "json", per_page: "20" });
   return `${WORLD_BANK_BASE_URL}/country/${encodeURIComponent(countryCode)}/indicator/${encodeURIComponent(indicatorId)}?${params.toString()}`;
+}
+
+export interface WorldBankCountry {
+  code: string;
+  name: string;
+}
+
+export function buildCountryListUrl(): string {
+  const params = new URLSearchParams({ format: "json", per_page: "400" });
+  return `${WORLD_BANK_BASE_URL}/country?${params.toString()}`;
+}
+
+interface RawCountry {
+  id?: string;
+  iso2Code?: string;
+  name?: string;
+  region?: { id?: string };
+}
+
+/** The country list endpoint also returns region/income aggregates (e.g. "World", "European Union") mixed in with real countries — those have region.id "NA", so this filters them out. */
+export function parseCountryList(raw: unknown): WorldBankCountry[] {
+  if (!Array.isArray(raw) || !Array.isArray(raw[1])) return [];
+  const rows = raw[1] as RawCountry[];
+  return rows
+    .filter((row) => row.region?.id !== "NA" && row.iso2Code && row.name)
+    .map((row) => ({ code: row.iso2Code as string, name: row.name as string }));
 }
 
 export interface IndicatorValue {

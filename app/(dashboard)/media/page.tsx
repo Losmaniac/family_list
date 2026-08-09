@@ -53,6 +53,27 @@ type MediaTab = "radio" | "tv";
  * returns a new object every render (including it directly would restart
  * the billing timer, and the elapsed-time tracking, on every render).
  */
+// How often the on-screen elapsed-time counter refreshes — independent of
+// BILLING_CHECK_INTERVAL_MS (the actual charge check), just often enough to
+// feel live.
+const ELAPSED_TICK_INTERVAL_MS = 1000;
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+/**
+ * Charges XP for a Rádio/TV stream while it plays — see lib/media-billing.ts
+ * for the free-grace-period + per-block schedule. `toast`/`onInsufficientFunds`
+ * are captured via refs rather than effect dependencies since useToast()
+ * returns a new object every render (including it directly would restart
+ * the billing timer, and the elapsed-time tracking, on every render).
+ * Also reports elapsed playback time and XP spent so far, so the mini
+ * player can show the listener a running tally instead of the charge
+ * happening invisibly in the background.
+ */
 function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: string | null, onInsufficientFunds: () => void) {
   const toast = useToast();
   const toastRef = useRef(toast);
@@ -63,6 +84,19 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
   useEffect(() => {
     onInsufficientFundsRef.current = onInsufficientFunds;
   });
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [chargedBlocks, setChargedBlocks] = useState(0);
+  // Reset the counters the moment `playingId` itself changes (a fresh
+  // station/channel starting, or playback stopping) — done during render
+  // (React's documented pattern for "adjust state when a prop changes")
+  // rather than as a synchronous setState call at the top of the effect
+  // below, so it doesn't trigger an extra cascading render.
+  const [trackedPlayingId, setTrackedPlayingId] = useState(playingId);
+  if (playingId !== trackedPlayingId) {
+    setTrackedPlayingId(playingId);
+    setElapsedMs(0);
+    setChargedBlocks(0);
+  }
 
   useEffect(() => {
     if (!familyId || !playingId) return;
@@ -70,7 +104,11 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
     let charged = 0;
     let cancelled = false;
 
-    const interval = setInterval(async () => {
+    const tickInterval = setInterval(() => {
+      if (!cancelled) setElapsedMs(Date.now() - startedAt);
+    }, ELAPSED_TICK_INTERVAL_MS);
+
+    const billingInterval = setInterval(async () => {
       const due = billableBlocksElapsed(Date.now() - startedAt);
       while (!cancelled && charged < due) {
         try {
@@ -87,6 +125,7 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
             return;
           }
           charged += 1;
+          setChargedBlocks(charged);
         } catch {
           // Best-effort — a transient failure is retried on the next tick rather than interrupting playback.
           break;
@@ -96,9 +135,12 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearInterval(tickInterval);
+      clearInterval(billingInterval);
     };
   }, [familyId, kind, playingId]);
+
+  return { elapsedSeconds: Math.floor(elapsedMs / 1000), spentXp: chargedBlocks * MEDIA_XP_COST_PER_BLOCK[kind] };
 }
 
 /** A heart toggle shared by the play/pause button pattern — same shape, different fill state, no play/pause side effects of its own. */
@@ -178,7 +220,7 @@ function RadioTab() {
   const [playing, setPlaying] = useState<RadioStation | null>(null);
   const favorites = member?.favoriteRadioStations ?? [];
 
-  useMediaBilling(familyId, "radio", playing?.id ?? null, () => setPlaying(null));
+  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "radio", playing?.id ?? null, () => setPlaying(null));
 
   useEffect(() => {
     async function loadFacets() {
@@ -323,7 +365,12 @@ function RadioTab() {
       {playing && (
         <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-3 border-t border-border bg-surface px-4 py-2.5 shadow-lg">
           <RadioIcon size={18} className="shrink-0 text-accent" />
-          <p className="min-w-0 flex-1 truncate text-sm font-medium">{playing.name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{playing.name}</p>
+            <p className="text-xs text-zinc-500">
+              {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
+            </p>
+          </div>
           <audio
             key={playing.id}
             src={playing.streamUrl}
@@ -401,7 +448,7 @@ function TvTab() {
   const [playing, setPlaying] = useState<TvChannel | null>(null);
   const favorites = member?.favoriteTvChannels ?? [];
 
-  useMediaBilling(familyId, "tv", playing?.id ?? null, () => setPlaying(null));
+  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "tv", playing?.id ?? null, () => setPlaying(null));
 
   useEffect(() => {
     async function loadFacets() {
@@ -565,6 +612,9 @@ function TvTab() {
         >
           <div className="flex w-full max-w-lg flex-col gap-2" onClick={(e) => e.stopPropagation()}>
             <p className="truncate text-center text-sm font-medium text-white">{playing.name}</p>
+            <p className="text-center text-xs text-white/70">
+              {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
+            </p>
             <video
               key={playing.id}
               src={playing.streamUrl}

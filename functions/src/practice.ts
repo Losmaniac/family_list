@@ -252,3 +252,37 @@ export const submitPracticeAnswer = onCall<SubmitRequest>(async (request) => {
 
   return { correct: true, awarded, capReached: awarded < PRACTICE_XP_PER_PROBLEM };
 });
+
+interface GiveUpRequest {
+  familyId: string;
+}
+
+/**
+ * "Nevím" — reveals the pending question's correct answer without spending
+ * an attempt or a wrong guess. Deliberately does NOT touch
+ * practiceProgress, unlike a correct submitPracticeAnswer: giving up must
+ * not mark the question as solved, so it comes back around in a future
+ * generatePracticeProblem call for this subject instead of being excluded
+ * forever.
+ */
+export const giveUpPracticeProblem = onCall<GiveUpRequest>(async (request) => {
+  const uid = request.auth?.uid;
+  requireAuth(uid);
+  const { familyId } = request.data;
+  if (!familyId) {
+    throw new HttpsError("invalid-argument", "familyId is required.");
+  }
+  await requireFamilyMember(familyId, uid);
+
+  const db = getFirestore();
+  const familyRef = db.collection("families").doc(familyId);
+  const pendingRef = familyRef.collection("practicePending").doc(uid);
+  const pendingSnap = await pendingRef.get();
+  const pending = pendingSnap.data();
+  if (!pending) {
+    throw new HttpsError("failed-precondition", "Žádná úloha nečeká na odpověď — vyžádej si novou.");
+  }
+
+  await pendingRef.delete();
+  return { correctAnswer: primaryAnswer(pending.correctAnswer as string | string[]) };
+});
