@@ -22,6 +22,7 @@ import {
   PRACTICE_XP_PER_PROBLEM,
   isAnswerCorrect,
   pickRandomLogicWordProblem,
+  primaryAnswer,
 } from "../../lib/practice";
 import { pickRandomCzechExercise } from "../../lib/czech-language";
 import { pickRandomPrirodovedaExercise } from "../../lib/prirodoveda";
@@ -96,7 +97,7 @@ type SyncSubject = Exclude<GenerateRequest["subject"], "atlas">;
 
 const SUBJECT_PICKERS: Record<
   SyncSubject,
-  (excludeIds: Set<string>) => { id: string; question: string; answer: string } | undefined
+  (excludeIds: Set<string>) => { id: string; question: string; answer: string | string[] } | undefined
 > = {
   math: (excludeIds) => pickRandomLogicWordProblem(undefined, Math.random, excludeIds),
   czech: (excludeIds) => pickRandomCzechExercise(Math.random, excludeIds),
@@ -159,13 +160,13 @@ export const submitPracticeAnswer = onCall<SubmitRequest>(async (request) => {
     throw new HttpsError("failed-precondition", "Žádná úloha nečeká na odpověď — vyžádej si novou.");
   }
 
-  const correct = isAnswerCorrect(answer, pending.correctAnswer as string);
+  const correct = isAnswerCorrect(answer, pending.correctAnswer as string | string[]);
 
   if (!correct) {
     const attempts = ((pending.attempts as number) ?? 0) + 1;
     if (attempts >= PRACTICE_MAX_ATTEMPTS) {
       await pendingRef.delete();
-      return { correct: false, attemptsLeft: 0, correctAnswer: pending.correctAnswer as string, awarded: 0 };
+      return { correct: false, attemptsLeft: 0, correctAnswer: primaryAnswer(pending.correctAnswer as string | string[]), awarded: 0 };
     }
     await pendingRef.update({ attempts });
     return { correct: false, attemptsLeft: PRACTICE_MAX_ATTEMPTS - attempts, awarded: 0 };

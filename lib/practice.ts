@@ -215,6 +215,20 @@ export function normalizeAnswer(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function isAnswerCorrect(submitted: string, correctAnswer: string): boolean {
-  return normalizeAnswer(submitted) === normalizeAnswer(correctAnswer);
+/**
+ * A question's answer key is either one exact string or a list of equally
+ * correct phrasings (e.g. "koruna" and "česká koruna" for "our currency's
+ * official name") — any one of them counts. Exact-match-only checking was
+ * rejecting genuinely correct answers whenever a question had more than one
+ * reasonable way to phrase it.
+ */
+export function isAnswerCorrect(submitted: string, correctAnswer: string | string[]): boolean {
+  const accepted = Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer];
+  const normalizedSubmitted = normalizeAnswer(submitted);
+  return accepted.some((answer) => normalizeAnswer(answer) === normalizedSubmitted);
+}
+
+/** The single answer shown to the member once they've run out of attempts — the first (canonical) entry when a question accepts several phrasings. */
+export function primaryAnswer(correctAnswer: string | string[]): string {
+  return Array.isArray(correctAnswer) ? correctAnswer[0] : correctAnswer;
 }
