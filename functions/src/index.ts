@@ -15,6 +15,7 @@ export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
 export { generatePracticeProblem, submitPracticeAnswer, getPracticeCapStatus } from "./practice";
+export { onMarketplaceOfferWritten } from "./marketplace";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
 export { penaltyTaskSweep } from "./penaltyTasks";
@@ -24,4 +25,5 @@ export {
   onXpAdjustmentRequestCreated,
   onPooledContributionCreated,
   onRewardRedemptionActionable,
+  onMarketplaceOfferActionable,
 } from "./actionNotifications";

@@ -13,6 +13,7 @@ import { sendToTokens } from "./notifyHelpers";
 import { xpAdjustmentNeedsApproval } from "../../lib/xp-engine";
 import type {
   Member,
+  MarketplaceOffer,
   PooledContribution,
   Reward,
   RewardRedemption,
@@ -142,6 +143,53 @@ export const onRewardRedemptionActionable = onDocumentWritten(
     const message = becameRequested
       ? `${requesterName} žádá o odměnu „${reward?.title ?? after.rewardId}“ — čeká na schválení.`
       : `Odměna „${reward?.title ?? after.rewardId}“ pro ${requesterName} je schválená — čeká na vyřízení.`;
+    await sendToTokens(tokens, "Family Quest", message);
+  }
+);
+
+export const onMarketplaceOfferActionable = onDocumentWritten(
+  "families/{familyId}/marketplaceOffers/{offerId}",
+  async (event) => {
+    const before = event.data?.before.data() as MarketplaceOffer | undefined;
+    const after = event.data?.after.data() as MarketplaceOffer | undefined;
+    if (!after) return;
+
+    const { familyId } = event.params;
+    const db = getFirestore();
+
+    let notifyUserId: string;
+    let message: string;
+
+    if (!before) {
+      // Just created — the target hasn't seen it yet, the proposer wrote it themselves.
+      notifyUserId = after.targetUserId;
+      const proposerName = await memberName(db, familyId, after.proposedBy);
+      message =
+        after.kind === "offer"
+          ? `${proposerName} nabízí službu „${after.title}“ za ${after.currentXp} XP.`
+          : `${proposerName} poptává službu „${after.title}“ a nabízí ${after.currentXp} XP.`;
+    } else if (after.status === "pending" && after.lastActionBy !== before.lastActionBy) {
+      // A counter-offer — notify whoever must respond next (not the one who just countered).
+      notifyUserId = after.lastActionBy === after.proposedBy ? after.targetUserId : after.proposedBy;
+      const counterName = await memberName(db, familyId, after.lastActionBy);
+      message = `${counterName} navrhuje jinou částku za „${after.title}“: ${after.currentXp} XP.`;
+    } else if (before.status === "pending" && after.status !== "pending") {
+      // Resolved — the responder is whoever wasn't before.lastActionBy (rules
+      // require lastActionBy to stay unchanged on accept/decline); notify the
+      // original lastActionBy, who was the one waiting on a response.
+      const responderId = before.lastActionBy === before.proposedBy ? before.targetUserId : before.proposedBy;
+      notifyUserId = before.lastActionBy;
+      const responderName = await memberName(db, familyId, responderId);
+      message =
+        after.status === "accepted"
+          ? `${responderName} přijal(a) nabídku „${after.title}“ za ${after.currentXp} XP.`
+          : `${responderName} odmítl(a) nabídku „${after.title}“.`;
+    } else {
+      return;
+    }
+
+    const tokens = await tokensFor(db, familyId, [notifyUserId]);
+    if (tokens.length === 0) return;
     await sendToTokens(tokens, "Family Quest", message);
   }
 );
