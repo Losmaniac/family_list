@@ -39,6 +39,13 @@ function describeError(err: unknown, fallback: string): string {
   return message ? `${fallback} (${message})` : fallback;
 }
 
+// Matches every Čeština "fill in the blank" question ("Dopln y/i: b_t (…)",
+// "Dopln i/y: Chlapci běžel_ na hřiště.") — see lib/czech-language.ts. These
+// are the only Čeština exercises where the answer is always a single letter,
+// so a tap-to-answer button row can replace typing.
+const IY_FILL_IN_PATTERN = /^Dopln [iyíý]\/[iyíý]:/i;
+const IY_LETTER_OPTIONS = ["i", "y", "í", "ý"];
+
 export default function PracticePage() {
   const { user } = useAuth();
   const { familyId, member } = useFamily();
@@ -77,15 +84,14 @@ export default function PracticePage() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!familyId || !answer.trim() || !current) return;
+  async function submitAnswer(value: string) {
+    if (!familyId || !value.trim() || !current) return;
     setSubmitting(true);
     try {
       const result = await httpsCallable<{ familyId: string; answer: string }, SubmitResponse>(
         getFirebaseFunctions(),
         "submitPracticeAnswer"
-      )({ familyId, answer: answer.trim() });
+      )({ familyId, answer: value.trim() });
       const data = result.data;
       if (data.correct) {
         setCurrent(null);
@@ -110,6 +116,16 @@ export default function PracticePage() {
     }
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitAnswer(answer);
+  }
+
+  function handleLetterClick(letter: string) {
+    setAnswer(letter);
+    submitAnswer(letter);
+  }
+
   function selectSubject(next: string) {
     setSubject(next);
     setCurrent(null);
@@ -119,6 +135,7 @@ export default function PracticePage() {
 
   const subjectDone = progress?.[subject as Subject]?.length ?? 0;
   const subjectTotal = PRACTICE_SUBJECT_TOTALS[subject] ?? 0;
+  const isIyFillIn = subject === "czech" && Boolean(current?.question && IY_FILL_IN_PATTERN.test(current.question));
 
   return (
     <div className="flex flex-col gap-6">
@@ -182,6 +199,23 @@ export default function PracticePage() {
             <p className="text-sm text-zinc-500">
               🎉 Všechny úlohy z tohoto předmětu už máš zvládnuté — víc jich zatím není.
             </p>
+          ) : isIyFillIn ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+              <p className="text-lg font-medium">{current.question}</p>
+              <div className="flex gap-2">
+                {IY_LETTER_OPTIONS.map((letter) => (
+                  <button
+                    key={letter}
+                    type="button"
+                    onClick={() => handleLetterClick(letter)}
+                    disabled={submitting}
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-border text-lg font-semibold disabled:opacity-50"
+                  >
+                    {letter}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
               <p className="text-lg font-medium">{current.question}</p>
