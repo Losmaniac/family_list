@@ -14,7 +14,7 @@ export { onPooledContributionWritten } from "./pooledContributions";
 export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
-export { generatePracticeProblem, submitPracticeAnswer } from "./practice";
+export { generatePracticeProblem, submitPracticeAnswer, getPracticeCapStatus } from "./practice";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
 export { penaltyTaskSweep } from "./penaltyTasks";

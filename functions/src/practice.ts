@@ -100,6 +100,32 @@ export async function awardCappedPracticeXp(
   return awarded;
 }
 
+interface CapStatusRequest {
+  familyId: string;
+}
+
+/**
+ * Lightweight status check the client polls whenever a parent might have
+ * just lowered `practiceDailyXpCap` — a parent can change the cap mid-day,
+ * and if the member has already earned more than the new (lower) cap,
+ * practice needs to stop immediately rather than only on the next
+ * generatePracticeProblem call.
+ */
+export const getPracticeCapStatus = onCall<CapStatusRequest>(async (request) => {
+  const uid = request.auth?.uid;
+  requireAuth(uid);
+  const { familyId } = request.data;
+  if (!familyId) {
+    throw new HttpsError("invalid-argument", "familyId is required.");
+  }
+  await requireFamilyMember(familyId, uid);
+
+  const db = getFirestore();
+  const familyRef = db.collection("families").doc(familyId);
+  const headroom = await getPracticeXpHeadroomToday(familyRef, uid);
+  return { capReached: headroom <= 0 };
+});
+
 interface GenerateRequest {
   familyId: string;
   subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "atlas";
