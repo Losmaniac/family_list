@@ -29,7 +29,6 @@ import { pickRandomCzechExercise } from "../../lib/czech-language";
 import { pickRandomPrirodovedaExercise } from "../../lib/prirodoveda";
 import { pickRandomVlastivedaExercise } from "../../lib/vlastiveda";
 import { pickRandomFinancialLiteracyExercise } from "../../lib/financial-literacy";
-import { pickRandomSelfDevelopmentExercise } from "../../lib/self-development";
 import { pickRandomAiLiteracyExercise } from "../../lib/ai-literacy";
 import { pickRandomDigitalSafetyExercise } from "../../lib/digital-safety";
 import { pickRandomAtlasQuestion } from "./atlas";
@@ -135,7 +134,7 @@ export const getPracticeCapStatus = onCall<CapStatusRequest>(async (request) => 
 
 interface GenerateRequest {
   familyId: string;
-  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "digisafety" | "atlas";
+  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "atlas";
 }
 
 type SyncSubject = Exclude<GenerateRequest["subject"], "atlas">;
@@ -146,7 +145,6 @@ const SUBJECT_PICKERS: Record<SyncSubject, (excludeIds: Set<string>) => Practice
   prirodoveda: (excludeIds) => pickRandomPrirodovedaExercise(Math.random, excludeIds),
   vlastiveda: (excludeIds) => pickRandomVlastivedaExercise(Math.random, excludeIds),
   finance: (excludeIds) => pickRandomFinancialLiteracyExercise(Math.random, excludeIds),
-  seberozvoj: (excludeIds) => pickRandomSelfDevelopmentExercise(Math.random, excludeIds),
   ai: (excludeIds) => pickRandomAiLiteracyExercise(Math.random, excludeIds),
   digisafety: (excludeIds) => pickRandomDigitalSafetyExercise(Math.random, excludeIds),
 };

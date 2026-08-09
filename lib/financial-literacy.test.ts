@@ -7,8 +7,8 @@ describe("FINANCIAL_LITERACY_EXERCISES", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("has a sizeable bank", () => {
-    expect(FINANCIAL_LITERACY_EXERCISES.length).toBeGreaterThanOrEqual(15);
+  it("has exactly the curated 10-question bank", () => {
+    expect(FINANCIAL_LITERACY_EXERCISES.length).toBe(10);
   });
 
   it("every multiple-choice exercise's options include the correct answer", () => {
