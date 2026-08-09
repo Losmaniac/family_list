@@ -3,7 +3,9 @@
 import { createContext, useContext, useState } from "react";
 import { useAuth } from "./auth-context";
 
-export type NavStyle = "bar" | "radial";
+export type NavStyle = "bar" | "bar-2row" | "column-left" | "column-right" | "radial";
+
+const NAV_STYLES: readonly NavStyle[] = ["bar", "bar-2row", "column-left", "column-right", "radial"];
 
 interface NavStyleContextValue {
   style: NavStyle;
@@ -36,7 +38,7 @@ export function NavStyleProvider({ children }: { children: React.ReactNode }) {
   if (user && loadedForUid !== user.uid) {
     setLoadedForUid(user.uid);
     const stored = typeof window !== "undefined" ? localStorage.getItem(storageKey(user.uid)) : null;
-    if (stored === "bar" || stored === "radial") setStyleState(stored);
+    if (stored && (NAV_STYLES as string[]).includes(stored)) setStyleState(stored as NavStyle);
   }
 
   function setStyle(next: NavStyle) {
