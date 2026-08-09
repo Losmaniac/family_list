@@ -12,6 +12,7 @@ import { useDialog } from "@/lib/dialog-context";
 import { formatXp } from "@/lib/xp-engine";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
+import Marketplace from "@/components/Marketplace";
 import type { Member, PooledContribution, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
 
 const STATUS_LABELS: Record<RewardRedemptionStatus, string> = {
@@ -150,28 +151,31 @@ export default function ShopPage() {
     }
   }
 
-  if (loaded && rewards.length === 0 && pools.length === 0) {
-    return (
-      <div className="flex min-h-[calc(100dvh-11rem)] flex-col items-center justify-center gap-3 text-center text-zinc-500">
-        <ShoppingBag size={40} />
-        <p className="text-lg text-foreground">Obchod je zatím prázdný.</p>
-        {member?.role === "parent" ? (
-          <>
-            <p className="max-w-xs text-sm">Přidej první odměny v Nastavení → Obchod.</p>
-            <Link href="/settings" className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground">
-              Otevřít Nastavení
-            </Link>
-          </>
-        ) : (
-          <p className="max-w-xs text-sm">Rodiče ještě nepřidali žádné odměny.</p>
-        )}
-      </div>
-    );
-  }
+  // The reward catalog can be empty while the P2P marketplace below is
+  // still perfectly usable — this placeholder only replaces the top
+  // catalog section, never the whole page.
+  const emptyRewardsPlaceholder = loaded && rewards.length === 0 && pools.length === 0 && (
+    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-zinc-500">
+      <ShoppingBag size={40} />
+      <p className="text-lg text-foreground">Obchod je zatím prázdný.</p>
+      {member?.role === "parent" ? (
+        <>
+          <p className="max-w-xs text-sm">Přidej první odměny v Nastavení → Obchod.</p>
+          <Link href="/settings" className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground">
+            Otevřít Nastavení
+          </Link>
+        </>
+      ) : (
+        <p className="max-w-xs text-sm">Rodiče ještě nepřidali žádné odměny.</p>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">XP obchod</h1>
+
+      {emptyRewardsPlaceholder}
 
       {rewards.length > 0 && (
         <RewardShop
@@ -273,6 +277,8 @@ export default function ShopPage() {
           })}
         </section>
       )}
+
+      {familyId && <Marketplace familyId={familyId} />}
     </div>
   );
 }

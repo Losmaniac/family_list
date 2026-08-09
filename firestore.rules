@@ -154,6 +154,38 @@ service cloud.firestore {
         allow delete: if isParent(familyId) && resource.data.userId == request.auth.uid;
       }
 
+      match /marketplaceOffers/{offerId} {
+        allow read: if isFamilyMember(familyId);
+        // Either party can propose a P2P trade with any other family
+        // member — always starts 'pending' with currentXp == suggestedXp
+        // and lastActionBy == proposer, so the target is the one whose
+        // turn it is to respond.
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.proposedBy == request.auth.uid &&
+          request.resource.data.targetUserId != request.auth.uid &&
+          request.resource.data.kind in ['offer', 'request'] &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.suggestedXp is number && request.resource.data.suggestedXp > 0 &&
+          request.resource.data.currentXp == request.resource.data.suggestedXp &&
+          request.resource.data.lastActionBy == request.auth.uid;
+        // Only whoever did *not* set currentXp last may respond — accept,
+        // decline, or counter with a different amount (which flips
+        // lastActionBy to them, so it's the other side's turn next).
+        allow update: if isFamilyMember(familyId) &&
+          resource.data.status == 'pending' &&
+          request.auth.uid != resource.data.lastActionBy &&
+          (request.auth.uid == resource.data.proposedBy || request.auth.uid == resource.data.targetUserId) &&
+          (
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+              request.resource.data.status in ['accepted', 'declined']) ||
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentXp', 'lastActionBy', 'updatedAt']) &&
+              request.resource.data.currentXp is number && request.resource.data.currentXp > 0 &&
+              request.resource.data.lastActionBy == request.auth.uid)
+          );
+        // The proposer may cancel their own offer while it's still pending.
+        allow delete: if isFamilyMember(familyId) && resource.data.status == 'pending' && resource.data.proposedBy == request.auth.uid;
+      }
+
       match /investments/{investmentId} {
         allow read: if isFamilyMember(familyId);
         // A member locks up their own XP — the Cloud Function that

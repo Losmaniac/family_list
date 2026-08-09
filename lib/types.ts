@@ -182,6 +182,39 @@ export interface RewardRedemption {
 }
 
 /**
+ * A peer-to-peer XP trade between two family members — part of the Shop,
+ * separate from the system-funded Reward catalog above. XP isn't created
+ * here, only moved: on acceptance it's debited from the payer's balance and
+ * credited to the earner's, net zero for the family as a whole.
+ *
+ * kind 'offer': proposedBy will perform the service — targetUserId pays.
+ * kind 'request': proposedBy wants the service done — proposedBy pays.
+ *
+ * pending -> accepted (XP transfers) | declined. Whoever did *not* set
+ * currentXp last (tracked via lastActionBy) is the only one who can accept,
+ * decline, or counter with a different amount next — a counter flips whose
+ * turn it is, same shape as a real back-and-forth negotiation.
+ */
+export type MarketplaceOfferKind = "offer" | "request";
+export type MarketplaceOfferStatus = "pending" | "accepted" | "declined";
+
+export interface MarketplaceOffer {
+  id: string;
+  kind: MarketplaceOfferKind;
+  title: string;
+  proposedBy: string;
+  targetUserId: string;
+  /** The proposer's original ask — never changes, shown alongside currentXp once it's been countered. */
+  suggestedXp: number;
+  /** The amount currently on the table — what accepting right now would transfer. */
+  currentXp: number;
+  lastActionBy: string;
+  status: MarketplaceOfferStatus;
+  timestamp: number;
+  updatedAt: number;
+}
+
+/**
  * pending -> approved (a single parent's approval is enough — a Cloud
  * Function then creates the real, active taskTemplate) | rejected (any one
  * other member can veto outright). The proposer can't vote on their own
