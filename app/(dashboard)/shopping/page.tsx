@@ -2,16 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
-import { effectiveShoppingCategories } from "@/lib/shopping";
+import { clampQuantity, effectiveShoppingCategories, SHOPPING_MIN_QUANTITY } from "@/lib/shopping";
 import type { ShoppingItem } from "@/lib/types";
 
 function emptyForm(defaultCategory: string) {
-  return { name: "", quantity: "", category: defaultCategory };
+  return { name: "", quantity: SHOPPING_MIN_QUANTITY, category: defaultCategory };
+}
+
+/** Compact inline -/+ stepper — never opens a dialog, every click writes straight through onChange. */
+function QuantityStepper({ value, onChange }: { value: number; onChange: (next: number) => void }) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange(clampQuantity(value - 1))}
+        aria-label="Ubrat kus"
+        className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-zinc-500"
+      >
+        <Minus size={12} />
+      </button>
+      <span className="w-4 text-center text-sm tabular-nums">{value}</span>
+      <button
+        type="button"
+        onClick={() => onChange(clampQuantity(value + 1))}
+        aria-label="Přidat kus"
+        className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-zinc-500"
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  );
 }
 
 export default function ShoppingPage() {
@@ -39,7 +64,7 @@ export default function ShoppingPage() {
     try {
       await addDoc(collection(getDb(), "families", familyId, "shoppingItems"), {
         name: form.name.trim(),
-        quantity: form.quantity.trim() || null,
+        quantity: form.quantity,
         category: form.category,
         checked: false,
         addedBy: user.uid,
@@ -59,6 +84,15 @@ export default function ShoppingPage() {
       await updateDoc(doc(getDb(), "families", familyId, "shoppingItems", item.id), { checked: !item.checked });
     } catch {
       toast.error("Nepodařilo se uložit změnu.");
+    }
+  }
+
+  async function handleQuantityChange(item: ShoppingItem, next: number) {
+    if (!familyId) return;
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "shoppingItems", item.id), { quantity: next });
+    } catch {
+      toast.error("Nepodařilo se uložit množství.");
     }
   }
 
@@ -118,13 +152,7 @@ export default function ShoppingPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
             />
-            <input
-              type="text"
-              placeholder="Množství"
-              value={form.quantity}
-              onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
-              className="w-24 rounded-lg border border-border bg-surface px-3 py-2"
-            />
+            <QuantityStepper value={form.quantity} onChange={(next) => setForm((prev) => ({ ...prev, quantity: next }))} />
           </div>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
@@ -181,10 +209,11 @@ export default function ShoppingPage() {
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-zinc-300"
                       aria-label="Odškrtnout jako koupené"
                     />
-                    <p className="min-w-0 flex-1 truncate">
-                      {item.name}
-                      {item.quantity && <span className="text-zinc-500"> · {item.quantity}</span>}
-                    </p>
+                    <p className="min-w-0 flex-1 truncate">{item.name}</p>
+                    <QuantityStepper
+                      value={item.quantity ?? SHOPPING_MIN_QUANTITY}
+                      onChange={(next) => handleQuantityChange(item, next)}
+                    />
                     <button
                       type="button"
                       onClick={() => handleDelete(item)}

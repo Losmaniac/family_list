@@ -390,7 +390,8 @@ export interface ClassSchedule {
 export interface ShoppingItem {
   id: string;
   name: string;
-  quantity?: string;
+  /** Defaults to 1 when absent (items added before quantity became a stepper). */
+  quantity?: number;
   category: string;
   checked: boolean;
   addedBy: string;
