@@ -31,6 +31,7 @@ import {
   GraduationCap,
   ListChecks,
   MessageCircle,
+  Moon,
   Settings,
   ShoppingBag,
   TrendingUp,
@@ -40,6 +41,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
+import { isWithinCurfew } from "@/lib/date-utils";
 import { NavStyleProvider, useNavStyle } from "@/lib/nav-style-context";
 import Avatar from "@/components/Avatar";
 import XPBar from "@/components/XPBar";
@@ -151,6 +153,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((item) => item.href));
   const [loadedOrderForUid, setLoadedOrderForUid] = useState<string | null>(null);
+
+  // Re-checked every minute so a curfew engages/lifts on its own without
+  // needing a page reload — a child mid-session at 21:59 should get
+  // blocked the moment it turns 22:00, not just on their next navigation.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   // A column-style nav is `position: fixed` (so it doesn't disrupt the
   // existing page-scroll behavior the bottom-bar/floating styles rely on),
@@ -316,6 +327,23 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     return (
       <main className="flex flex-1 items-center justify-center p-8">
         <p className="text-zinc-500">Načítání…</p>
+      </main>
+    );
+  }
+
+  const curfewActive =
+    member.role === "child" &&
+    family?.childCurfewEnabled === true &&
+    isWithinCurfew(new Date(now), family.childCurfewStartHour ?? 22, family.childCurfewEndHour ?? 6);
+
+  if (curfewActive) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+        <Moon size={48} className="text-accent" />
+        <p className="text-lg font-medium">Je čas jít spát 🌙</p>
+        <p className="max-w-xs text-sm text-zinc-500">
+          Aplikace je teď v noci zamčená. Uvidíme se ráno!
+        </p>
       </main>
     );
   }

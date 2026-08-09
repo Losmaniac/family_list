@@ -84,6 +84,27 @@ export function formatTimeInFamilyZone(date: Date): string {
   return timeFormatter.format(date);
 }
 
+/** Hour (0-23) for the given instant, in Europe/Prague. */
+export function hourInFamilyZone(date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: FAMILY_TIME_ZONE, hour: "2-digit", hourCycle: "h23" }).formatToParts(
+    date
+  );
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
+/**
+ * Whether `now` falls inside a [startHour, endHour) curfew window, in
+ * Europe/Prague — e.g. isWithinCurfew(now, 22, 6) is true from 22:00
+ * through 5:59, false 6:00-21:59. A window that wraps past midnight
+ * (startHour > endHour) is handled the same as one that doesn't; equal
+ * start/end hours mean no restriction at all rather than a full 24h block.
+ */
+export function isWithinCurfew(now: Date, startHour: number, endHour: number): boolean {
+  if (startHour === endHour) return false;
+  const hour = hourInFamilyZone(now);
+  return startHour < endHour ? hour >= startHour && hour < endHour : hour >= startHour || hour < endHour;
+}
+
 /**
  * Calendar-grid helpers for month-view UIs (e.g. /family, /calendar).
  * Unlike the family-zone helpers above, these operate on plain calendar

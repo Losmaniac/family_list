@@ -24,6 +24,7 @@ import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
 import StreakSettingsPanel from "@/components/StreakSettingsPanel";
+import CurfewSettingsPanel from "@/components/CurfewSettingsPanel";
 import PracticeSettingsPanel from "@/components/PracticeSettingsPanel";
 import ScheduleSettingsPanel from "@/components/ScheduleSettingsPanel";
 import ShoppingSettingsPanel from "@/components/ShoppingSettingsPanel";
@@ -425,6 +426,18 @@ export default function SettingsPage() {
         <section className="flex flex-col gap-3">
           <h2 className="font-medium">Rozvrh hodin</h2>
           <ScheduleSettingsPanel familyId={familyId} scheduleVisibleToAll={family?.scheduleVisibleToAll} />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Noční klid</h2>
+          <CurfewSettingsPanel
+            familyId={familyId}
+            childCurfewEnabled={family?.childCurfewEnabled}
+            childCurfewStartHour={family?.childCurfewStartHour}
+            childCurfewEndHour={family?.childCurfewEndHour}
+          />
         </section>
       )}
 
