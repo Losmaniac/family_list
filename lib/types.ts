@@ -575,6 +575,9 @@ export interface PracticeProgress {
   vlastiveda?: string[];
   english?: string[];
   atlas?: string[];
+  finance?: string[];
+  seberozvoj?: string[];
+  ai?: string[];
 }
 
 export type PenaltyTaskStatus = "pending" | "resolved";

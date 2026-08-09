@@ -17,8 +17,8 @@ import FoodFactsExplorer from "@/components/FoodFactsExplorer";
 import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
 import type { PracticeProgress } from "@/lib/types";
 
-type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "atlas";
-const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda", "atlas"];
+type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "atlas";
+const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda", "finance", "seberozvoj", "ai", "atlas"];
 
 // Brief pauses before auto-advancing to the next question — long enough to
 // read the success toast / the revealed correct answer, short enough that
