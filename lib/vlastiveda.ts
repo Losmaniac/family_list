@@ -42,6 +42,12 @@ export const VLASTIVEDA_EXERCISES: VlastivedaExercise[] = [
   { id: "vl25", question: "Jaký je úřední jazyk v České republice?", answer: "čeština" },
 ];
 
-export function pickRandomVlastivedaExercise(random: () => number = Math.random): VlastivedaExercise {
-  return VLASTIVEDA_EXERCISES[Math.floor(random() * VLASTIVEDA_EXERCISES.length)];
+/** `excludeIds` keeps already-correctly-answered exercises out of the draw; undefined means the finite bank is fully answered. */
+export function pickRandomVlastivedaExercise(
+  random: () => number = Math.random,
+  excludeIds?: ReadonlySet<string>
+): VlastivedaExercise | undefined {
+  const pool = excludeIds ? VLASTIVEDA_EXERCISES.filter((e) => !excludeIds.has(e.id)) : VLASTIVEDA_EXERCISES;
+  if (pool.length === 0) return undefined;
+  return pool[Math.floor(random() * pool.length)];
 }

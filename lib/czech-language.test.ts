@@ -37,4 +37,15 @@ describe("pickRandomCzechExercise", () => {
     const picked = pickRandomCzechExercise(() => 0.999999);
     expect(picked).toBe(CZECH_EXERCISES[CZECH_EXERCISES.length - 1]);
   });
+
+  it("never returns an excluded exercise", () => {
+    const excludeIds = new Set([CZECH_EXERCISES[0].id]);
+    const picked = pickRandomCzechExercise(() => 0, excludeIds);
+    expect(picked?.id).not.toBe(CZECH_EXERCISES[0].id);
+  });
+
+  it("returns undefined once every exercise has been excluded", () => {
+    const excludeIds = new Set(CZECH_EXERCISES.map((e) => e.id));
+    expect(pickRandomCzechExercise(() => 0, excludeIds)).toBeUndefined();
+  });
 });

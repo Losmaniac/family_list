@@ -26,6 +26,7 @@ import {
 import { pickRandomCzechExercise } from "../../lib/czech-language";
 import { pickRandomPrirodovedaExercise } from "../../lib/prirodoveda";
 import { pickRandomVlastivedaExercise } from "../../lib/vlastiveda";
+import { pickRandomAtlasQuestion } from "./atlas";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import type { Family, XpLedgerEntry } from "../../lib/types";
@@ -88,36 +89,51 @@ export async function awardCappedPracticeXp(
 
 interface GenerateRequest {
   familyId: string;
-  subject: "math" | "czech" | "prirodoveda" | "vlastiveda";
+  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "atlas";
 }
 
-const SUBJECT_PICKERS: Record<GenerateRequest["subject"], () => { question: string; answer: string }> = {
-  math: pickRandomLogicWordProblem,
-  czech: pickRandomCzechExercise,
-  prirodoveda: pickRandomPrirodovedaExercise,
-  vlastiveda: pickRandomVlastivedaExercise,
+type SyncSubject = Exclude<GenerateRequest["subject"], "atlas">;
+
+const SUBJECT_PICKERS: Record<
+  SyncSubject,
+  (excludeIds: Set<string>) => { id: string; question: string; answer: string } | undefined
+> = {
+  math: (excludeIds) => pickRandomLogicWordProblem(undefined, Math.random, excludeIds),
+  czech: (excludeIds) => pickRandomCzechExercise(Math.random, excludeIds),
+  prirodoveda: (excludeIds) => pickRandomPrirodovedaExercise(Math.random, excludeIds),
+  vlastiveda: (excludeIds) => pickRandomVlastivedaExercise(Math.random, excludeIds),
 };
 
 export const generatePracticeProblem = onCall<GenerateRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, subject } = request.data;
-  if (!familyId || !SUBJECT_PICKERS[subject]) {
+  if (!familyId || !(subject === "atlas" || SUBJECT_PICKERS[subject])) {
     throw new HttpsError("invalid-argument", "familyId and a valid subject are required.");
   }
   await requireFamilyMember(familyId, uid);
 
   const db = getFirestore();
-  const pendingRef = db.collection("families").doc(familyId).collection("practicePending").doc(uid);
+  const familyRef = db.collection("families").doc(familyId);
 
-  const problem = SUBJECT_PICKERS[subject]();
-  await pendingRef.set({
+  const progressSnap = await familyRef.collection("practiceProgress").doc(uid).get();
+  const excludeIds = new Set<string>((progressSnap.data()?.[subject] as string[] | undefined) ?? []);
+
+  const problem = subject === "atlas" ? await pickRandomAtlasQuestion(excludeIds) : SUBJECT_PICKERS[subject](excludeIds);
+  if (!problem) {
+    // Every exercise in this subject's finite bank has already been
+    // answered correctly — nothing left to ask.
+    return { subject, complete: true };
+  }
+
+  await familyRef.collection("practicePending").doc(uid).set({
     subject,
+    problemId: problem.id,
     correctAnswer: problem.answer,
     attempts: 0,
     createdAt: Date.now(),
   });
-  return { question: problem.question, subject };
+  return { question: problem.question, subject, complete: false };
 });
 
 interface SubmitRequest {
@@ -156,6 +172,14 @@ export const submitPracticeAnswer = onCall<SubmitRequest>(async (request) => {
   }
 
   await pendingRef.delete();
+  const problemId = pending.problemId as string | undefined;
+  const subject = pending.subject as string;
+  if (problemId) {
+    await familyRef
+      .collection("practiceProgress")
+      .doc(uid)
+      .set({ [subject]: FieldValue.arrayUnion(problemId) }, { merge: true });
+  }
   const awarded = await awardCappedPracticeXp(db, familyRef, uid, PRACTICE_XP_PER_PROBLEM);
 
   return { correct: true, awarded, capReached: awarded < PRACTICE_XP_PER_PROBLEM };

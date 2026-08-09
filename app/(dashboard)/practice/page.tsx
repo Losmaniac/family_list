@@ -1,21 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { Sparkles } from "lucide-react";
-import { getFirebaseFunctions } from "@/lib/firebase";
+import { getDb, getFirebaseFunctions } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
-import { PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
+import { PRACTICE_SUBJECT_TOTALS, PRACTICE_SUBJECTS, PRACTICE_XP_PER_PROBLEM } from "@/lib/practice";
 import { formatXp } from "@/lib/xp-engine";
 import EnglishFlashcards from "@/components/EnglishFlashcards";
+import PracticeOverviewPanel from "@/components/PracticeOverviewPanel";
+import AtlasCountryList from "@/components/AtlasCountryList";
+import FoodFactsExplorer from "@/components/FoodFactsExplorer";
+import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
+import type { PracticeProgress } from "@/lib/types";
 
-type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda";
-const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda"];
+type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "atlas";
+const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda", "atlas"];
 
 interface GenerateResponse {
-  question: string;
+  question?: string;
   subject: Subject;
+  complete: boolean;
 }
 
 interface SubmitResponse {
@@ -32,7 +40,8 @@ function describeError(err: unknown, fallback: string): string {
 }
 
 export default function PracticePage() {
-  const { familyId } = useFamily();
+  const { user } = useAuth();
+  const { familyId, member } = useFamily();
   const toast = useToast();
 
   const [subject, setSubject] = useState<string>("math");
@@ -41,6 +50,14 @@ export default function PracticePage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState<PracticeProgress | null>(null);
+
+  useEffect(() => {
+    if (!familyId || !user) return;
+    return onSnapshot(doc(getDb(), "families", familyId, "practiceProgress", user.uid), (snap) => {
+      setProgress(snap.exists() ? ({ id: snap.id, ...snap.data() } as PracticeProgress) : null);
+    });
+  }, [familyId, user]);
 
   async function handleNewProblem() {
     if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject)) return;
@@ -100,13 +117,18 @@ export default function PracticePage() {
     setFeedback(null);
   }
 
+  const subjectDone = progress?.[subject as Subject]?.length ?? 0;
+  const subjectTotal = PRACTICE_SUBJECT_TOTALS[subject] ?? 0;
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Vzdělání</h1>
       <p className="text-sm text-zinc-500">
         {subject === "english"
           ? "Nauč se anglická slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
-          : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat.`}
+          : subject === "food" || subject === "wiki"
+            ? "Bez XP — jen k nahlédnutí a hledání."
+            : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -126,7 +148,24 @@ export default function PracticePage() {
         ))}
       </div>
 
+      {subjectTotal > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-zinc-500">
+            Zvládnuto {subjectDone}/{subjectTotal}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className="h-full rounded-full bg-accent transition-all"
+              style={{ width: `${Math.min(100, Math.round((subjectDone / subjectTotal) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {subject === "english" && <EnglishFlashcards />}
+      {subject === "food" && <FoodFactsExplorer />}
+      {subject === "wiki" && <EncyclopediaExplorer />}
+      {subject === "atlas" && <AtlasCountryList />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
@@ -139,6 +178,10 @@ export default function PracticePage() {
             >
               <Sparkles size={16} /> {loading ? "Připravuji…" : "Nová úloha"}
             </button>
+          ) : current.complete ? (
+            <p className="text-sm text-zinc-500">
+              🎉 Všechny úlohy z tohoto předmětu už máš zvládnuté — víc jich zatím není.
+            </p>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
               <p className="text-lg font-medium">{current.question}</p>
@@ -165,6 +208,8 @@ export default function PracticePage() {
           {feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
         </>
       )}
+
+      {member?.role === "parent" && familyId && <PracticeOverviewPanel familyId={familyId} />}
     </div>
   );
 }

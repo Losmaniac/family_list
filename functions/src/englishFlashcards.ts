@@ -7,20 +7,23 @@
  * safe to show at each phase.
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { ENGLISH_WORDS } from "../../lib/english-words";
 import { PRACTICE_XP_PER_PROBLEM, isAnswerCorrect } from "../../lib/practice";
 import { requireAuth, requireFamilyMember, awardCappedPracticeXp } from "./practice";
 
 const FLASHCARD_COUNT = 10;
 
-function pickRandomWords(count: number): { en: string; emoji: string; category: string }[] {
-  const pool = [...ENGLISH_WORDS];
-  const picked: { en: string; emoji: string; category: string }[] = [];
+type FlashcardEntry = { id: string; en: string; emoji: string; category: string };
+
+/** Picks up to `count` words the member hasn't already learned — fewer if the remaining pool is smaller, none if it's exhausted. */
+function pickRandomWords(count: number, excludeIds: Set<string>): FlashcardEntry[] {
+  const pool = ENGLISH_WORDS.filter((w) => !excludeIds.has(w.id));
+  const picked: FlashcardEntry[] = [];
   for (let i = 0; i < count && pool.length > 0; i++) {
     const index = Math.floor(Math.random() * pool.length);
     const [word] = pool.splice(index, 1);
-    picked.push({ en: word.en, emoji: word.emoji, category: word.category });
+    picked.push({ id: word.id, en: word.en, emoji: word.emoji, category: word.category });
   }
   return picked;
 }
@@ -36,16 +39,24 @@ export const generateEnglishFlashcards = onCall<GenerateRequest>(async (request)
   if (!familyId) throw new HttpsError("invalid-argument", "familyId is required.");
   await requireFamilyMember(familyId, uid);
 
-  const cards = pickRandomWords(FLASHCARD_COUNT);
   const db = getFirestore();
-  await db
-    .collection("families")
-    .doc(familyId)
+  const familyRef = db.collection("families").doc(familyId);
+
+  const progressSnap = await familyRef.collection("practiceProgress").doc(uid).get();
+  const excludeIds = new Set<string>((progressSnap.data()?.english as string[] | undefined) ?? []);
+
+  const cards = pickRandomWords(FLASHCARD_COUNT, excludeIds);
+  if (cards.length === 0) {
+    // Every word in the bank has already been learned.
+    return { cards: [], complete: true };
+  }
+
+  await familyRef
     .collection("practicePendingEnglish")
     .doc(uid)
     .set({ cards, index: 0, correctCount: 0, createdAt: Date.now() });
 
-  return { cards };
+  return { cards, complete: false };
 });
 
 interface SubmitRequest {
@@ -71,13 +82,20 @@ export const submitEnglishFlashcardAnswer = onCall<SubmitRequest>(async (request
     throw new HttpsError("failed-precondition", "Žádný test nečeká — vyžádej si nové kartičky.");
   }
 
-  const cards = pending.cards as { en: string; emoji: string; category: string }[];
+  const cards = pending.cards as FlashcardEntry[];
   const index = pending.index as number;
   const current = cards[index];
   const correct = isAnswerCorrect(answer, current.en);
   const correctCount = (pending.correctCount as number) + (correct ? 1 : 0);
   const nextIndex = index + 1;
   const done = nextIndex >= cards.length;
+
+  if (correct) {
+    await familyRef
+      .collection("practiceProgress")
+      .doc(uid)
+      .set({ english: FieldValue.arrayUnion(current.id) }, { merge: true });
+  }
 
   if (!done) {
     await pendingRef.update({ index: nextIndex, correctCount });

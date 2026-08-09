@@ -89,6 +89,17 @@ export const CURRICULUM_EXERCISES: CzechExercise[] = [
 
 export const CZECH_EXERCISES: CzechExercise[] = [...VYJMENOVANA_SLOVA_EXERCISES, ...CURRICULUM_EXERCISES];
 
-export function pickRandomCzechExercise(random: () => number = Math.random): CzechExercise {
-  return CZECH_EXERCISES[Math.floor(random() * CZECH_EXERCISES.length)];
+/**
+ * `excludeIds` lets the caller keep already-correctly-answered exercises
+ * out of the draw (see functions/src/practice.ts) — undefined means "every
+ * exercise in the bank has already been answered", the finite curriculum
+ * is complete.
+ */
+export function pickRandomCzechExercise(
+  random: () => number = Math.random,
+  excludeIds?: ReadonlySet<string>
+): CzechExercise | undefined {
+  const pool = excludeIds ? CZECH_EXERCISES.filter((e) => !excludeIds.has(e.id)) : CZECH_EXERCISES;
+  if (pool.length === 0) return undefined;
+  return pool[Math.floor(random() * pool.length)];
 }

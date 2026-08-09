@@ -51,6 +51,12 @@ export const PRIRODOVEDA_EXERCISES: PrirodovedaExercise[] = [
   { id: "pv30", question: "Jak dlouho trvá jeden oběh Země kolem Slunce (v přibližných dnech)?", answer: "365" },
 ];
 
-export function pickRandomPrirodovedaExercise(random: () => number = Math.random): PrirodovedaExercise {
-  return PRIRODOVEDA_EXERCISES[Math.floor(random() * PRIRODOVEDA_EXERCISES.length)];
+/** `excludeIds` keeps already-correctly-answered exercises out of the draw; undefined means the finite bank is fully answered. */
+export function pickRandomPrirodovedaExercise(
+  random: () => number = Math.random,
+  excludeIds?: ReadonlySet<string>
+): PrirodovedaExercise | undefined {
+  const pool = excludeIds ? PRIRODOVEDA_EXERCISES.filter((e) => !excludeIds.has(e.id)) : PRIRODOVEDA_EXERCISES;
+  if (pool.length === 0) return undefined;
+  return pool[Math.floor(random() * pool.length)];
 }
