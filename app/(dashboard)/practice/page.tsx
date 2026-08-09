@@ -15,6 +15,7 @@ import PracticeOverviewPanel from "@/components/PracticeOverviewPanel";
 import AtlasCountryList from "@/components/AtlasCountryList";
 import FoodFactsExplorer from "@/components/FoodFactsExplorer";
 import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
+import WorldBankExplorer from "@/components/WorldBankExplorer";
 import type { PracticeProgress } from "@/lib/types";
 
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "dictionary" | "atlas";
@@ -293,12 +294,12 @@ export default function PracticePage() {
       <p className="text-sm text-zinc-500">
         {subject === "english"
           ? "Nauč se anglická slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
-          : subject === "food" || subject === "wiki"
+          : subject === "food" || subject === "wiki" || subject === "worldbank"
             ? "Bez XP — jen k nahlédnutí a hledání."
             : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
-      {capInfo && subject !== "food" && subject !== "wiki" && (
+      {capInfo && subject !== "food" && subject !== "wiki" && subject !== "worldbank" && (
         <p className="text-xs text-zinc-500">
           Dnes lze z Vzdělání ještě získat {formatXp(capInfo.headroom)}/{formatXp(capInfo.dailyCap)} XP.
         </p>
@@ -339,6 +340,7 @@ export default function PracticePage() {
       {subject === "food" && <FoodFactsExplorer />}
       {subject === "wiki" && <EncyclopediaExplorer />}
       {subject === "atlas" && <AtlasCountryList />}
+      {subject === "worldbank" && <WorldBankExplorer />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
