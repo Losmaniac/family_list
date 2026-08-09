@@ -43,18 +43,14 @@ export async function requireFamilyMember(familyId: string, uid: string): Promis
 }
 
 /**
- * Awards up to `reward` XP under the family's shared Vzdělání daily cap —
- * used by every subject (Matematika/Čeština here, Angličtina in
- * englishFlashcards.ts) so the cap is enforced across the whole module,
- * not reset per subject. Returns how much was actually awarded (0 if the
- * cap was already hit).
+ * How much XP `uid` can still earn from Vzdělání today, under the family's
+ * shared daily cap. Exported so generatePracticeProblem can check it
+ * *before* handing out a new question — the whole point of the cap is to
+ * stop practice from being an unlimited XP faucet, so once it's hit the
+ * member shouldn't be able to keep generating (unrewarded) questions
+ * either, not just fail to earn XP for answering them.
  */
-export async function awardCappedPracticeXp(
-  db: Firestore,
-  familyRef: DocumentReference,
-  uid: string,
-  reward: number
-): Promise<number> {
+export async function getPracticeXpHeadroomToday(familyRef: DocumentReference, uid: string): Promise<number> {
   const familySnap = await familyRef.get();
   const family = familySnap.data() as Family | undefined;
   const dailyCap = family?.practiceDailyXpCap ?? DEFAULT_PRACTICE_DAILY_XP_CAP;
@@ -72,7 +68,23 @@ export async function awardCappedPracticeXp(
     .filter((e) => dateKeyInFamilyZone(new Date(e.timestamp)) === today)
     .reduce((sum, e) => sum + e.delta, 0);
 
-  const headroom = Math.max(0, dailyCap - earnedToday);
+  return Math.max(0, dailyCap - earnedToday);
+}
+
+/**
+ * Awards up to `reward` XP under the family's shared Vzdělání daily cap —
+ * used by every subject (Matematika/Čeština here, Angličtina in
+ * englishFlashcards.ts) so the cap is enforced across the whole module,
+ * not reset per subject. Returns how much was actually awarded (0 if the
+ * cap was already hit).
+ */
+export async function awardCappedPracticeXp(
+  db: Firestore,
+  familyRef: DocumentReference,
+  uid: string,
+  reward: number
+): Promise<number> {
+  const headroom = await getPracticeXpHeadroomToday(familyRef, uid);
   const awarded = Math.min(reward, headroom);
   if (awarded <= 0) return 0;
 
@@ -116,6 +128,15 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
 
   const db = getFirestore();
   const familyRef = db.collection("families").doc(familyId);
+
+  const headroom = await getPracticeXpHeadroomToday(familyRef, uid);
+  if (headroom <= 0) {
+    // Stop practice at the source once the daily cap is spent — there's no
+    // reward left to earn, so don't hand out another (unrewarded) question
+    // either. The member picks back up automatically once the cap resets
+    // tomorrow (dateKeyInFamilyZone rolling over is all that's needed).
+    return { subject, complete: false, capReached: true };
+  }
 
   const progressSnap = await familyRef.collection("practiceProgress").doc(uid).get();
   const excludeIds = new Set<string>((progressSnap.data()?.[subject] as string[] | undefined) ?? []);

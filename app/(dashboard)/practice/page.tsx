@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { Sparkles } from "lucide-react";
@@ -20,10 +20,17 @@ import type { PracticeProgress } from "@/lib/types";
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "atlas";
 const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda", "atlas"];
 
+// Brief pauses before auto-advancing to the next question — long enough to
+// read the success toast / the revealed correct answer, short enough that
+// it still feels like "next question", not a stall.
+const AUTO_ADVANCE_CORRECT_DELAY_MS = 900;
+const AUTO_ADVANCE_REVEAL_DELAY_MS = 2200;
+
 interface GenerateResponse {
   question?: string;
   subject: Subject;
   complete: boolean;
+  capReached?: boolean;
 }
 
 interface SubmitResponse {
@@ -58,6 +65,12 @@ export default function PracticePage() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<PracticeProgress | null>(null);
+  // The daily cap is shared across every Vzdělání subject (see
+  // getPracticeXpHeadroomToday), so once it's hit it stays hit regardless
+  // of which subject tab is selected — never cleared back to false client-
+  // side, only a fresh day (i.e. a fresh page load) resets it.
+  const [capReached, setCapReached] = useState(false);
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!familyId || !user) return;
@@ -66,8 +79,14 @@ export default function PracticePage() {
     });
   }, [familyId, user]);
 
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    };
+  }, []);
+
   async function handleNewProblem() {
-    if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject)) return;
+    if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject) || capReached) return;
     setLoading(true);
     setFeedback(null);
     setAnswer("");
@@ -77,11 +96,20 @@ export default function PracticePage() {
         "generatePracticeProblem"
       )({ familyId, subject: subject as Subject });
       setCurrent(result.data);
+      if (result.data.capReached) setCapReached(true);
     } catch (err) {
       toast.error(describeError(err, "Úlohu se nepodařilo připravit."));
     } finally {
       setLoading(false);
     }
+  }
+
+  function scheduleAutoAdvance(delayMs: number) {
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceTimer.current = setTimeout(() => {
+      autoAdvanceTimer.current = null;
+      handleNewProblem();
+    }, delayMs);
   }
 
   async function submitAnswer(value: string) {
@@ -98,16 +126,21 @@ export default function PracticePage() {
         setAnswer("");
         if (data.awarded > 0) {
           toast.success(`Správně! +${formatXp(data.awarded)} XP`);
+        }
+        if (data.capReached) {
+          setCapReached(true);
+          setFeedback("Skvělá práce! Dnešní limit XP z Vzdělání je vyčerpaný — zkus to znovu zítra.");
         } else {
-          setFeedback("Správně! Dnešní limit XP z Vzdělání je ale už vyčerpaný.");
+          scheduleAutoAdvance(AUTO_ADVANCE_CORRECT_DELAY_MS);
         }
       } else if (data.attemptsLeft && data.attemptsLeft > 0) {
         setFeedback(`Není to ono, zkus to znovu — zbývá ${data.attemptsLeft} ${data.attemptsLeft === 1 ? "pokus" : "pokusy"}.`);
         setAnswer("");
       } else {
-        setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Zkus další úlohu.`);
+        setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Za chvíli přijde další úloha…`);
         setCurrent(null);
         setAnswer("");
+        if (!capReached) scheduleAutoAdvance(AUTO_ADVANCE_REVEAL_DELAY_MS);
       }
     } catch (err) {
       toast.error(describeError(err, "Odpověď se nepodařilo odeslat."));
@@ -127,6 +160,10 @@ export default function PracticePage() {
   }
 
   function selectSubject(next: string) {
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
     setSubject(next);
     setCurrent(null);
     setAnswer("");
@@ -186,7 +223,11 @@ export default function PracticePage() {
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
-          {!current ? (
+          {capReached ? (
+            <p className="text-sm text-zinc-500">
+              🌙 Dnešní limit XP z Vzdělání je vyčerpaný — zkus to znovu zítra.
+            </p>
+          ) : !current ? (
             <button
               type="button"
               onClick={handleNewProblem}
