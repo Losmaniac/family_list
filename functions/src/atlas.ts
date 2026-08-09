@@ -34,6 +34,9 @@ export interface AtlasQuestion {
   id: string;
   question: string;
   answer: string;
+  /** Never set for atlas questions — declared so this stays structurally assignable to lib/practice.ts's PracticeProblem. */
+  options?: [string, string, string];
+  explanation?: string;
 }
 
 /** `excludeIds` (country cca2 codes) keeps already-correctly-answered countries out of the draw. */

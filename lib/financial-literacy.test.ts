@@ -10,6 +10,12 @@ describe("FINANCIAL_LITERACY_EXERCISES", () => {
   it("has a sizeable bank", () => {
     expect(FINANCIAL_LITERACY_EXERCISES.length).toBeGreaterThanOrEqual(15);
   });
+
+  it("every multiple-choice exercise's options include the correct answer", () => {
+    for (const exercise of FINANCIAL_LITERACY_EXERCISES.filter((e) => e.options)) {
+      expect(exercise.options).toContain(exercise.answer);
+    }
+  });
 });
 
 describe("pickRandomFinancialLiteracyExercise", () => {

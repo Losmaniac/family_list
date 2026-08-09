@@ -12,6 +12,7 @@ import { ENGLISH_WORDS } from "./english-words";
 import { FINANCIAL_LITERACY_EXERCISES } from "./financial-literacy";
 import { SELF_DEVELOPMENT_EXERCISES } from "./self-development";
 import { AI_LITERACY_EXERCISES } from "./ai-literacy";
+import { DIGITAL_SAFETY_EXERCISES } from "./digital-safety";
 
 /**
  * "Vzdělání" is organized by subject. Straight arithmetic generation
@@ -35,6 +36,7 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "finance", label: "Finanční gramotnost", available: true },
   { id: "seberozvoj", label: "Seberozvoj", available: true },
   { id: "ai", label: "AI", available: true },
+  { id: "digisafety", label: "Digitální bezpečnost", available: true },
   { id: "food", label: "Potraviny", available: true },
   { id: "wiki", label: "Encyklopedie", available: true },
 ];
@@ -47,6 +49,21 @@ export const DEFAULT_PRACTICE_DAILY_XP_CAP = 50;
 
 /** Wrong answers allowed before the correct answer is revealed and a new problem is required. */
 export const PRACTICE_MAX_ATTEMPTS = 3;
+
+/**
+ * The common shape every subject's picker returns — a plain free-text
+ * question, or (when `options` is set) multiple-choice with three choices,
+ * optionally paired with an `explanation` shown after answering. Every
+ * per-subject exercise type (AiLiteracyExercise, FinancialLiteracyExercise,
+ * DigitalSafetyExercise, …) is structurally assignable to this.
+ */
+export interface PracticeProblem {
+  id: string;
+  question: string;
+  answer: string | string[];
+  options?: [string, string, string];
+  explanation?: string;
+}
 
 export type PracticeDifficulty = 1 | 2 | 3;
 
@@ -205,6 +222,7 @@ export const PRACTICE_SUBJECT_TOTALS: Record<string, number> = {
   finance: FINANCIAL_LITERACY_EXERCISES.length,
   seberozvoj: SELF_DEVELOPMENT_EXERCISES.length,
   ai: AI_LITERACY_EXERCISES.length,
+  digisafety: DIGITAL_SAFETY_EXERCISES.length,
 };
 
 /** `excludeIds` keeps already-correctly-answered problems out of the draw; undefined means the finite bank is fully answered. */

@@ -23,6 +23,7 @@ import {
   isAnswerCorrect,
   pickRandomLogicWordProblem,
   primaryAnswer,
+  type PracticeProblem,
 } from "../../lib/practice";
 import { pickRandomCzechExercise } from "../../lib/czech-language";
 import { pickRandomPrirodovedaExercise } from "../../lib/prirodoveda";
@@ -30,6 +31,7 @@ import { pickRandomVlastivedaExercise } from "../../lib/vlastiveda";
 import { pickRandomFinancialLiteracyExercise } from "../../lib/financial-literacy";
 import { pickRandomSelfDevelopmentExercise } from "../../lib/self-development";
 import { pickRandomAiLiteracyExercise } from "../../lib/ai-literacy";
+import { pickRandomDigitalSafetyExercise } from "../../lib/digital-safety";
 import { pickRandomAtlasQuestion } from "./atlas";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { buildLedgerEntry } from "../../lib/xp-engine";
@@ -133,15 +135,12 @@ export const getPracticeCapStatus = onCall<CapStatusRequest>(async (request) => 
 
 interface GenerateRequest {
   familyId: string;
-  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "atlas";
+  subject: "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "digisafety" | "atlas";
 }
 
 type SyncSubject = Exclude<GenerateRequest["subject"], "atlas">;
 
-const SUBJECT_PICKERS: Record<
-  SyncSubject,
-  (excludeIds: Set<string>) => { id: string; question: string; answer: string | string[] } | undefined
-> = {
+const SUBJECT_PICKERS: Record<SyncSubject, (excludeIds: Set<string>) => PracticeProblem | undefined> = {
   math: (excludeIds) => pickRandomLogicWordProblem(undefined, Math.random, excludeIds),
   czech: (excludeIds) => pickRandomCzechExercise(Math.random, excludeIds),
   prirodoveda: (excludeIds) => pickRandomPrirodovedaExercise(Math.random, excludeIds),
@@ -149,6 +148,7 @@ const SUBJECT_PICKERS: Record<
   finance: (excludeIds) => pickRandomFinancialLiteracyExercise(Math.random, excludeIds),
   seberozvoj: (excludeIds) => pickRandomSelfDevelopmentExercise(Math.random, excludeIds),
   ai: (excludeIds) => pickRandomAiLiteracyExercise(Math.random, excludeIds),
+  digisafety: (excludeIds) => pickRandomDigitalSafetyExercise(Math.random, excludeIds),
 };
 
 export const generatePracticeProblem = onCall<GenerateRequest>(async (request) => {
@@ -189,7 +189,13 @@ export const generatePracticeProblem = onCall<GenerateRequest>(async (request) =
     attempts: 0,
     createdAt: Date.now(),
   });
-  return { question: problem.question, subject, complete: false };
+  return {
+    question: problem.question,
+    subject,
+    complete: false,
+    options: problem.options,
+    explanation: problem.explanation,
+  };
 });
 
 interface SubmitRequest {

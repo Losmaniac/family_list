@@ -17,12 +17,25 @@ import FoodFactsExplorer from "@/components/FoodFactsExplorer";
 import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
 import type { PracticeProgress } from "@/lib/types";
 
-type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "atlas";
-const GENERATE_SUBJECTS: Subject[] = ["math", "czech", "prirodoveda", "vlastiveda", "finance", "seberozvoj", "ai", "atlas"];
+type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "seberozvoj" | "ai" | "digisafety" | "atlas";
+const GENERATE_SUBJECTS: Subject[] = [
+  "math",
+  "czech",
+  "prirodoveda",
+  "vlastiveda",
+  "finance",
+  "seberozvoj",
+  "ai",
+  "digisafety",
+  "atlas",
+];
 
 // Brief pauses before auto-advancing to the next question — long enough to
 // read the success toast / the revealed correct answer, short enough that
-// it still feels like "next question", not a stall.
+// it still feels like "next question", not a stall. Doesn't apply to a
+// question with an explanation (see revealedExplanation below) — those
+// wait for a manual "Další úloha" click instead, since the whole point is
+// to actually read the explanation, not have it flash by.
 const AUTO_ADVANCE_CORRECT_DELAY_MS = 900;
 const AUTO_ADVANCE_REVEAL_DELAY_MS = 2200;
 
@@ -31,6 +44,8 @@ interface GenerateResponse {
   subject: Subject;
   complete: boolean;
   capReached?: boolean;
+  options?: [string, string, string];
+  explanation?: string;
 }
 
 interface SubmitResponse {
@@ -86,6 +101,11 @@ export default function PracticePage() {
   // same <input> mounted throughout, just read-only while transitioning,
   // is the only way to carry focus/keyboard across auto-advance.
   const [transitioning, setTransitioning] = useState(false);
+  // Set instead of auto-advancing whenever the resolved question carries an
+  // explanation — stays on screen until the member clicks "Další úloha"
+  // themselves, since the whole point of an explanation is to read it, not
+  // have it flash by during a fixed auto-advance delay.
+  const [revealedExplanation, setRevealedExplanation] = useState<string | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answerInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -139,6 +159,7 @@ export default function PracticePage() {
         }
         setCurrent(null);
         setTransitioning(false);
+        setRevealedExplanation(null);
         setFeedback("Rodič upravil dnešní limit XP z Vzdělání — dnes už bohužel nejde dál pokračovat.");
       } catch {
         // Best-effort — the next explicit generate/submit call still enforces the cap server-side.
@@ -155,6 +176,7 @@ export default function PracticePage() {
     setLoading(true);
     setFeedback(null);
     setAnswer("");
+    setRevealedExplanation(null);
     try {
       const result = await httpsCallable<{ familyId: string; subject: Subject }, GenerateResponse>(
         getFirebaseFunctions(),
@@ -187,6 +209,7 @@ export default function PracticePage() {
         "submitPracticeAnswer"
       )({ familyId, answer: value.trim() });
       const data = result.data;
+      const explanation = current.explanation;
       if (data.correct) {
         setAnswer("");
         if (data.awarded > 0) {
@@ -197,6 +220,8 @@ export default function PracticePage() {
           setCapReached(true);
           setCurrent(null);
           setFeedback("Skvělá práce! Dnešní limit XP z Vzdělání je vyčerpaný — zkus to znovu zítra.");
+        } else if (explanation) {
+          setRevealedExplanation(explanation);
         } else {
           setTransitioning(true);
           scheduleAutoAdvance(AUTO_ADVANCE_CORRECT_DELAY_MS);
@@ -205,11 +230,15 @@ export default function PracticePage() {
         setFeedback(`Není to ono, zkus to znovu — zbývá ${data.attemptsLeft} ${data.attemptsLeft === 1 ? "pokus" : "pokusy"}.`);
         setAnswer("");
       } else {
-        setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Za chvíli přijde další úloha…`);
         setAnswer("");
         if (capReached) {
+          setFeedback(`Správná odpověď byla: ${data.correctAnswer}.`);
           setCurrent(null);
+        } else if (explanation) {
+          setFeedback(`Správná odpověď byla: ${data.correctAnswer}.`);
+          setRevealedExplanation(explanation);
         } else {
+          setFeedback(`Správná odpověď byla: ${data.correctAnswer}. Za chvíli přijde další úloha…`);
           setTransitioning(true);
           scheduleAutoAdvance(AUTO_ADVANCE_REVEAL_DELAY_MS);
         }
@@ -231,6 +260,16 @@ export default function PracticePage() {
     submitAnswer(letter);
   }
 
+  function handleOptionClick(option: string) {
+    setAnswer(option);
+    submitAnswer(option);
+  }
+
+  function handleManualAdvance() {
+    setRevealedExplanation(null);
+    handleNewProblem();
+  }
+
   function selectSubject(next: string) {
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
@@ -239,6 +278,7 @@ export default function PracticePage() {
     setSubject(next);
     setCurrent(null);
     setTransitioning(false);
+    setRevealedExplanation(null);
     setAnswer("");
     setFeedback(null);
   }
@@ -306,6 +346,18 @@ export default function PracticePage() {
             <p className="text-sm text-zinc-500">
               🌙 Dnešní limit XP z Vzdělání je vyčerpaný — zkus to znovu zítra.
             </p>
+          ) : revealedExplanation ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
+              <p className="text-sm">{revealedExplanation}</p>
+              <button
+                type="button"
+                onClick={handleManualAdvance}
+                disabled={loading}
+                className="flex items-center gap-1.5 self-start rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+              >
+                <Sparkles size={16} /> {loading ? "Připravuji…" : "Další úloha"}
+              </button>
+            </div>
           ) : !current ? (
             <button
               type="button"
@@ -319,6 +371,23 @@ export default function PracticePage() {
             <p className="text-sm text-zinc-500">
               🎉 Všechny úlohy z tohoto předmětu už máš zvládnuté — víc jich zatím není.
             </p>
+          ) : current.options ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+              <p className="text-lg font-medium">{current.question}</p>
+              <div className="flex flex-col gap-2">
+                {current.options.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleOptionClick(option)}
+                    disabled={submitting || transitioning}
+                    className="rounded-lg border border-border px-4 py-2.5 text-left text-sm hover:bg-surface-muted disabled:opacity-50"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : isIyFillIn ? (
             <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
               <p className="text-lg font-medium">{current.question}</p>
@@ -361,7 +430,7 @@ export default function PracticePage() {
             </form>
           )}
 
-          {feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
+          {!revealedExplanation && feedback && <p className="text-sm text-zinc-500">{feedback}</p>}
           {transitioning && !feedback && <p className="text-sm text-zinc-400">Za chvíli přijde další úloha…</p>}
         </>
       )}
