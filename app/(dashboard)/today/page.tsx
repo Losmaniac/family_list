@@ -15,6 +15,7 @@ import { compressImage } from "@/lib/image-compress";
 import { formatXp } from "@/lib/xp-engine";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
+import AdHocTasksButton from "@/components/AdHocTasksButton";
 import Link from "next/link";
 import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
@@ -398,7 +399,10 @@ export default function TodayPage() {
       )}
 
       <section className="flex flex-1 flex-col gap-4">
-        <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
+        <div className="flex items-center gap-3">
+          {familyId && <AdHocTasksButton familyId={familyId} />}
+          <h1 className="text-xl font-semibold">Dnešní úkoly</h1>
+        </div>
         {tasks.length === 0 && Object.keys(templates).length === 0 ? (
           member?.role === "parent" ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-zinc-500">
