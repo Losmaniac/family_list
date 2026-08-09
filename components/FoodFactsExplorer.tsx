@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Utensils } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Barcode, ScanLine, Search, Utensils, X } from "lucide-react";
 import { useToast } from "@/lib/toast-context";
-import { buildFoodSearchUrl, parseFoodProducts, type FoodProduct } from "@/lib/open-food-facts";
+import {
+  buildBarcodeLookupUrl,
+  buildFoodSearchUrl,
+  parseBarcodeLookup,
+  parseFoodSearchResults,
+  type FoodProduct,
+} from "@/lib/open-food-facts";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -18,13 +24,30 @@ const NUTRISCORE_COLORS: Record<string, string> = {
   E: "bg-red-600",
 };
 
-/** Informational-only food/nutrition lookup (no XP) — Open Food Facts search. */
+const SCAN_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+
+/** Informational-only food/nutrition lookup (no XP) — Open Food Facts search, by name or barcode. */
 export default function FoodFactsExplorer() {
   const toast = useToast();
   const [query, setQuery] = useState("");
+  const [barcode, setBarcode] = useState("");
   const [products, setProducts] = useState<FoodProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  // Feature-detected, not assumed — BarcodeDetector ships in Chrome/Edge and
+  // Safari 17+, but not every browser this PWA might run in.
+  const [scanSupported] = useState(() => typeof window !== "undefined" && "BarcodeDetector" in window);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  function stopScan() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setScanning(false);
+  }
+
+  useEffect(() => stopScan, []);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -34,8 +57,7 @@ export default function FoodFactsExplorer() {
     try {
       const res = await fetch(buildFoodSearchUrl(query.trim()));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setProducts(parseFoodProducts(data.products ?? []));
+      setProducts(parseFoodSearchResults(await res.json()));
     } catch (err) {
       toast.error(describeError(err, "Potraviny se nepodařilo najít."));
     } finally {
@@ -43,9 +65,64 @@ export default function FoodFactsExplorer() {
     }
   }
 
+  async function handleBarcodeLookup(code: string) {
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await fetch(buildBarcodeLookupUrl(code));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const product = parseBarcodeLookup(await res.json());
+      setProducts(product ? [product] : []);
+      if (!product) toast.error("Tenhle čárový kód se v databázi nenašel.");
+    } catch (err) {
+      toast.error(describeError(err, "Potraviny se nepodařilo najít."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleBarcodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (barcode.trim()) handleBarcodeLookup(barcode.trim());
+  }
+
+  async function startScan() {
+    setScanning(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (!videoRef.current) throw new Error("no video element");
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+
+      const detector = new BarcodeDetector({ formats: SCAN_FORMATS });
+      const tick = async () => {
+        if (!streamRef.current || !videoRef.current) return;
+        try {
+          const [detected] = await detector.detect(videoRef.current);
+          if (detected) {
+            stopScan();
+            handleBarcodeLookup(detected.rawValue);
+            return;
+          }
+        } catch {
+          // A frame not being ready yet is routine — just try the next one.
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } catch {
+      toast.error("Kameru se nepodařilo spustit — zkontroluj oprávnění.");
+      stopScan();
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-zinc-500">Vyhledej potravinu a podívej se na její výživové údaje.</p>
+      <p className="text-sm text-zinc-500">
+        Vyhledej potravinu jménem nebo čárovým kódem a podívej se na její výživové údaje. Databáze je celosvětová a
+        česká zboží tam jsou, ale ne úplně všechna — jde o produkty, které tam někdo nahrál.
+      </p>
       <form onSubmit={handleSearch} className="flex gap-2">
         <input
           type="text"
@@ -62,6 +139,48 @@ export default function FoodFactsExplorer() {
           <Search size={16} /> Hledat
         </button>
       </form>
+
+      <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="Nebo zadej čárový kód"
+          value={barcode}
+          onChange={(e) => setBarcode(e.target.value)}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+        />
+        <button
+          type="submit"
+          disabled={loading || !barcode.trim()}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          <Barcode size={16} /> Najít
+        </button>
+        {scanSupported && (
+          <button
+            type="button"
+            onClick={startScan}
+            disabled={loading}
+            aria-label="Skenovat čárový kód kamerou"
+            title="Skenovat kamerou"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-accent disabled:opacity-50"
+          >
+            <ScanLine size={18} />
+          </button>
+        )}
+      </form>
+
+      {scanning && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between px-4 py-2 text-white">
+            <p className="text-sm font-medium">Namiř na čárový kód</p>
+            <button type="button" onClick={stopScan} aria-label="Zavřít" className="text-white">
+              <X size={20} />
+            </button>
+          </div>
+          <video ref={videoRef} muted playsInline className="min-h-0 flex-1 object-cover" />
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col gap-2">
