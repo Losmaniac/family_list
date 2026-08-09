@@ -31,12 +31,30 @@ describe("buildExampleSentence", () => {
       const sentence = buildExampleSentence(word);
       expect(sentence.length).toBeGreaterThan(0);
       expect(sentence.toLowerCase()).toContain(word.en.toLowerCase());
-      expect(sentence.endsWith(".")).toBe(true);
+      expect(/[.!?]$/.test(sentence)).toBe(true);
     }
   });
 
   it("picks a/an correctly based on the word's first sound", () => {
     expect(buildExampleSentence({ en: "ant", category: "Zvířata" })).toContain("an ant");
     expect(buildExampleSentence({ en: "cat", category: "Zvířata" })).toContain("a cat");
+  });
+
+  it("gives plural-only clothing no article, singular clothing an article", () => {
+    const pluralOnly = ["pants", "shorts", "socks", "shoes", "sneakers", "boots", "gloves", "sunglasses"];
+    for (const en of pluralOnly) {
+      const sentence = buildExampleSentence({ en, category: "Oblečení" });
+      expect(sentence).not.toMatch(new RegExp(`\\ba (new )?${en}\\b`));
+    }
+    expect(buildExampleSentence({ en: "t-shirt", category: "Oblečení" })).toMatch(/\ba (new )?t-shirt\b/);
+  });
+
+  it("varies the sentence pattern across words in the same category", () => {
+    const shapes = new Set(
+      ENGLISH_WORDS.filter((e) => e.category === "Zvířata").map((w) =>
+        buildExampleSentence(w).replace(w.en, "X").replace(`a X`, "X").replace(`an X`, "X")
+      )
+    );
+    expect(shapes.size).toBeGreaterThan(1);
   });
 });

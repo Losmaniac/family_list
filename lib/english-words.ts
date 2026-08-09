@@ -611,50 +611,139 @@ function withArticle(word: string): string {
   return `${startsWithVowelSound(word) ? "an" : "a"} ${word}`;
 }
 
+// Clothing words that are always plural in English (you wear "pants", never
+// "a pants") — withArticle's a/an heuristic only looks at the first sound,
+// not grammatical number, so these need to skip the article entirely
+// instead of getting a false "a pants".
+const PLURAL_ONLY_CLOTHING = new Set([
+  "pants",
+  "shorts",
+  "socks",
+  "shoes",
+  "sneakers",
+  "boots",
+  "gloves",
+  "sunglasses",
+]);
+
+function clothingPhrase(w: string, adjective?: string): string {
+  const core = adjective ? `${adjective} ${w}` : w;
+  return PLURAL_ONLY_CLOTHING.has(w) ? core : withArticle(core);
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+// Several everyday sentences per category instead of one repeated pattern —
+// which template a word gets is picked deterministically from the word
+// itself (see buildExampleSentence), so the same word always shows the same
+// sentence but different words in the same category read differently.
+const SENTENCE_TEMPLATES: Record<string, ((w: string) => string)[]> = {
+  Zvířata: [
+    (w) => `I have ${withArticle(w)} at home.`,
+    (w) => `Look, ${withArticle(w)}!`,
+    (w) => `I saw ${withArticle(w)} at the zoo.`,
+  ],
+  Jídlo: [
+    (w) => `I eat ${w} every day.`,
+    (w) => `Can I have some ${w}, please?`,
+    (w) => `We bought some ${w} at the store.`,
+  ],
+  Oblečení: [
+    (w) => `I am wearing ${clothingPhrase(w)} today.`,
+    (w) => `I need ${clothingPhrase(w, "new")}.`,
+    (w) => `She bought ${clothingPhrase(w, "new")} yesterday.`,
+  ],
+  Doprava: [
+    (w) => `We went to school by ${w}.`,
+    (w) => `I love riding in ${withArticle(w)}.`,
+    (w) => `Look at that ${w} on the road!`,
+  ],
+  Doma: [
+    (w) => `There is ${withArticle(w)} in my room.`,
+    (w) => `We bought a new ${w} for our house.`,
+    (w) => `Please clean the ${w}.`,
+  ],
+  Povolání: [
+    (w) => `My uncle is ${withArticle(w)}.`,
+    (w) => `When I grow up, I want to be ${withArticle(w)}.`,
+    (w) => `The ${w} helps people every day.`,
+  ],
+  "Přídavná jména": [
+    (w) => `My dog is ${w}.`,
+    (w) => `This box is very ${w}.`,
+    (w) => `I feel ${w} today.`,
+  ],
+  "Příroda a počasí": [
+    (w) => `I can see the ${w}.`,
+    (w) => `We like to watch the ${w}.`,
+    (w) => `The ${w} is beautiful today.`,
+  ],
+  Rodina: [
+    (w) => `This is my ${w}.`,
+    (w) => `My ${w} lives with us.`,
+    (w) => `I love my ${w} very much.`,
+  ],
+  Slovesa: [
+    (w) => `I like to ${w} every day.`,
+    (w) => `Let's ${w} together!`,
+    (w) => `She can ${w} very well.`,
+  ],
+  "Sport a koníčky": [
+    (w) => `I play ${w} with my friends.`,
+    (w) => `My favorite sport is ${w}.`,
+    (w) => `We watched ${w} on TV.`,
+  ],
+  Tělo: [
+    (w) => `My ${w} hurts a little.`,
+    (w) => `Please wash your ${w}.`,
+    (w) => `Touch your ${w}.`,
+  ],
+  "Čas a kalendář": [
+    (w) => `I wake up in the ${w}.`,
+    (w) => `See you next ${w}!`,
+    (w) => `We have a party this ${w}.`,
+  ],
+  Čísla: [
+    (w) => `I have ${w} apples.`,
+    (w) => `Count to ${w} with me.`,
+    (w) => `There are ${w} birds in the tree.`,
+  ],
+  Škola: [
+    (w) => `I need ${withArticle(w)} for school.`,
+    (w) => `My teacher gave me ${withArticle(w)}.`,
+    (w) => `Where is my ${w}?`,
+  ],
+  Barvy: [
+    (w) => `My favorite color is ${w}.`,
+    (w) => `The sky is ${w} today.`,
+    (w) => `I have a ${w} bike.`,
+  ],
+  Různé: [
+    (w) => `Look, ${withArticle(w)}!`,
+    (w) => `I drew a picture of ${withArticle(w)}.`,
+    (w) => `The story has ${withArticle(w)} in it.`,
+  ],
+};
+
+const DEFAULT_SENTENCE_TEMPLATES: ((w: string) => string)[] = [
+  (w) => `I like ${w}.`,
+  (w) => `I see ${withArticle(w)}.`,
+];
+
 /**
- * A short, English-only example sentence for a flashcard word — simple
- * present-tense templates by grammatical category (animals, food, verbs,
- * adjectives, ...) so a 5-year-old-learner-level sentence reads naturally
- * instead of a generic "I see X" for every word regardless of part of
- * speech. Every template uses only basic function words (I, is, a, the,
- * my, like...) alongside the target word itself.
+ * A short, English-only example sentence for a flashcard word — several
+ * everyday sentence patterns per grammatical category (animals, food,
+ * verbs, adjectives, ...) instead of one generic pattern repeated for
+ * every word. Which pattern a word gets is stable (hashed from the word
+ * itself), so the same word always shows the same sentence.
  */
 export function buildExampleSentence(word: Pick<EnglishWord, "en" | "category">): string {
   const w = word.en;
-  switch (word.category) {
-    case "Zvířata":
-    case "Různé":
-    case "Škola":
-      return `I see ${withArticle(w)}.`;
-    case "Jídlo":
-      return `I like to eat ${w}.`;
-    case "Oblečení":
-      return `I wear ${w}.`;
-    case "Doprava":
-      return `I go by ${w}.`;
-    case "Doma":
-      return `There is ${withArticle(w)} in my house.`;
-    case "Povolání":
-      return `She is ${withArticle(w)}.`;
-    case "Přídavná jména":
-      return `The dog is ${w}.`;
-    case "Příroda a počasí":
-      return `I see the ${w}.`;
-    case "Rodina":
-      return `This is my ${w}.`;
-    case "Slovesa":
-      return `I like to ${w}.`;
-    case "Sport a koníčky":
-      return `I like ${w}.`;
-    case "Tělo":
-      return `My ${w} hurts.`;
-    case "Čas a kalendář":
-      return `I like the ${w}.`;
-    case "Čísla":
-      return `I have ${w} apples.`;
-    case "Barvy":
-      return `I like the color ${w}.`;
-    default:
-      return `I like ${w}.`;
-  }
+  const templates = SENTENCE_TEMPLATES[word.category] ?? DEFAULT_SENTENCE_TEMPLATES;
+  const template = templates[hashString(w) % templates.length];
+  return template(w);
 }
