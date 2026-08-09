@@ -10,7 +10,6 @@ describe("parseCountries", () => {
         capital: ["Prague"],
         region: "Europe",
         translations: { ces: { common: "Česko" } },
-        flags: { svg: "https://flagcdn.com/cz.svg" },
       },
     ]);
     expect(countries).toEqual([
@@ -21,7 +20,7 @@ describe("parseCountries", () => {
   it("falls back to the common English name when there's no Czech translation", () => {
     const countries = parseCountries([{ cca2: "JP", name: { common: "Japan" }, capital: ["Tokyo"], region: "Asia" }]);
     expect(countries[0].name).toBe("Japan");
-    expect(countries[0].flag).toBe("");
+    expect(countries[0].flag).toBe("https://flagcdn.com/jp.svg");
   });
 
   it("defaults a missing capital to an em dash", () => {

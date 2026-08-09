@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Globe2 } from "lucide-react";
 import { useToast } from "@/lib/toast-context";
-import { groupByContinent, parseCountries, REST_COUNTRIES_URL, type AtlasCountry } from "@/lib/atlas";
+import { COUNTRIES_DATA_URL, groupByContinent, parseCountries, type AtlasCountry } from "@/lib/atlas";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -30,7 +30,7 @@ export default function AtlasCountryList() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(REST_COUNTRIES_URL);
+        const res = await fetch(COUNTRIES_DATA_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!cancelled) setCountries(parseCountries(data));
