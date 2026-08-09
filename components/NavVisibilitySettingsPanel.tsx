@@ -19,7 +19,8 @@ const TOGGLABLE_NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/practice", label: "Vzdělání" },
   { href: "/calendar", label: "Kalendář" },
   { href: "/schedule", label: "Rozvrh" },
-  { href: "/shopping", label: "Nákup" },
+  { href: "/lists", label: "Seznamy" },
+  { href: "/journals", label: "Deníky" },
   { href: "/media", label: "Média" },
   { href: "/weather", label: "Počasí" },
 ];

@@ -39,7 +39,8 @@ function QuantityStepper({ value, onChange }: { value: number; onChange: (next: 
   );
 }
 
-export default function ShoppingPage() {
+/** The "Nákupní seznam" tab of the Seznamy card — backed by the (unchanged) top-level shoppingItems collection. */
+export default function ShoppingListView() {
   const { user } = useAuth();
   const { familyId, family } = useFamily();
   const toast = useToast();
@@ -124,21 +125,15 @@ export default function ShoppingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Nákupní seznam</h1>
-          <p className="text-sm text-zinc-500">Přidat i odškrtnout může kdokoli z rodiny.</p>
-        </div>
-        {!showForm && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
-          >
-            <Plus size={16} /> Přidat
-          </button>
-        )}
-      </div>
+      {!showForm && (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="flex shrink-0 items-center gap-1 self-start rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground"
+        >
+          <Plus size={16} /> Přidat položku
+        </button>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">

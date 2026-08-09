@@ -334,6 +334,62 @@ service cloud.firestore {
         allow delete: if isFamilyMember(familyId);
       }
 
+      // The other lists on the "Seznamy" card (wishlist, nápady na
+      // zlepšení, návody pro chod domu, and any custom one) — deliberately
+      // separate from shoppingItems above rather than folding shopping
+      // itself into this, so the shopping list's existing data/behavior
+      // stays untouched. Only a parent creates/deletes a list; any family
+      // member can read/add/check/remove its items, same split as shopping.
+      match /lists/{listId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+          request.resource.data.kind is string;
+        allow delete: if isParent(familyId);
+      }
+
+      // Flat collection (like dailyTasks→templateId, rewardRedemptions→
+      // rewardId) rather than a lists/{listId}/items subcollection — same
+      // convention every other list-of-things-belonging-to-a-thing in this
+      // schema already follows.
+      match /listItems/{itemId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.addedBy == request.auth.uid &&
+          request.resource.data.listId is string &&
+          request.resource.data.name is string && request.resource.data.name.size() > 0;
+        allow update: if isFamilyMember(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'note', 'category', 'checked']);
+        allow delete: if isFamilyMember(familyId);
+      }
+
+      // "Deníky" — a food/training/custom diary. Only a parent creates or
+      // deletes one; any family member reads and adds their own entries.
+      match /journals/{journalId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+          request.resource.data.kind is string;
+        allow delete: if isParent(familyId);
+      }
+
+      match /journalEntries/{entryId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.authorId == request.auth.uid &&
+          request.resource.data.journalId is string &&
+          request.resource.data.text is string && request.resource.data.text.size() > 0 &&
+          request.resource.data.date is string;
+        // Only the author may edit their own entry's date/text; deletion
+        // (below) is the only action a parent can take on someone else's.
+        allow update: if isFamilyMember(familyId) &&
+          resource.data.authorId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'text']);
+        allow delete: if isFamilyMember(familyId) && (resource.data.authorId == request.auth.uid || isParent(familyId));
+      }
+
       match /adHocTaskTypes/{typeId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);
