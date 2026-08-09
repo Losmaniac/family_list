@@ -55,7 +55,7 @@ const IY_LETTER_OPTIONS = ["i", "y", "í", "ý"];
 
 export default function PracticePage() {
   const { user } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
   const toast = useToast();
 
   const [subject, setSubject] = useState<string>("math");
@@ -89,10 +89,47 @@ export default function PracticePage() {
   // Auto-advance swaps `current` without remounting the form, so the
   // input's `autoFocus` attribute (mount-only) wouldn't fire again on the
   // next question — focus (and select any leftover text) explicitly here
-  // instead so the user can start typing immediately.
+  // instead so the user can start typing immediately. Also scroll it into
+  // view: on mobile the on-screen keyboard covers the bottom of the page,
+  // pushing the field below the fold until the user manually scrolls.
   useEffect(() => {
-    if (current && !current.complete) answerInputRef.current?.select();
+    if (current && !current.complete) {
+      answerInputRef.current?.select();
+      answerInputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   }, [current]);
+
+  // A parent can lower family.practiceDailyXpCap mid-day from Settings —
+  // if the member already earned more than the new cap, practice needs to
+  // stop right away, not just on the next generatePracticeProblem call
+  // (which might not happen for a while if a question is already open).
+  useEffect(() => {
+    if (!familyId || family?.practiceDailyXpCap === undefined) return;
+    const fid = familyId;
+    let cancelled = false;
+    async function checkCapStatus() {
+      try {
+        const result = await httpsCallable<{ familyId: string }, { capReached: boolean }>(
+          getFirebaseFunctions(),
+          "getPracticeCapStatus"
+        )({ familyId: fid });
+        if (cancelled || !result.data.capReached) return;
+        setCapReached(true);
+        if (autoAdvanceTimer.current) {
+          clearTimeout(autoAdvanceTimer.current);
+          autoAdvanceTimer.current = null;
+        }
+        setCurrent(null);
+        setFeedback("Rodič upravil dnešní limit XP z Vzdělání — dnes už bohužel nejde dál pokračovat.");
+      } catch {
+        // Best-effort — the next explicit generate/submit call still enforces the cap server-side.
+      }
+    }
+    checkCapStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [familyId, family?.practiceDailyXpCap]);
 
   async function handleNewProblem() {
     if (!familyId || !GENERATE_SUBJECTS.includes(subject as Subject) || capReached) return;
