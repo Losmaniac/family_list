@@ -586,7 +586,6 @@ export interface PracticeProgress {
   english?: string[];
   atlas?: string[];
   finance?: string[];
-  seberozvoj?: string[];
   ai?: string[];
   digisafety?: string[];
 }

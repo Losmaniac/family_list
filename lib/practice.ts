@@ -10,7 +10,6 @@ import { PRIRODOVEDA_EXERCISES } from "./prirodoveda";
 import { VLASTIVEDA_EXERCISES } from "./vlastiveda";
 import { ENGLISH_WORDS } from "./english-words";
 import { FINANCIAL_LITERACY_EXERCISES } from "./financial-literacy";
-import { SELF_DEVELOPMENT_EXERCISES } from "./self-development";
 import { AI_LITERACY_EXERCISES } from "./ai-literacy";
 import { DIGITAL_SAFETY_EXERCISES } from "./digital-safety";
 
@@ -34,7 +33,6 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "vlastiveda", label: "Vlastivěda", available: true },
   { id: "atlas", label: "Zeměpis", available: true },
   { id: "finance", label: "Finanční gramotnost", available: true },
-  { id: "seberozvoj", label: "Seberozvoj", available: true },
   { id: "ai", label: "AI", available: true },
   { id: "digisafety", label: "Digitální bezpečnost", available: true },
   { id: "food", label: "Potraviny", available: true },
@@ -220,7 +218,6 @@ export const PRACTICE_SUBJECT_TOTALS: Record<string, number> = {
   vlastiveda: VLASTIVEDA_EXERCISES.length,
   english: ENGLISH_WORDS.length,
   finance: FINANCIAL_LITERACY_EXERCISES.length,
-  seberozvoj: SELF_DEVELOPMENT_EXERCISES.length,
   ai: AI_LITERACY_EXERCISES.length,
   digisafety: DIGITAL_SAFETY_EXERCISES.length,
 };
