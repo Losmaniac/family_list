@@ -13,7 +13,7 @@ import type { AdHocTaskType } from "@/lib/types";
 type CooldownUnit = "minutes" | "hours";
 
 function emptyForm() {
-  return { title: "", xpValue: 10, cooldownValue: 2, cooldownUnit: "hours" as CooldownUnit };
+  return { title: "", xpValue: 10, cooldownValue: 2, cooldownUnit: "hours" as CooldownUnit, photoRequired: false };
 }
 
 export default function AdHocTaskSettingsPanel({ familyId }: { familyId: string }) {
@@ -41,6 +41,7 @@ export default function AdHocTaskSettingsPanel({ familyId }: { familyId: string 
         xpValue: form.xpValue,
         cooldownMinutes,
         active: true,
+        photoRequired: form.photoRequired,
       });
       toast.success("Jednorázový úkol byl přidán.");
       setForm(emptyForm());
@@ -55,6 +56,16 @@ export default function AdHocTaskSettingsPanel({ familyId }: { familyId: string 
   async function handleToggleActive(type: AdHocTaskType) {
     try {
       await updateDoc(doc(getDb(), "families", familyId, "adHocTaskTypes", type.id), { active: !type.active });
+    } catch {
+      toast.error("Nepodařilo se změnit stav úkolu.");
+    }
+  }
+
+  async function handleTogglePhotoRequired(type: AdHocTaskType) {
+    try {
+      await updateDoc(doc(getDb(), "families", familyId, "adHocTaskTypes", type.id), {
+        photoRequired: !type.photoRequired,
+      });
     } catch {
       toast.error("Nepodařilo se změnit stav úkolu.");
     }
@@ -93,9 +104,13 @@ export default function AdHocTaskSettingsPanel({ familyId }: { familyId: string 
                 <p className={`font-medium ${!type.active ? "text-zinc-400 line-through" : ""}`}>{type.title}</p>
                 <p className="text-sm text-zinc-500">
                   +{formatXp(type.xpValue)} XP · interval {formatDurationMinutes(type.cooldownMinutes)}
+                  {type.photoRequired ? " · vyžaduje foto" : ""}
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <button type="button" onClick={() => handleTogglePhotoRequired(type)} className="text-sm text-accent">
+                  {type.photoRequired ? "Foto: ano" : "Foto: ne"}
+                </button>
                 <button type="button" onClick={() => handleToggleActive(type)} className="text-sm text-accent">
                   {type.active ? "Deaktivovat" : "Aktivovat"}
                 </button>
@@ -155,6 +170,15 @@ export default function AdHocTaskSettingsPanel({ familyId }: { familyId: string 
               <option value="hours">hodin</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-500">
+            <input
+              type="checkbox"
+              checked={form.photoRequired}
+              onChange={(e) => setForm((prev) => ({ ...prev, photoRequired: e.target.checked }))}
+              className="h-4 w-4 accent-accent"
+            />
+            Vyžadovat foto při splnění
+          </label>
           <div className="flex gap-2">
             <button
               type="submit"
