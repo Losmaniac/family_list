@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where, writeBatch } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -12,7 +12,7 @@ import { setupPushNotifications, isIosNotStandalone } from "@/lib/push";
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { generateInviteCode } from "@/lib/invite-code";
-import { formatXp, xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
+import { xpAdjustmentNeedsApproval } from "@/lib/xp-engine";
 import { findMemberConflict } from "@/lib/members";
 import { logAction } from "@/lib/audit-log";
 import Avatar from "@/components/Avatar";
@@ -34,7 +34,7 @@ import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
 import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, UserPlus, Zap } from "lucide-react";
-import type { Member, XpAdjustmentRequest } from "@/lib/types";
+import type { Member } from "@/lib/types";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -43,7 +43,6 @@ export default function SettingsPage() {
   const toast = useToast();
   const { confirm } = useDialog();
   const [members, setMembers] = useState<Member[]>([]);
-  const [pendingAdjustments, setPendingAdjustments] = useState<XpAdjustmentRequest[]>([]);
   const [adjustingMemberId, setAdjustingMemberId] = useState<string | null>(null);
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
@@ -80,17 +79,6 @@ export default function SettingsPage() {
     if (!familyId || member?.role !== "parent") return;
     return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
       setMembers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Member));
-    });
-  }, [familyId, member?.role]);
-
-  useEffect(() => {
-    if (!familyId || member?.role !== "parent") return;
-    const pendingQuery = query(
-      collection(getDb(), "families", familyId, "xpAdjustmentRequests"),
-      where("status", "==", "requested")
-    );
-    return onSnapshot(pendingQuery, (snapshot) => {
-      setPendingAdjustments(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as XpAdjustmentRequest));
     });
   }, [familyId, member?.role]);
 
@@ -349,24 +337,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDecideAdjustment(request: XpAdjustmentRequest, status: "approved" | "rejected") {
-    if (!familyId) return;
-    try {
-      await updateDoc(doc(getDb(), "families", familyId, "xpAdjustmentRequests", request.id), { status });
-      if (user) {
-        const target = members.find((m) => m.id === request.targetUserId);
-        logAction(
-          familyId,
-          user.uid,
-          "xp_adjustment_decided",
-          `${target?.name ?? request.targetUserId}: ${request.delta >= 0 ? "+" : ""}${formatXp(request.delta)} XP ${status === "approved" ? "schváleno" : "zamítnuto"}`
-        );
-      }
-    } catch {
-      toast.error("Nepodařilo se uložit rozhodnutí.");
-    }
-  }
-
   async function handleSignOut() {
     await signOutUser();
     router.replace("/login");
@@ -598,53 +568,6 @@ export default function SettingsPage() {
               </button>
             )}
           </div>
-        </section>
-      )}
-
-      {member.role === "parent" && pendingAdjustments.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="font-medium">Čeká na schválení (XP)</h2>
-          {pendingAdjustments.map((request) => {
-            const target = members.find((m) => m.id === request.targetUserId);
-            const requester = members.find((m) => m.id === request.requestedBy);
-            const isOwnRequest = request.requestedBy === user?.uid;
-            return (
-              <div
-                key={request.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {target?.name ?? request.targetUserId}: {request.delta >= 0 ? "+" : ""}
-                    {formatXp(request.delta)} XP
-                  </p>
-                  <p className="truncate text-sm text-zinc-500">
-                    {request.reason} · požádal(a) {requester?.name ?? request.requestedBy}
-                  </p>
-                </div>
-                {isOwnRequest ? (
-                  <span className="shrink-0 text-sm text-zinc-400">Čeká na druhého rodiče</span>
-                ) : (
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDecideAdjustment(request, "approved")}
-                      className="rounded-full bg-success px-3 py-1 text-sm font-semibold text-white"
-                    >
-                      Schválit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDecideAdjustment(request, "rejected")}
-                      className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold"
-                    >
-                      Zamítnout
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </section>
       )}
 
