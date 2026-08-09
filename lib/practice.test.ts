@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAnswerCorrect, normalizeAnswer, pickRandomLogicWordProblem, LOGIC_WORD_PROBLEMS } from "./practice";
+import { isAnswerCorrect, normalizeAnswer, pickRandomLogicWordProblem, primaryAnswer, LOGIC_WORD_PROBLEMS } from "./practice";
 
 describe("normalizeAnswer / isAnswerCorrect", () => {
   it("ignores case, surrounding whitespace, and repeated internal spaces", () => {
@@ -10,6 +10,22 @@ describe("normalizeAnswer / isAnswerCorrect", () => {
 
   it("rejects a wrong answer", () => {
     expect(isAnswerCorrect("7", "8")).toBe(false);
+  });
+
+  it("accepts any one of several correct phrasings", () => {
+    expect(isAnswerCorrect("česká koruna", ["koruna", "česká koruna"])).toBe(true);
+    expect(isAnswerCorrect("Koruna", ["koruna", "česká koruna"])).toBe(true);
+    expect(isAnswerCorrect("dolar", ["koruna", "česká koruna"])).toBe(false);
+  });
+});
+
+describe("primaryAnswer", () => {
+  it("passes a plain string through unchanged", () => {
+    expect(primaryAnswer("koruna")).toBe("koruna");
+  });
+
+  it("takes the first entry of a list of accepted phrasings", () => {
+    expect(primaryAnswer(["koruna", "česká koruna"])).toBe("koruna");
   });
 });
 
