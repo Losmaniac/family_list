@@ -11,11 +11,35 @@
 export const INTERNET_ARCHIVE_SEARCH_URL = "https://archive.org/advancedsearch.php";
 export const MSDOS_GAMES_COLLECTION = "softwarelibrary_msdos_games";
 
-export function buildGameSearchUrl(query: string, limit: number = 30): string {
+/**
+ * archive.org's DOS emulator has no on-screen touch controls at all (see
+ * MediaPage's Hry tab) — only real keyboard/gamepad input works. There's no
+ * "control scheme" field to filter on directly, but games tagged with one of
+ * these genres are usually mouse-driven, which taps-as-clicks already handle
+ * fine on touch. Best-effort, not a guarantee: sparse/inconsistent tagging
+ * means plenty of genuinely mouse-only games aren't tagged this way at all.
+ */
+const MOBILE_FRIENDLY_SUBJECTS = [
+  "point-and-click",
+  "puzzle",
+  "solitaire",
+  '"card game"',
+  "mahjong",
+  '"board game"',
+  "simulation",
+];
+
+export interface GameSearchOptions {
+  limit?: number;
+  /** Restrict to genres that are usually mouse-driven — see MOBILE_FRIENDLY_SUBJECTS. */
+  mobileFriendly?: boolean;
+}
+
+export function buildGameSearchUrl(query: string, options: GameSearchOptions = {}): string {
+  const { limit = 30, mobileFriendly = false } = options;
   const trimmed = query.trim();
-  const q = trimmed
-    ? `collection:(${MSDOS_GAMES_COLLECTION}) AND title:(${trimmed})`
-    : `collection:(${MSDOS_GAMES_COLLECTION})`;
+  let q = trimmed ? `collection:(${MSDOS_GAMES_COLLECTION}) AND title:(${trimmed})` : `collection:(${MSDOS_GAMES_COLLECTION})`;
+  if (mobileFriendly) q += ` AND subject:(${MOBILE_FRIENDLY_SUBJECTS.join(" OR ")})`;
   const params = new URLSearchParams();
   params.set("q", q);
   params.append("fl[]", "identifier");
