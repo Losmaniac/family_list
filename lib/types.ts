@@ -346,6 +346,8 @@ export interface CalendarEvent {
   timestamp: number;
   /** Repeat rule from `date` onward; absent = one-off ('none'). */
   recurrence?: CalendarRecurrence;
+  /** Last date (YYYY-MM-DD, inclusive) a recurring event still applies; absent = repeats forever. Ignored when recurrence is 'none'. */
+  recurrenceUntil?: string;
 }
 
 /**
