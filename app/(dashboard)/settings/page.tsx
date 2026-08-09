@@ -28,6 +28,7 @@ import PracticeSettingsPanel from "@/components/PracticeSettingsPanel";
 import ScheduleSettingsPanel from "@/components/ScheduleSettingsPanel";
 import ShoppingSettingsPanel from "@/components/ShoppingSettingsPanel";
 import AdHocTaskSettingsPanel from "@/components/AdHocTaskSettingsPanel";
+import NavVisibilitySettingsPanel from "@/components/NavVisibilitySettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
@@ -468,6 +469,17 @@ export default function SettingsPage() {
         <section className="flex flex-col gap-3">
           <h2 className="font-medium">Jednorázové úkoly</h2>
           <AdHocTaskSettingsPanel familyId={familyId} />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">Viditelnost karet</h2>
+          <NavVisibilitySettingsPanel
+            familyId={familyId}
+            members={members}
+            hiddenNavHrefsByMember={family?.hiddenNavHrefsByMember}
+          />
         </section>
       )}
 
