@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, daysInMonth, isSameDay, startOfMonth, startOfWeek } from "./date-utils";
+import { addDays, addMonths, daysInMonth, isSameDay, isWithinCurfew, startOfMonth, startOfWeek } from "./date-utils";
+
+// Europe/Prague is UTC+1 (winter) or UTC+2 (summer, DST) — using a January
+// date keeps the offset fixed at +1 so "UTC hour + 1" matches local hour.
+function utcHourInJanuary(hour: number): Date {
+  return new Date(Date.UTC(2026, 0, 15, hour, 0, 0));
+}
+
+describe("isWithinCurfew", () => {
+  it("handles a window that wraps past midnight (e.g. 22:00-6:00)", () => {
+    expect(isWithinCurfew(utcHourInJanuary(20), 22, 6)).toBe(false); // 21:00 local — not yet
+    expect(isWithinCurfew(utcHourInJanuary(21), 22, 6)).toBe(true); // 22:00 local — start is inclusive
+    expect(isWithinCurfew(utcHourInJanuary(0), 22, 6)).toBe(true); // 1:00 local
+    expect(isWithinCurfew(utcHourInJanuary(4), 22, 6)).toBe(true); // 5:00 local
+    expect(isWithinCurfew(utcHourInJanuary(5), 22, 6)).toBe(false); // 6:00 local — end is exclusive
+    expect(isWithinCurfew(utcHourInJanuary(11), 22, 6)).toBe(false); // noon local
+  });
+
+  it("handles a same-day window (start < end)", () => {
+    expect(isWithinCurfew(utcHourInJanuary(7), 9, 17)).toBe(false); // 8:00 local — not yet
+    expect(isWithinCurfew(utcHourInJanuary(8), 9, 17)).toBe(true); // 9:00 local — start is inclusive
+    expect(isWithinCurfew(utcHourInJanuary(10), 9, 17)).toBe(true); // 11:00 local
+    expect(isWithinCurfew(utcHourInJanuary(16), 9, 17)).toBe(false); // 17:00 local — end is exclusive
+  });
+
+  it("treats equal start/end hours as no restriction", () => {
+    expect(isWithinCurfew(utcHourInJanuary(11), 22, 22)).toBe(false);
+  });
+});
 
 describe("startOfMonth", () => {
   it("returns the 1st of the given date's month", () => {

@@ -63,6 +63,12 @@ export interface Family {
   shoppingCategories?: string[];
   /** memberId -> nav hrefs hidden from that (non-parent) member; absent/empty = everything shown. Parents always see every card themselves regardless of this. */
   hiddenNavHrefsByMember?: Record<string, string[]>;
+  /** Whether children are locked out of the whole app during childCurfewStartHour-childCurfewEndHour; absent = disabled. Never applies to a parent. */
+  childCurfewEnabled?: boolean;
+  /** Hour (0-23) the curfew starts, in family-zone local time; absent = 22. */
+  childCurfewStartHour?: number;
+  /** Hour (0-23) the curfew ends, in family-zone local time; absent = 6. */
+  childCurfewEndHour?: number;
 }
 
 export type MemberRole = "parent" | "child";
