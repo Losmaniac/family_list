@@ -1,13 +1,14 @@
 /**
  * "Zeměpis" (Atlas) quiz questions — shows a country name, asks for its
- * capital or continent. Source data comes from the free REST Countries
- * API, fetched here (server-side) so the correct answer is never trusted
- * from the client, same principle as every other Vzdělání subject. The
- * fetched list is cached in memory for the life of the function instance
- * (refreshed at most once a day) instead of hitting the external API on
- * every single question — REST Countries data changes essentially never.
+ * capital or continent. Source data comes from the free mledoze/countries
+ * dataset (see lib/atlas.ts), fetched here (server-side) so the correct
+ * answer is never trusted from the client, same principle as every other
+ * Vzdělání subject. The fetched list is cached in memory for the life of
+ * the function instance (refreshed at most once a day) instead of hitting
+ * the external source on every single question — country data changes
+ * essentially never.
  */
-import { REST_COUNTRIES_URL, parseCountries, type AtlasCountry } from "../../lib/atlas";
+import { COUNTRIES_DATA_URL, parseCountries, type AtlasCountry } from "../../lib/atlas";
 
 let cachedCountries: AtlasCountry[] = [];
 let cachedAt = 0;
@@ -16,8 +17,8 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 async function getCountries(): Promise<AtlasCountry[]> {
   if (cachedCountries.length > 0 && Date.now() - cachedAt < CACHE_TTL_MS) return cachedCountries;
   try {
-    const res = await fetch(REST_COUNTRIES_URL);
-    if (!res.ok) throw new Error(`REST Countries HTTP ${res.status}`);
+    const res = await fetch(COUNTRIES_DATA_URL);
+    if (!res.ok) throw new Error(`Countries dataset HTTP ${res.status}`);
     const raw = (await res.json()) as Parameters<typeof parseCountries>[0];
     cachedCountries = parseCountries(raw);
     cachedAt = Date.now();
