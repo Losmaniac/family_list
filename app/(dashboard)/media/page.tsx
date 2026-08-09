@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
+import { Gamepad2, Pause, Play, Radio as RadioIcon, Search, Tv, X } from "lucide-react";
 import { useToast } from "@/lib/toast-context";
 import {
   buildStationsSearchUrl,
@@ -25,6 +25,13 @@ import {
   type CountryOption,
   type TvChannel,
 } from "@/lib/iptv-org";
+import {
+  buildGameEmbedUrl,
+  buildGameSearchUrl,
+  buildGameThumbnailUrl,
+  parseGames,
+  type ArchiveGame,
+} from "@/lib/internet-archive";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -33,7 +40,7 @@ function describeError(err: unknown, fallback: string): string {
 
 const TV_RESULT_LIMIT = 60;
 
-type MediaTab = "radio" | "tv";
+type MediaTab = "radio" | "tv" | "games";
 
 function RadioTab() {
   const toast = useToast();
@@ -387,13 +394,129 @@ function TvTab() {
   );
 }
 
+function GamesTab() {
+  const toast = useToast();
+  const [nameQuery, setNameQuery] = useState("");
+  const [games, setGames] = useState<ArchiveGame[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [playing, setPlaying] = useState<ArchiveGame | null>(null);
+
+  async function handleSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    setLoading(true);
+    setSearched(true);
+    try {
+      const res = await fetch(buildGameSearchUrl(nameQuery));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setGames(parseGames(await res.json()));
+    } catch (err) {
+      toast.error(describeError(err, "Hry se nepodařilo najít."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Load the popular default list once, on first visit to this tab.
+  useEffect(() => {
+    async function loadDefault() {
+      setLoading(true);
+      setSearched(true);
+      try {
+        const res = await fetch(buildGameSearchUrl(""));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setGames(parseGames(await res.json()));
+      } catch (err) {
+        toast.error(describeError(err, "Hry se nepodařilo najít."));
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDefault();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch the default list once on mount only
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Hledat hru…"
+          value={nameQuery}
+          onChange={(e) => setNameQuery(e.target.value)}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+        >
+          <Search size={16} /> Hledat
+        </button>
+      </form>
+
+      {loading ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl bg-surface-muted" />
+          ))}
+        </div>
+      ) : games.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
+          <Gamepad2 size={40} />
+          <p className="text-lg">{searched ? "Žádné hry nenalezeny." : "Vyhledej hru pro MS-DOS."}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {games.map((game) => (
+            <button
+              key={game.id}
+              type="button"
+              onClick={() => setPlaying(game)}
+              className="flex flex-col gap-1.5 rounded-xl border border-border bg-surface p-2 text-left"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- external Internet Archive thumbnail, not a static asset */}
+              <img
+                src={buildGameThumbnailUrl(game.id)}
+                alt=""
+                className="aspect-square w-full rounded-lg bg-surface-muted object-cover"
+              />
+              <p className="truncate text-sm font-medium">{game.title}</p>
+              {game.year && <p className="text-xs text-zinc-500">{game.year}</p>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {playing && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black" onClick={() => setPlaying(null)}>
+          <div className="flex items-center justify-between px-4 py-2 text-white" onClick={(e) => e.stopPropagation()}>
+            <p className="truncate text-sm font-medium">{playing.title}</p>
+            <button type="button" onClick={() => setPlaying(null)} aria-label="Zavřít" className="shrink-0 text-white">
+              <X size={20} />
+            </button>
+          </div>
+          <iframe
+            title={playing.title}
+            src={buildGameEmbedUrl(playing.id)}
+            allow="fullscreen"
+            allowFullScreen
+            className="min-h-0 flex-1"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MediaPage() {
   const [tab, setTab] = useState<MediaTab>("radio");
 
   return (
     <div className="flex flex-col gap-4 pb-24">
       <h1 className="text-xl font-semibold">Média</h1>
-      <p className="text-sm text-zinc-500">Internetové rádio a TV kanály z celého světa, zdarma.</p>
+      <p className="text-sm text-zinc-500">Internetové rádio, TV kanály a retro hry pro MS-DOS, zdarma.</p>
 
       <div className="inline-flex self-start rounded-full border border-border p-1 text-sm">
         <button
@@ -414,9 +537,18 @@ export default function MediaPage() {
         >
           <Tv size={15} /> TV
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("games")}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
+            tab === "games" ? "bg-accent text-accent-foreground" : "text-zinc-500"
+          }`}
+        >
+          <Gamepad2 size={15} /> Hry
+        </button>
       </div>
 
-      {tab === "radio" ? <RadioTab /> : <TvTab />}
+      {tab === "radio" ? <RadioTab /> : tab === "tv" ? <TvTab /> : <GamesTab />}
     </div>
   );
 }
