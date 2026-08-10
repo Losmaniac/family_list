@@ -170,6 +170,7 @@ export default function AiQuizPanel() {
       </div>
 
       <form onSubmit={handleCustomSubmit} className="flex items-center gap-2">
+        {/* text-base (16px), not text-sm — iOS Safari auto-zooms the page on focus for any input under 16px. */}
         <input
           type="text"
           value={customTopicInput}
@@ -177,7 +178,7 @@ export default function AiQuizPanel() {
           placeholder="Vlastní téma… (např. dinosauři)"
           maxLength={MAX_CUSTOM_TOPIC_LENGTH}
           disabled={loading}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-base disabled:opacity-50"
         />
         <button
           type="submit"
