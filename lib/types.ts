@@ -75,6 +75,14 @@ export interface Family {
   investDemoEnabled?: boolean;
   /** Starting virtual cash (CZK) a new member's demo portfolio is created with; absent = the built-in default (see lib/invest-demo.ts). */
   investDemoStartingBalance?: number;
+  /**
+   * Whether a parent has saved a Gemini API key for "AI otázky" — a plain
+   * boolean flag only, never the key itself (that lives server-only in
+   * families/{familyId}/secrets/gemini, which has no client-facing
+   * Firestore rule at all). Lets Settings/the practice page show "klíč je
+   * nastaven" without ever reading the actual secret back to a client.
+   */
+  geminiApiKeyConfigured?: boolean;
 }
 
 export type MemberRole = "parent" | "child";

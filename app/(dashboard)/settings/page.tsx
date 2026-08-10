@@ -25,6 +25,7 @@ import { useLocale } from "@/lib/locale-context";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
 import InvestDemoSettingsPanel from "@/components/InvestDemoSettingsPanel";
+import AiQuizSettingsPanel from "@/components/AiQuizSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
 import StreakSettingsPanel from "@/components/StreakSettingsPanel";
 import CurfewSettingsPanel from "@/components/CurfewSettingsPanel";
@@ -488,6 +489,13 @@ export default function SettingsPage() {
             enabled={family?.investDemoEnabled === true}
             startingBalance={family?.investDemoStartingBalance}
           />
+        </section>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium">AI otázky (Vzdělání)</h2>
+          <AiQuizSettingsPanel familyId={familyId} configured={family?.geminiApiKeyConfigured === true} />
         </section>
       )}
 
