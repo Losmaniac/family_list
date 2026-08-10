@@ -9,6 +9,7 @@ import { getDb, getFirebaseFunctions } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import {
+  ASSET_TYPE_EXPLANATIONS,
   ASSET_TYPE_LABELS,
   FEATURED_ASSETS,
   formatCzk,
@@ -17,13 +18,14 @@ import {
   type InvestDemoAsset,
   type InvestDemoAssetType,
 } from "@/lib/invest-demo";
+import { buildWikiSearchUrl, buildWikiSummaryUrl, parseOpenSearch, parseWikiSummary, type WikiSummary } from "@/lib/wikipedia";
+import type { InvestDemoHolding, InvestDemoTransaction } from "@/lib/types";
 
 interface QuoteInfo {
   priceCzk: number | null;
   price: number | null;
   currency: string | null;
 }
-import type { InvestDemoHolding, InvestDemoTransaction } from "@/lib/types";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -61,6 +63,8 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
   const [trading, setTrading] = useState(false);
   const [tradeQuote, setTradeQuote] = useState<QuoteInfo | null>(null);
   const [tradeQuoteLoading, setTradeQuoteLoading] = useState(false);
+  const [assetSummary, setAssetSummary] = useState<WikiSummary | null>(null);
+  const [assetSummaryLoading, setAssetSummaryLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -201,11 +205,30 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
     }
   }
 
+  /** Best-effort "what actually is this?" — looks the asset's name up on (Czech) Wikipedia so a kid gets a real explanation, not just "Akcie". Silently comes up empty for obscure tickers Wikipedia has no article on; that's fine, the asset-type explanation still shows either way. */
+  async function loadAssetSummary(name: string) {
+    setAssetSummary(null);
+    setAssetSummaryLoading(true);
+    try {
+      const searchRes = await fetch(buildWikiSearchUrl(name));
+      const searchResults = parseOpenSearch(await searchRes.json());
+      const title = searchResults[0]?.title ?? name;
+      const summaryRes = await fetch(buildWikiSummaryUrl(title));
+      if (!summaryRes.ok) throw new Error(`HTTP ${summaryRes.status}`);
+      setAssetSummary(parseWikiSummary(await summaryRes.json()));
+    } catch {
+      setAssetSummary(null);
+    } finally {
+      setAssetSummaryLoading(false);
+    }
+  }
+
   function openBuy(asset: InvestDemoAsset) {
     setTradeTarget({ symbol: asset.symbol, name: asset.name, assetType: asset.assetType, side: "buy" });
     setTradeQuantity("");
     setTradeQuote(null);
     loadTradeQuote(asset.symbol, featuredQuotes[asset.symbol]);
+    loadAssetSummary(asset.name);
   }
 
   function openSell(holding: InvestDemoHolding) {
@@ -213,6 +236,7 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
     setTradeQuantity(String(holding.quantity));
     setTradeQuote(null);
     loadTradeQuote(holding.symbol, quotesBySymbol[holding.symbol]);
+    loadAssetSummary(holding.name);
   }
 
   async function handleConfirmTrade() {
@@ -428,7 +452,7 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
           // constraint — this is the general fix, not a one-off hack.
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => setTradeTarget(null)}>
             <div
-              className="flex w-full max-w-sm flex-col gap-3 rounded-t-2xl bg-surface p-5 sm:rounded-2xl"
+              className="flex max-h-[85vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-t-2xl bg-surface p-5 sm:rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <p className="font-medium">
@@ -443,6 +467,30 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
                     ? `${formatCzk(tradeQuote.priceCzk)}/ks (${formatNativePrice(tradeQuote.price, tradeQuote.currency)}) — aktuální cena se ověří při odeslání`
                     : "Cena se ověří při odeslání."}
               </p>
+
+              <div className="flex flex-col gap-2 rounded-xl bg-surface-muted p-3">
+                <div>
+                  <p className="text-sm font-medium">Co je {ASSET_TYPE_LABELS[tradeTarget.assetType].toLowerCase()}?</p>
+                  <p className="text-xs text-zinc-500">{ASSET_TYPE_EXPLANATIONS[tradeTarget.assetType]}</p>
+                </div>
+                <div className="border-t border-border pt-2">
+                  <p className="text-sm font-medium">Co je konkrétně {tradeTarget.name}?</p>
+                  {assetSummaryLoading ? (
+                    <p className="text-xs text-zinc-500">Načítám informace…</p>
+                  ) : assetSummary ? (
+                    <div className="flex gap-2 pt-1">
+                      {assetSummary.thumbnail && (
+                        // eslint-disable-next-line @next/next/no-img-element -- external Wikipedia thumbnail, not a static asset
+                        <img src={assetSummary.thumbnail} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                      )}
+                      <p className="text-xs text-zinc-500">{assetSummary.extract}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500">O tomto konkrétním aktivu jsme bohužel nic nenašli.</p>
+                  )}
+                </div>
+              </div>
+
               <label className="flex flex-col gap-1 text-sm">
                 Množství (kusů)
                 <input

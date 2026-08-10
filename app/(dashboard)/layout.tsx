@@ -288,22 +288,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   function navigateToTab(href: string) {
-    // Slide toward whichever side the target tab sits on relative to the
-    // current one in this member's own nav order — read by the
-    // --vt-direction-driven keyframes in globals.css, scoped to the
-    // "page-content" transition name below so only the content area moves,
-    // not the static chrome.
-    const orderedHrefs = visibleNavItems().map((item) => item.href);
-    const currentIndex = orderedHrefs.findIndex((itemHref) => pathname?.startsWith(itemHref));
-    const targetIndex = orderedHrefs.indexOf(href);
-    const direction = targetIndex >= currentIndex ? 1 : -1;
-
-    if (typeof document.startViewTransition !== "function") {
-      router.push(href);
-      return;
-    }
-    document.documentElement.style.setProperty("--vt-direction", String(direction));
-    document.startViewTransition(() => router.push(href));
+    // Switches instantly, no slide/fade — the view-transition animation
+    // this used to run made tab switches feel slower than a direct push.
+    router.push(href);
   }
 
   useEffect(() => {
@@ -353,12 +340,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // the old hardcoded guesses so there's no visible flash of unpadded
   // content on first paint.
   const isBottomBarStyle = navStyle === "bar" || navStyle === "bar-2row";
-  const mainStyle: React.CSSProperties = {
-    viewTransitionName: "page-content",
-    ...(isBottomBarStyle
-      ? { paddingBottom: (navBarHeight || (navStyle === "bar-2row" ? 160 : 112)) + 8 }
-      : {}),
-  };
+  const mainStyle: React.CSSProperties = isBottomBarStyle
+    ? { paddingBottom: (navBarHeight || (navStyle === "bar-2row" ? 160 : 112)) + 8 }
+    : {};
 
   function renderSortableItems(grow: boolean = true) {
     return items.map((item) => (
