@@ -39,6 +39,7 @@ import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
+import SettingsSection from "@/components/SettingsSection";
 import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, UserPlus, Zap } from "lucide-react";
 import type { Member } from "@/lib/types";
 
@@ -355,8 +356,7 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-8 pb-8">
       <h1 className="text-xl font-semibold">Nastavení</h1>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">Profil</h2>
+      <SettingsSection id="profil" title="Profil">
         <form onSubmit={handleSaveProfile} className="flex flex-col gap-3">
           <AvatarPicker value={avatarUrl} onChange={setAvatarUrl} />
           <input
@@ -374,10 +374,9 @@ export default function SettingsPage() {
             Uložit profil
           </button>
         </form>
-      </section>
+      </SettingsSection>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">Vzhled</h2>
+      <SettingsSection id="vzhled" title="Vzhled">
         <ThemeToggle />
         <div className="flex flex-col gap-1.5">
           <p className="text-sm text-zinc-500">Styl navigace</p>
@@ -389,16 +388,14 @@ export default function SettingsPage() {
             <AccentColorPicker familyId={familyId} currentColor={family?.accentColor} />
           </div>
         )}
-      </section>
+      </SettingsSection>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">{tLang("settings.language")}</h2>
+      <SettingsSection id="jazyk" title={tLang("settings.language")}>
         <LanguageToggle />
-      </section>
+      </SettingsSection>
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Herní nastavení</h2>
+        <SettingsSection id="herni" title="Herní nastavení">
           <GameSettingsPanel
             familyId={familyId}
             levelTitles={family?.levelTitles}
@@ -406,80 +403,72 @@ export default function SettingsPage() {
             taskRequestsEnabled={family?.taskRequestsEnabled}
             taskRequestMaxRemaining={family?.taskRequestMaxRemaining}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Streak</h2>
+        <SettingsSection id="streak" title="Streak">
           <StreakSettingsPanel
             familyId={familyId}
             streakBonusPerDay={family?.streakBonusPerDay}
             streakBonusCap={family?.streakBonusCap}
             streakFreezeEnabled={family?.streakFreezeEnabled}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Vzdělání</h2>
+        <SettingsSection id="vzdelani" title="Vzdělání">
           <PracticeSettingsPanel
             familyId={familyId}
             members={members}
             practiceVisibleTo={family?.practiceVisibleTo}
             practiceDailyXpCap={family?.practiceDailyXpCap}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Rozvrh hodin</h2>
+        <SettingsSection id="rozvrh" title="Rozvrh hodin">
           <ScheduleSettingsPanel familyId={familyId} scheduleVisibleToAll={family?.scheduleVisibleToAll} />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Noční klid</h2>
+        <SettingsSection id="klid" title="Noční klid">
           <CurfewSettingsPanel
             familyId={familyId}
             childCurfewEnabled={family?.childCurfewEnabled}
             childCurfewStartHour={family?.childCurfewStartHour}
             childCurfewEndHour={family?.childCurfewEndHour}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Nákupní seznam</h2>
+        <SettingsSection id="nakup" title="Nákupní seznam">
           <ShoppingSettingsPanel familyId={familyId} shoppingCategories={family?.shoppingCategories} />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Jednorázové úkoly</h2>
+        <SettingsSection id="adhoc" title="Jednorázové úkoly">
           <AdHocTaskSettingsPanel familyId={familyId} />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Viditelnost karet</h2>
+        <SettingsSection id="viditelnost" title="Viditelnost karet">
           <NavVisibilitySettingsPanel
             familyId={familyId}
             members={members}
             hiddenNavHrefsByMember={family?.hiddenNavHrefsByMember}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Investice</h2>
+        <SettingsSection id="investice" title="Investice">
           <InvestmentSettingsPanel
             familyId={familyId}
             enabled={family?.investmentsEnabled !== false}
@@ -490,12 +479,11 @@ export default function SettingsPage() {
             enabled={family?.investDemoEnabled === true}
             startingBalance={family?.investDemoStartingBalance}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">AI otázky (Vzdělání)</h2>
+        <SettingsSection id="ai-otazky" title="AI otázky (Vzdělání)">
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-zinc-500">Gemini</p>
             <AiQuizSettingsPanel familyId={familyId} configured={family?.geminiApiKeyConfigured === true} />
@@ -508,18 +496,16 @@ export default function SettingsPage() {
               currentModel={family?.openRouterModel}
             />
           </div>
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Obchod</h2>
+        <SettingsSection id="obchod" title="Obchod">
           <ShopAdminPanel familyId={familyId} members={members} />
-        </section>
+        </SettingsSection>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium">Notifikace</h2>
+      <SettingsSection id="notifikace" title="Notifikace">
         {iosNotStandalone ? (
           <p className="text-sm text-zinc-500">
             Na iPhonu notifikace fungují jen po přidání appky na plochu — nejdřív klepni na Sdílet →
@@ -563,11 +549,10 @@ export default function SettingsPage() {
             Posílat večerní připomínku nedokončených úkolů (19:00)
           </label>
         )}
-      </section>
+      </SettingsSection>
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Chat</h2>
+        <SettingsSection id="chat" title="Chat">
           <button
             type="button"
             onClick={handleClearChat}
@@ -576,23 +561,21 @@ export default function SettingsPage() {
           >
             <Trash2 size={16} /> {clearingChat ? "Mažu…" : "Vymazat historii chatu"}
           </button>
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Fotky</h2>
+        <SettingsSection id="fotky" title="Fotky">
           <PhotoSettingsPanel
             familyId={familyId}
             photoCompressionQuality={family?.photoCompressionQuality}
             photoMaxDimension={family?.photoMaxDimension}
           />
-        </section>
+        </SettingsSection>
       )}
 
       {family && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Rodina</h2>
+        <SettingsSection id="rodina" title="Rodina">
           <p className="text-sm text-zinc-500">{family.name}</p>
           <div className="flex items-center gap-2">
             <code className="rounded-lg bg-surface-muted px-3 py-2 text-lg font-semibold tracking-widest">
@@ -615,29 +598,31 @@ export default function SettingsPage() {
               </button>
             )}
           </div>
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && members.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-1 font-medium">
-              Členové rodiny
+        <SettingsSection
+          id="clenove"
+          title="Členové rodiny"
+          headerExtra={
+            <div className="flex shrink-0 items-center gap-1">
               <InfoButton
                 title="Členové rodiny"
                 description="Karta každého člena: role (rodič/dítě), ikona zvonečku ukazuje, jestli má zapnuté notifikace. Tlačítkem XP mu můžeš ručně upravit XP, další tlačítko přepíná roli rodič/dítě, koš člena odebere z rodiny. Přidat lze i člena, který se sám nepřihlašuje (např. miminko) — přidá se rovnou jako dítě, bez invite kódu."
               />
-            </h2>
-            {!showAddMemberForm && (
-              <button
-                type="button"
-                onClick={() => setShowAddMemberForm(true)}
-                className="flex items-center gap-1 text-sm text-accent"
-              >
-                <UserPlus size={16} /> Přidat
-              </button>
-            )}
-          </div>
+              {!showAddMemberForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddMemberForm(true)}
+                  className="flex items-center gap-1 text-sm text-accent"
+                >
+                  <UserPlus size={16} /> Přidat
+                </button>
+              )}
+            </div>
+          }
+        >
           {showAddMemberForm && (
             <form onSubmit={handleAddMember} className="flex flex-col gap-2 rounded-xl border border-border p-4">
               <p className="text-xs text-zinc-500">
@@ -767,7 +752,7 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
-        </section>
+        </SettingsSection>
       )}
 
       {member.role === "parent" && familyId && <AntiGamingPanel familyId={familyId} members={members} />}
@@ -787,8 +772,7 @@ export default function SettingsPage() {
       )}
 
       {member.role === "parent" && (
-        <section className="flex flex-col gap-3">
-          <h2 className="font-medium">Vývoj</h2>
+        <SettingsSection id="vyvoj" title="Vývoj">
           <p className="text-sm text-zinc-500">
             Odkaz na Claude Code session, ve které appka vzniká — otevře se v nové záložce (přihlášení
             ke svému Anthropic účtu je potřeba zvlášť, appka ho nijak nesdílí).
@@ -801,7 +785,7 @@ export default function SettingsPage() {
           >
             <Sparkles size={16} /> Otevřít Claude Code
           </a>
-        </section>
+        </SettingsSection>
       )}
 
       <section>
