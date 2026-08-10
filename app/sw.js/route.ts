@@ -29,10 +29,17 @@ importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-com
 firebase.initializeApp(${JSON.stringify(config)});
 const messaging = firebase.messaging();
 
+// Every push this app sends carries only a "data" payload, never a top-level
+// "notification" one (see functions/src/notifyHelpers.ts) — a "notification"
+// payload gets displayed automatically by the browser itself when no tab has
+// focus, *and* onBackgroundMessage below still fires and calls
+// showNotification for the same message, so the same push showed up twice.
+// Data-only messages skip that automatic display, leaving this the only
+// place that ever calls showNotification.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? "Family Quest";
+  const title = payload.data?.title ?? "Family Quest";
   self.registration.showNotification(title, {
-    body: payload.notification?.body,
+    body: payload.data?.body,
     icon: "/icons/icon-192.png",
   });
 });

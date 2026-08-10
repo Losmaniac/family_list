@@ -27,7 +27,9 @@ export const sendTestNotification = onCall(async (request) => {
   try {
     await getMessaging().send({
       token: member.fcmToken,
-      notification: {
+      // data-only, not notification — see notifyHelpers.ts's sendToTokens
+      // comment for why (avoids a duplicate on-device notification).
+      data: {
         title: "Family Quest",
         body: "Testovací upozornění dorazilo! 🎉",
       },

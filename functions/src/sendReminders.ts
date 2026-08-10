@@ -37,7 +37,9 @@ export const sendReminders = onSchedule(
 
         await messaging.send({
           token: fcmToken,
-          notification: {
+          // data-only, not notification — see notifyHelpers.ts's sendToTokens
+          // comment for why (avoids a duplicate on-device notification).
+          data: {
             title: "Family Quest",
             body: `Máš ${count} nedokončených úkolů na dnes.`,
           },

@@ -112,7 +112,9 @@ export const weeklyDigestGenerator = onSchedule({ schedule: "0 18 * * 0", timeZo
         try {
           await messaging.send({
             token: m.fcmToken,
-            notification: {
+            // data-only, not notification — see notifyHelpers.ts's sendToTokens
+            // comment for why (avoids a duplicate on-device notification).
+            data: {
               title: "Týdenní souhrn",
               body: text.length > 150 ? `${text.slice(0, 147)}…` : text,
             },
