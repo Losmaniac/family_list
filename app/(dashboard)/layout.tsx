@@ -21,6 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  BarChart3,
   BookOpen,
   Camera,
   CalendarCheck,
@@ -71,6 +72,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/today", labelKey: "nav.today", icon: CalendarCheck, parentOnly: false },
   { href: "/family", labelKey: "nav.family", icon: Users, parentOnly: false },
   { href: "/assign", labelKey: "nav.assign", icon: ListChecks, parentOnly: true },
+  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3, parentOnly: true },
   { href: "/chat", labelKey: "nav.chat", icon: MessageCircle, parentOnly: false },
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag, parentOnly: false },
   { href: "/investments", labelKey: "nav.investments", icon: TrendingUp, parentOnly: false },
