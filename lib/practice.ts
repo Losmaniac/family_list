@@ -29,6 +29,7 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "math", label: "Matematika", available: true },
   { id: "czech", label: "Čeština", available: true },
   { id: "english", label: "Angličtina", available: true },
+  { id: "spanish", label: "Španělština", available: true },
   { id: "prirodoveda", label: "Přírodověda", available: true },
   { id: "vlastiveda", label: "Vlastivěda", available: true },
   { id: "atlas", label: "Zeměpis", available: true },
@@ -41,6 +42,7 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "worldbank", label: "World Bank", available: true },
   { id: "chess", label: "Šachy", available: true },
   { id: "games", label: "Hry", available: true },
+  { id: "trivia", label: "Kvízový souboj", available: true },
 ];
 
 /** Flat XP for every correct answer — the daily cap is the only limiter. */

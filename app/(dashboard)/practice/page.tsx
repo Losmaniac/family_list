@@ -18,6 +18,8 @@ import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
 import WorldBankExplorer from "@/components/WorldBankExplorer";
 import ChessDailyPuzzle from "@/components/ChessDailyPuzzle";
 import GamesArcade from "@/components/GamesArcade";
+import TriviaDuelPanel from "@/components/TriviaDuelPanel";
+import SpanishFlashcards from "@/components/SpanishFlashcards";
 import type { PracticeProgress } from "@/lib/types";
 
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "dictionary" | "atlas";
@@ -313,14 +315,22 @@ export default function PracticePage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Vzdělání</h1>
       <p className="text-sm text-zinc-500">
-        {subject === "english"
-          ? "Nauč se anglická slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
-          : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
-            ? "Bez XP — jen k nahlédnutí a hledání."
-            : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
+        {subject === "english" || subject === "spanish"
+          ? "Nauč se slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
+          : subject === "trivia"
+            ? "Vyzvi člena rodiny na kvíz o vlastní vklad XP — mimo denní limit z ostatních předmětů."
+            : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
+              ? "Bez XP — jen k nahlédnutí a hledání."
+              : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
-      {capInfo && subject !== "food" && subject !== "wiki" && subject !== "worldbank" && subject !== "chess" && subject !== "games" && (
+      {capInfo &&
+        subject !== "food" &&
+        subject !== "wiki" &&
+        subject !== "worldbank" &&
+        subject !== "chess" &&
+        subject !== "games" &&
+        subject !== "trivia" && (
         <p className="text-xs text-zinc-500">
           Dnes lze z Vzdělání ještě získat {formatXp(capInfo.headroom)}/{formatXp(capInfo.dailyCap)} XP.
         </p>
@@ -358,12 +368,14 @@ export default function PracticePage() {
       )}
 
       {subject === "english" && <EnglishFlashcards />}
+      {subject === "spanish" && <SpanishFlashcards />}
       {subject === "food" && <FoodFactsExplorer />}
       {subject === "wiki" && <EncyclopediaExplorer />}
       {subject === "atlas" && <AtlasCountryList />}
       {subject === "worldbank" && <WorldBankExplorer />}
       {subject === "chess" && <ChessDailyPuzzle />}
       {subject === "games" && <GamesArcade />}
+      {subject === "trivia" && familyId && <TriviaDuelPanel familyId={familyId} />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>

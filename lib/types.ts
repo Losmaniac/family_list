@@ -1,6 +1,7 @@
 import type { RadioStation } from "./radio-browser";
 import type { TvChannel } from "./iptv-org";
 import type { InvestDemoAssetType } from "./invest-demo";
+import type { TriviaDuelStatus } from "./trivia-duel";
 
 /**
  * users/{userId} — top-level lookup so the client can resolve which family a
@@ -382,6 +383,33 @@ export interface ChatMessage {
   userId: string;
   text: string;
   timestamp: number;
+}
+
+/**
+ * families/{familyId}/triviaDuels/{duelId} — the client-readable summary of
+ * a head-to-head quiz challenge between two members. The actual questions
+ * (and each side's live in-progress score) live server-only in
+ * triviaDuelState/{duelId} — see functions/src/triviaDuel.ts — so a player
+ * can't peek at the questions or the opponent's running score before it's
+ * their turn/before the duel is settled.
+ */
+export interface TriviaDuel {
+  id: string;
+  challengerId: string;
+  challengerStake: number;
+  opponentId: string;
+  /** Set once the opponent accepts — absent while still pending_acceptance. */
+  opponentStake?: number;
+  status: TriviaDuelStatus;
+  questionCount: number;
+  createdAt: number;
+  respondedAt?: number;
+  completedAt?: number;
+  /** Only populated once status is 'completed'. */
+  challengerScore?: number;
+  opponentScore?: number;
+  /** userId of the winner, or 'tie' — only once completed. */
+  winnerId?: string;
 }
 
 /**
