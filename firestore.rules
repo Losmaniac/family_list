@@ -79,6 +79,18 @@ service cloud.firestore {
               .hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId', 'favoriteRadioStations', 'favoriteTvChannels', 'locale']));
       }
 
+      // Family-provided third-party API keys (currently just the Gemini key
+      // for "AI otázky") — never client-readable or client-writable. A
+      // parent submits the key through the setGeminiApiKey Cloud Function,
+      // which stores it here (Admin SDK, bypasses rules) and separately
+      // flips the plain-boolean families/{familyId}.geminiApiKeyConfigured
+      // so the UI can show "klíč je nastaven" without ever reading the
+      // secret itself back to a client.
+      match /secrets/{secretId} {
+        allow read: if false;
+        allow write: if false;
+      }
+
       match /taskTemplates/{templateId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

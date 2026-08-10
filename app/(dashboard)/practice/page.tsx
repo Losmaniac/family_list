@@ -20,6 +20,7 @@ import ChessDailyPuzzle from "@/components/ChessDailyPuzzle";
 import GamesArcade from "@/components/GamesArcade";
 import TriviaDuelPanel from "@/components/TriviaDuelPanel";
 import SpanishFlashcards from "@/components/SpanishFlashcards";
+import AiQuizPanel from "@/components/AiQuizPanel";
 import type { PracticeProgress } from "@/lib/types";
 
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "dictionary" | "atlas";
@@ -319,9 +320,11 @@ export default function PracticePage() {
           ? "Nauč se slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
           : subject === "trivia"
             ? "Vyzvi člena rodiny na kvíz o vlastní vklad XP — mimo denní limit z ostatních předmětů."
-            : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
-              ? "Bez XP — jen k nahlédnutí a hledání."
-              : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
+            : subject === "aiquiz"
+              ? "AI ti na vybrané téma vygeneruje úplně novou otázku a získáš +1 XP za správnou odpověď — otázky se na rozdíl od ostatních předmětů nikdy neopakují ani nedojdou."
+              : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
+                ? "Bez XP — jen k nahlédnutí a hledání."
+                : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
       {capInfo &&
@@ -376,6 +379,7 @@ export default function PracticePage() {
       {subject === "chess" && <ChessDailyPuzzle />}
       {subject === "games" && <GamesArcade />}
       {subject === "trivia" && familyId && <TriviaDuelPanel familyId={familyId} />}
+      {subject === "aiquiz" && <AiQuizPanel />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>

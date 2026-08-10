@@ -35,6 +35,7 @@ export {
   getTriviaDuelQuestion,
   submitTriviaDuelAnswer,
 } from "./triviaDuel";
+export { setGeminiApiKey, generateAiQuizQuestion, submitAiQuizAnswer } from "./aiQuiz";
 export { penaltyTaskSweep } from "./penaltyTasks";
 export {
   onTaskProposalCreated,
