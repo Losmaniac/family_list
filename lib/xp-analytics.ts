@@ -10,13 +10,13 @@ import type { XpLedgerEntry } from "./types";
 
 /**
  * Every xpLedger `reason` folds into one of these for the breakdown chart —
- * grouping by the ~14 raw reasons directly would be too many slices to read
- * or to safely color (the dataviz palette only carries 6 categorical slots
- * before CVD separation breaks down). "other" is a graceful fallback for
- * any future reason not yet added here, not something that should ever
- * actually appear.
+ * grouping by the ~16 raw reasons directly would be too many slices to
+ * read or to safely color (the dataviz palette only carries 7 categorical
+ * slots before CVD separation breaks down). "other" is a graceful
+ * fallback for any future reason not yet added here, not something that
+ * should ever actually appear.
  */
-export type XpReasonCategory = "tasks" | "education" | "trivia" | "investments" | "marketplace" | "manual" | "other";
+export type XpReasonCategory = "tasks" | "education" | "trivia" | "investments" | "marketplace" | "manual" | "media" | "other";
 
 const REASON_TO_CATEGORY: Record<string, XpReasonCategory> = {
   task_completed: "tasks",
@@ -33,6 +33,8 @@ const REASON_TO_CATEGORY: Record<string, XpReasonCategory> = {
   reward_redeemed: "marketplace",
   pooled_contribution: "marketplace",
   manual_adjustment: "manual",
+  radio_listening: "media",
+  tv_watching: "media",
 };
 
 export function categoryForReason(reason: string): XpReasonCategory {
@@ -40,7 +42,7 @@ export function categoryForReason(reason: string): XpReasonCategory {
 }
 
 /** Fixed draw order — also the legend order — so a category's color/position never shifts as filters change which ones have data. */
-export const CATEGORY_ORDER: XpReasonCategory[] = ["tasks", "education", "trivia", "investments", "marketplace", "manual", "other"];
+export const CATEGORY_ORDER: XpReasonCategory[] = ["tasks", "education", "trivia", "investments", "marketplace", "manual", "media", "other"];
 
 export const CATEGORY_INFO: Record<XpReasonCategory, { label: string; colorVar: string }> = {
   tasks: { label: "Úkoly", colorVar: "var(--chart-1)" },
@@ -49,6 +51,7 @@ export const CATEGORY_INFO: Record<XpReasonCategory, { label: string; colorVar: 
   investments: { label: "Investice", colorVar: "var(--chart-4)" },
   marketplace: { label: "Obchod a odměny", colorVar: "var(--chart-5)" },
   manual: { label: "Ruční úpravy", colorVar: "var(--chart-6)" },
+  media: { label: "Rádio a TV", colorVar: "var(--chart-7)" },
   other: { label: "Ostatní", colorVar: "var(--border)" },
 };
 
@@ -67,6 +70,8 @@ const REASON_LABELS: Record<string, string> = {
   reward_redeemed: "Uplatněná odměna",
   pooled_contribution: "Příspěvek do sbírky",
   manual_adjustment: "Ruční úprava rodičem",
+  radio_listening: "Poslech rádia",
+  tv_watching: "Sledování TV",
 };
 
 export function reasonLabel(reason: string): string {

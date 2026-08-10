@@ -75,7 +75,13 @@ function formatElapsed(totalSeconds: number): string {
  * player can show the listener a running tally instead of the charge
  * happening invisibly in the background.
  */
-function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: string | null, onInsufficientFunds: () => void) {
+function useMediaBilling(
+  familyId: string | null,
+  kind: MediaKind,
+  playingId: string | null,
+  playingName: string | null,
+  onInsufficientFunds: () => void
+) {
   const toast = useToast();
   const toastRef = useRef(toast);
   useEffect(() => {
@@ -113,10 +119,10 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
       const due = billableBlocksElapsed(Date.now() - startedAt);
       while (!cancelled && charged < due) {
         try {
-          const result = await httpsCallable<{ familyId: string; kind: MediaKind }, { charged: boolean }>(
+          const result = await httpsCallable<{ familyId: string; kind: MediaKind; channelName?: string }, { charged: boolean }>(
             getFirebaseFunctions(),
             "chargeMediaListening"
-          )({ familyId, kind });
+          )({ familyId, kind, channelName: playingName ?? undefined });
           if (cancelled) return;
           if (!result.data.charged) {
             toastRef.current.error(
@@ -139,7 +145,7 @@ function useMediaBilling(familyId: string | null, kind: MediaKind, playingId: st
       clearInterval(tickInterval);
       clearInterval(billingInterval);
     };
-  }, [familyId, kind, playingId]);
+  }, [familyId, kind, playingId, playingName]);
 
   return { elapsedSeconds: Math.floor(elapsedMs / 1000), spentXp: chargedBlocks * MEDIA_XP_COST_PER_BLOCK[kind] };
 }
@@ -221,7 +227,7 @@ function RadioTab() {
   const [playing, setPlaying] = useState<RadioStation | null>(null);
   const favorites = member?.favoriteRadioStations ?? [];
 
-  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "radio", playing?.id ?? null, () => setPlaying(null));
+  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "radio", playing?.id ?? null, playing?.name ?? null, () => setPlaying(null));
 
   useEffect(() => {
     async function loadFacets() {
@@ -449,7 +455,7 @@ function TvTab() {
   const [playing, setPlaying] = useState<TvChannel | null>(null);
   const favorites = member?.favoriteTvChannels ?? [];
 
-  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "tv", playing?.id ?? null, () => setPlaying(null));
+  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "tv", playing?.id ?? null, playing?.name ?? null, () => setPlaying(null));
 
   useEffect(() => {
     async function loadFacets() {

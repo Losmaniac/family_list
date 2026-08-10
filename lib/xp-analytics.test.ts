@@ -33,6 +33,8 @@ describe("categoryForReason", () => {
       "reward_redeemed",
       "pooled_contribution",
       "manual_adjustment",
+      "radio_listening",
+      "tv_watching",
     ];
     for (const reason of known) {
       expect(categoryForReason(reason)).not.toBe("other");

@@ -12,16 +12,17 @@
   --danger: #ef4444;
   /* Categorical palette for XP-reason breakdowns on /analytics — the app
      otherwise has no multi-series chart, so nothing existing to reuse. A
-     validated 6-slot prefix of the dataviz skill's documented default
-     8-hue order (blue/orange/aqua/yellow/magenta/green); only adjacent
-     pairs need to pass for a bar/stack chart, and this prefix keeps the
-     already-validated adjacency from the full 8-slot order. */
+     validated 7-slot prefix of the dataviz skill's documented default
+     8-hue order (blue/orange/aqua/yellow/magenta/green/violet); only
+     adjacent pairs need to pass for a bar/stack chart, and this prefix
+     keeps the already-validated adjacency from the full 8-slot order. */
   --chart-1: #2a78d6;
   --chart-2: #eb6834;
   --chart-3: #1baf7a;
   --chart-4: #eda100;
   --chart-5: #e87ba4;
   --chart-6: #008300;
+  --chart-7: #4a3aa7;
 }
 
 @theme inline {
@@ -40,6 +41,7 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -61,6 +63,7 @@
   --chart-4: #c98500;
   --chart-5: #d55181;
   --chart-6: #008300;
+  --chart-7: #9085e9;
 }
 
 * {
