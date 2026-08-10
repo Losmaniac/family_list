@@ -583,6 +583,22 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // One in-progress/finished chess game per member per difficulty —
+      // no hidden information in chess, so family-readable is fine, but
+      // only functions/src/chess.ts (Admin SDK) may ever move a piece or
+      // award XP, so it's fully server-write-only like the ledger itself.
+      match /chessGames/{gameId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
+      // Tracks the last day each difficulty's win XP was already claimed
+      // (see functions/src/chess.ts) — same server-only trust tier.
+      match /chessProgress/{userId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
       match /xpAdjustmentRequests/{requestId} {
         allow read: if isFamilyMember(familyId);
         // Any parent can request an adjustment for any member (including
