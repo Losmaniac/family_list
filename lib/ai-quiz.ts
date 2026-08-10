@@ -22,15 +22,53 @@ export const AI_QUIZ_TOPICS: AiQuizTopic[] = [
   { id: "digisafety", label: "Digitální bezpečnost" },
 ];
 
+/**
+ * How many *consecutive* correct answers on a topic map to how hard the
+ * next question should be — so a child who keeps getting a topic right
+ * gets pushed progressively further, instead of drilling the same easy
+ * level forever. Resets to 0 on any wrong answer (see submitAiQuizAnswer).
+ */
+export function difficultyLabelForStreak(streak: number): string {
+  if (streak >= 8) return "expertní — klidně na hranici znalostí pro tento věk, méně známý detail nebo chyták";
+  if (streak >= 5) return "obtížná — vyžaduje přemýšlení a souvislosti, ne jen základní fakta";
+  if (streak >= 2) return "středně obtížná";
+  return "základní, přiměřená pro úplný začátek";
+}
+
 /** Strict-JSON-only instructions — parseAiQuizResponse only ever accepts exactly this shape, so the prompt has to be unambiguous about it. */
-export function buildAiQuizPrompt(topicLabel: string): string {
+export function buildAiQuizPrompt(topicLabel: string, difficultyLabel: string = difficultyLabelForStreak(0)): string {
   return [
     "Jsi generátor vzdělávacích kvízových otázek pro děti ve věku 8-14 let.",
-    `Vytvoř JEDNU otázku s výběrem odpovědí na téma "${topicLabel}" v češtině, přiměřeně obtížnou pro tento věk.`,
+    `Vytvoř JEDNU otázku s výběrem odpovědí na téma "${topicLabel}" v češtině.`,
+    `Obtížnost otázky: ${difficultyLabel}.`,
     "Odpověz VÝHRADNĚ validním JSON objektem v tomto přesném tvaru, bez jakéhokoliv dalšího textu a bez markdown bloků:",
     '{"question": "text otázky", "options": ["možnost A", "možnost B", "možnost C"], "correctIndex": 0}',
     '"correctIndex" je index (0, 1 nebo 2) správné možnosti v poli "options". Možnosti musí být krátké, jednoznačné a jen jedna z nich smí být správně.',
   ].join("\n");
+}
+
+/** The pseudo-topic id for a user-typed subject — not in AI_QUIZ_TOPICS since it has no fixed label. */
+export const CUSTOM_TOPIC_ID = "custom";
+export const MAX_CUSTOM_TOPIC_LENGTH = 60;
+
+/** Trims/collapses whitespace and rejects empty or too-long custom topics. Shared by client (UX) and server (actual enforcement). */
+export function normalizeCustomTopic(raw: string): string | null {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed || trimmed.length > MAX_CUSTOM_TOPIC_LENGTH) return null;
+  return trimmed;
+}
+
+/**
+ * Difficulty streaks are tracked per topic. Built-in topics use their id
+ * directly; a custom topic is bucketed by its (lowercased) text so asking
+ * about "dinosauři" repeatedly still ramps up, while a different custom
+ * topic starts back at the base difficulty.
+ */
+export function streakKeyForTopic(topicId: string, customTopic?: string | null): string {
+  if (topicId === CUSTOM_TOPIC_ID && customTopic) {
+    return `custom:${customTopic.toLowerCase()}`;
+  }
+  return topicId;
 }
 
 export interface ParsedAiQuizQuestion {
