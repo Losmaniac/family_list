@@ -22,6 +22,7 @@ import MyPenaltyTasks from "@/components/MyPenaltyTasks";
 import PendingXpAdjustments from "@/components/PendingXpAdjustments";
 import PendingJournalDeletions from "@/components/PendingJournalDeletions";
 import TodayDateBanner from "@/components/TodayDateBanner";
+import WeeklyDigestBanner from "@/components/WeeklyDigestBanner";
 import Link from "next/link";
 import type { DailyTask, Member, TaskRequest, TaskTemplate } from "@/lib/types";
 
@@ -339,6 +340,8 @@ export default function TodayPage() {
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
       <TodayDateBanner />
+
+      {familyId && <WeeklyDigestBanner familyId={familyId} />}
 
       <input
         ref={photoInputRef}

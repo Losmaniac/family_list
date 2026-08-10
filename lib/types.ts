@@ -705,3 +705,17 @@ export interface PenaltyTask {
   submittedAt?: number;
   photoUrl?: string;
 }
+
+/**
+ * families/{familyId}/weeklyDigests/{weekKey} — an AI-written recap of the
+ * past 7 days (functions/src/weeklyDigest.ts, Sunday 18:00 cron), server-
+ * only written. `weekKey`/`weekStart`/`weekEnd` are YYYY-MM-DD date keys in
+ * family-zone time.
+ */
+export interface WeeklyDigest {
+  text: string;
+  weekStart: string;
+  weekEnd: string;
+  stats: { name: string; tasksCompleted: number; xpEarned: number; currentStreak: number }[];
+  generatedAt: number;
+}
