@@ -20,6 +20,13 @@ export { onMarketplaceOfferWritten } from "./marketplace";
 export { chargeMediaListening } from "./mediaBilling";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
+export {
+  searchInvestDemoAssets,
+  initInvestDemoPortfolio,
+  buyInvestDemoAsset,
+  sellInvestDemoAsset,
+  getInvestDemoQuotes,
+} from "./investDemo";
 export { penaltyTaskSweep } from "./penaltyTasks";
 export {
   onTaskProposalCreated,
