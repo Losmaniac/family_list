@@ -119,6 +119,8 @@ export interface Member {
   favoriteTvChannels?: TvChannel[];
   /** UI language for this member specifically (not shared family-wide, like nav style) — absent = Czech. */
   locale?: "cs" | "en";
+  /** Personal-best scores for the no-XP arcade games (components/GamesArcade.tsx) — self-written by the member, read by the whole family for the Vzdělání → Hry leaderboard. */
+  gameHighScores?: { duo?: number; hex?: number; stack?: number };
 }
 
 export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";

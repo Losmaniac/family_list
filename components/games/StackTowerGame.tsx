@@ -28,7 +28,7 @@ interface FallingChunk {
  * makes the next block narrower and the game correspondingly harder,
  * until the width hits zero.
  */
-export default function StackTowerGame() {
+export default function StackTowerGame({ onNewHighScore }: { onNewHighScore?: (score: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef({
     placed: [] as PlacedBlock[],
@@ -40,6 +40,11 @@ export default function StackTowerGame() {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(() => readHighScore(HIGH_SCORE_KEY));
   const [phase, setPhase] = useState<"idle" | "playing" | "over">("idle");
+  // A ref, not the prop directly — see the identical comment in DuoGame.
+  const onNewHighScoreRef = useRef(onNewHighScore);
+  useEffect(() => {
+    onNewHighScoreRef.current = onNewHighScore;
+  }, [onNewHighScore]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -153,6 +158,7 @@ export default function StackTowerGame() {
       setHighScore((prev) => {
         if (finalScore <= prev) return prev;
         localStorage.setItem(HIGH_SCORE_KEY, String(finalScore));
+        onNewHighScoreRef.current?.(finalScore);
         return finalScore;
       });
       return;

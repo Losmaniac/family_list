@@ -377,7 +377,7 @@ export default function PracticePage() {
       {subject === "atlas" && <AtlasCountryList />}
       {subject === "worldbank" && <WorldBankExplorer />}
       {subject === "chess" && <ChessDailyPuzzle />}
-      {subject === "games" && <GamesArcade />}
+      {subject === "games" && <GamesArcade familyId={familyId ?? undefined} />}
       {subject === "trivia" && familyId && <TriviaDuelPanel familyId={familyId} />}
       {subject === "aiquiz" && <AiQuizPanel />}
 
