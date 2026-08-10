@@ -17,6 +17,7 @@ import FoodFactsExplorer from "@/components/FoodFactsExplorer";
 import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
 import WorldBankExplorer from "@/components/WorldBankExplorer";
 import ChessDailyPuzzle from "@/components/ChessDailyPuzzle";
+import GamesArcade from "@/components/GamesArcade";
 import type { PracticeProgress } from "@/lib/types";
 
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "dictionary" | "atlas";
@@ -314,12 +315,12 @@ export default function PracticePage() {
       <p className="text-sm text-zinc-500">
         {subject === "english"
           ? "Nauč se anglická slovíčka pomocí kartiček a získej +1 XP za každé uhodnuté."
-          : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess"
+          : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
             ? "Bez XP — jen k nahlédnutí a hledání."
             : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
-      {capInfo && subject !== "food" && subject !== "wiki" && subject !== "worldbank" && subject !== "chess" && (
+      {capInfo && subject !== "food" && subject !== "wiki" && subject !== "worldbank" && subject !== "chess" && subject !== "games" && (
         <p className="text-xs text-zinc-500">
           Dnes lze z Vzdělání ještě získat {formatXp(capInfo.headroom)}/{formatXp(capInfo.dailyCap)} XP.
         </p>
@@ -362,6 +363,7 @@ export default function PracticePage() {
       {subject === "atlas" && <AtlasCountryList />}
       {subject === "worldbank" && <WorldBankExplorer />}
       {subject === "chess" && <ChessDailyPuzzle />}
+      {subject === "games" && <GamesArcade />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
