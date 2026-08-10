@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FEATURED_ASSETS,
   formatCzk,
+  formatNativePrice,
   mapQuoteType,
   nextAvgCost,
   parseChartQuote,
@@ -111,6 +112,13 @@ describe("nextAvgCost", () => {
 describe("formatCzk", () => {
   it("formats with a thousands separator and Kč suffix", () => {
     expect(formatCzk(100000)).toBe(`${(100000).toLocaleString("cs-CZ")} Kč`);
+  });
+});
+
+describe("formatNativePrice", () => {
+  it("formats with two decimal places and the currency code", () => {
+    expect(formatNativePrice(150.2, "USD")).toBe("150.20 USD");
+    expect(formatNativePrice(34.4699, "EUR")).toBe("34.47 EUR");
   });
 });
 
