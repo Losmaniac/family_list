@@ -36,7 +36,7 @@ function normalizeAngle(a: number): number {
  * player's radius. Rounds are short and brutal by design — wall speed and
  * gap size both ramp with survival time.
  */
-export default function HexReflexGame() {
+export default function HexReflexGame({ onNewHighScore }: { onNewHighScore?: (score: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef({
     angle: 0,
@@ -51,6 +51,11 @@ export default function HexReflexGame() {
   const [liveScore, setLiveScore] = useState(0);
   const [highScore, setHighScore] = useState(() => readHighScore(HIGH_SCORE_KEY));
   const [phase, setPhase] = useState<"idle" | "playing" | "over">("idle");
+  // A ref, not the prop directly — see the identical comment in DuoGame.
+  const onNewHighScoreRef = useRef(onNewHighScore);
+  useEffect(() => {
+    onNewHighScoreRef.current = onNewHighScore;
+  }, [onNewHighScore]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -78,6 +83,7 @@ export default function HexReflexGame() {
       setHighScore((prev) => {
         if (finalScore <= prev) return prev;
         localStorage.setItem(HIGH_SCORE_KEY, String(finalScore));
+        onNewHighScoreRef.current?.(finalScore);
         return finalScore;
       });
     }

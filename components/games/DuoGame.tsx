@@ -34,7 +34,7 @@ interface Obstacle {
  * balls thread the gap. Speed ramps with survival time, same escalating-
  * difficulty shape as the original.
  */
-export default function DuoGame() {
+export default function DuoGame({ onNewHighScore }: { onNewHighScore?: (score: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef({
     angle: 0,
@@ -50,6 +50,14 @@ export default function DuoGame() {
   const [liveScore, setLiveScore] = useState(0);
   const [highScore, setHighScore] = useState(() => readHighScore(HIGH_SCORE_KEY));
   const [phase, setPhase] = useState<"idle" | "playing" | "over">("idle");
+  // A ref, not the prop directly — the game loop effect below only ever
+  // runs once (empty deps, it owns a requestAnimationFrame loop that must
+  // not restart every render), so it would otherwise close over whatever
+  // onNewHighScore was on that first render and never see a newer one.
+  const onNewHighScoreRef = useRef(onNewHighScore);
+  useEffect(() => {
+    onNewHighScoreRef.current = onNewHighScore;
+  }, [onNewHighScore]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -78,6 +86,7 @@ export default function DuoGame() {
       setHighScore((prev) => {
         if (finalScore <= prev) return prev;
         localStorage.setItem(HIGH_SCORE_KEY, String(finalScore));
+        onNewHighScoreRef.current?.(finalScore);
         return finalScore;
       });
     }

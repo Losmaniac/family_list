@@ -76,7 +76,7 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl', 'role'])) ||
           (isSignedIn() && request.auth.uid == userId &&
             request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId', 'favoriteRadioStations', 'favoriteTvChannels', 'locale']));
+              .hasOnly(['name', 'avatarUrl', 'fcmToken', 'savingsGoalRewardId', 'favoriteRadioStations', 'favoriteTvChannels', 'locale', 'gameHighScores']));
       }
 
       // Family-provided third-party API keys (currently just the Gemini key
