@@ -140,9 +140,10 @@ interface GenerateRequest {
 
 const ASYNC_SUBJECTS = ["atlas", "dictionary"] as const;
 type AsyncSubject = (typeof ASYNC_SUBJECTS)[number];
-type SyncSubject = Exclude<GenerateRequest["subject"], AsyncSubject>;
+export type SyncSubject = Exclude<GenerateRequest["subject"], AsyncSubject>;
 
-const SUBJECT_PICKERS: Record<SyncSubject, (excludeIds: Set<string>) => PracticeProblem | undefined> = {
+/** Exported so triviaDuel.ts can draw questions from the exact same banks as regular Vzdělání practice, rather than duplicating pickers. */
+export const SUBJECT_PICKERS: Record<SyncSubject, (excludeIds: Set<string>) => PracticeProblem | undefined> = {
   math: (excludeIds) => pickRandomLogicWordProblem(undefined, Math.random, excludeIds),
   czech: (excludeIds) => pickRandomCzechExercise(Math.random, excludeIds),
   prirodoveda: (excludeIds) => pickRandomPrirodovedaExercise(Math.random, excludeIds),

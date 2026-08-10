@@ -236,6 +236,24 @@ service cloud.firestore {
         }
       }
 
+      // Kvízový souboj — the public summary (participants, stakes, status,
+      // final scores once settled) is readable by the family; every write
+      // (create/accept/decline/cancel/answer/settle) goes through the
+      // Cloud Functions in functions/src/triviaDuel.ts. The actual
+      // questions and each side's live in-progress score live in
+      // triviaDuelState, which has no client-facing rule at all — neither
+      // duelist can peek at upcoming questions or the opponent's running
+      // score before the duel is settled.
+      match /triviaDuels/{duelId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
+      match /triviaDuelState/{duelId} {
+        allow read: if false;
+        allow write: if false;
+      }
+
       match /pooledContributions/{poolId} {
         allow read: if isFamilyMember(familyId);
         // A parent starts the pool — the family has already agreed in

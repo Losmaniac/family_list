@@ -19,6 +19,7 @@ export { generatePracticeProblem, submitPracticeAnswer, getPracticeCapStatus, gi
 export { onMarketplaceOfferWritten } from "./marketplace";
 export { chargeMediaListening } from "./mediaBilling";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
+export { generateSpanishFlashcards, submitSpanishFlashcardAnswer } from "./spanishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
 export {
   searchInvestDemoAssets,
@@ -27,6 +28,13 @@ export {
   sellInvestDemoAsset,
   getInvestDemoQuotes,
 } from "./investDemo";
+export {
+  createTriviaDuel,
+  respondToTriviaDuel,
+  cancelTriviaDuel,
+  getTriviaDuelQuestion,
+  submitTriviaDuelAnswer,
+} from "./triviaDuel";
 export { penaltyTaskSweep } from "./penaltyTasks";
 export {
   onTaskProposalCreated,
