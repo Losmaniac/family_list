@@ -215,6 +215,27 @@ service cloud.firestore {
         allow delete: if isParent(familyId) && resource.data.status != 'active';
       }
 
+      // Demo (paper-trading) portfolios — cashBalance, holdings and
+      // transactions are only ever written by the buy/sell/init Cloud
+      // Functions in functions/src/investDemo.ts (Admin SDK, bypasses
+      // rules). A client-writable cash balance or holding here would make
+      // every trade a free cheat, same reasoning as xpBalance never being
+      // client-writable.
+      match /investDemoPortfolios/{userId} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+
+        match /holdings/{symbol} {
+          allow read: if isFamilyMember(familyId);
+          allow write: if false;
+        }
+
+        match /transactions/{transactionId} {
+          allow read: if isFamilyMember(familyId);
+          allow write: if false;
+        }
+      }
+
       match /pooledContributions/{poolId} {
         allow read: if isFamilyMember(familyId);
         // A parent starts the pool — the family has already agreed in

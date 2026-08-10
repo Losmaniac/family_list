@@ -1,5 +1,6 @@
 import type { RadioStation } from "./radio-browser";
 import type { TvChannel } from "./iptv-org";
+import type { InvestDemoAssetType } from "./invest-demo";
 
 /**
  * users/{userId} — top-level lookup so the client can resolve which family a
@@ -69,6 +70,10 @@ export interface Family {
   childCurfewStartHour?: number;
   /** Hour (0-23) the curfew ends, in family-zone local time; absent = 6. */
   childCurfewEndHour?: number;
+  /** Whether the "Demo investování" paper-trading section is shown on the Investice card; absent = disabled. */
+  investDemoEnabled?: boolean;
+  /** Starting virtual cash (CZK) a new member's demo portfolio is created with; absent = the built-in default (see lib/invest-demo.ts). */
+  investDemoStartingBalance?: number;
 }
 
 export type MemberRole = "parent" | "child";
@@ -335,6 +340,41 @@ export interface Investment {
   payout?: number;
   /** Set once the principal has actually been deducted — lets a reconciliation sweep tell a fully-processed 'active' investment apart from one whose creation event never got processed. */
   principalDeducted?: boolean;
+}
+
+/**
+ * families/{familyId}/investDemoPortfolios/{userId} — a member's paper-
+ * trading account: virtual CZK cash plus a holdings/transactions
+ * subcollection each. Only ever written by trusted server code (the
+ * buy/sell Cloud Functions in functions/src/investDemo.ts, Admin SDK
+ * bypasses rules) — same trust model as xpBalance, since a client-writable
+ * cash balance would make every trade a free cheat.
+ */
+export interface InvestDemoPortfolio {
+  cashBalance: number;
+  createdAt: number;
+}
+
+export interface InvestDemoHolding {
+  symbol: string;
+  name: string;
+  assetType: InvestDemoAssetType;
+  quantity: number;
+  /** Weighted-average purchase price per unit, in CZK. */
+  avgCostCzk: number;
+}
+
+export interface InvestDemoTransaction {
+  id: string;
+  symbol: string;
+  name: string;
+  assetType: InvestDemoAssetType;
+  side: "buy" | "sell";
+  quantity: number;
+  /** Price per unit at execution time, converted to CZK. */
+  priceCzk: number;
+  totalCzk: number;
+  timestamp: number;
 }
 
 export interface ChatMessage {

@@ -24,6 +24,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { useLocale } from "@/lib/locale-context";
 import AccentColorPicker from "@/components/AccentColorPicker";
 import InvestmentSettingsPanel from "@/components/InvestmentSettingsPanel";
+import InvestDemoSettingsPanel from "@/components/InvestDemoSettingsPanel";
 import GameSettingsPanel from "@/components/GameSettingsPanel";
 import StreakSettingsPanel from "@/components/StreakSettingsPanel";
 import CurfewSettingsPanel from "@/components/CurfewSettingsPanel";
@@ -481,6 +482,11 @@ export default function SettingsPage() {
             familyId={familyId}
             enabled={family?.investmentsEnabled !== false}
             customTerms={family?.investmentTerms}
+          />
+          <InvestDemoSettingsPanel
+            familyId={familyId}
+            enabled={family?.investDemoEnabled === true}
+            startingBalance={family?.investDemoStartingBalance}
           />
         </section>
       )}
