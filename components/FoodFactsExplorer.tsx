@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Barcode, ScanLine, Search, Utensils, X } from "lucide-react";
 import { useToast } from "@/lib/toast-context";
 import {
@@ -170,17 +171,24 @@ export default function FoodFactsExplorer() {
         )}
       </form>
 
-      {scanning && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black">
-          <div className="flex items-center justify-between px-4 py-2 text-white">
-            <p className="text-sm font-medium">Namiř na čárový kód</p>
-            <button type="button" onClick={stopScan} aria-label="Zavřít" className="text-white">
-              <X size={20} />
-            </button>
-          </div>
-          <video ref={videoRef} muted playsInline className="min-h-0 flex-1 object-cover" />
-        </div>
-      )}
+      {scanning &&
+        createPortal(
+          // Portaled to <body> — a `fixed inset-0` nested inside this
+          // page's <main> can't out-rank the bottom nav bar, since main's
+          // viewTransitionName gives it its own stacking context. See the
+          // same comment in InvestDemoPanel's trade drawer for the full
+          // explanation.
+          <div className="fixed inset-0 z-50 flex flex-col bg-black">
+            <div className="flex items-center justify-between px-4 py-2 text-white">
+              <p className="text-sm font-medium">Namiř na čárový kód</p>
+              <button type="button" onClick={stopScan} aria-label="Zavřít" className="text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <video ref={videoRef} muted playsInline className="min-h-0 flex-1 object-cover" />
+          </div>,
+          document.body
+        )}
 
       {loading ? (
         <div className="flex flex-col gap-2">

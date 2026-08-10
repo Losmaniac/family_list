@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { collection, doc, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { LineChart, Search, TrendingDown, TrendingUp } from "lucide-react";
@@ -415,58 +416,68 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
         <p className="text-sm text-zinc-500">Nic jsme nenašli — zkus jiný název nebo zkratku.</p>
       ) : null}
 
-      {tradeTarget && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => setTradeTarget(null)}>
-          <div
-            className="flex w-full max-w-sm flex-col gap-3 rounded-t-2xl bg-surface p-5 sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="font-medium">
-              {tradeTarget.side === "buy" ? "Koupit" : "Prodat"} — {tradeTarget.name}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {tradeTarget.symbol}
-              {" · "}
-              {tradeQuoteLoading
-                ? "Načítám cenu…"
-                : tradeQuote?.priceCzk != null && tradeQuote.price != null && tradeQuote.currency
-                  ? `${formatCzk(tradeQuote.priceCzk)}/ks (${formatNativePrice(tradeQuote.price, tradeQuote.currency)}) — aktuální cena se ověří při odeslání`
-                  : "Cena se ověří při odeslání."}
-            </p>
-            <label className="flex flex-col gap-1 text-sm">
-              Množství (kusů)
-              <input
-                type="text"
-                inputMode="decimal"
-                autoFocus
-                value={tradeQuantity}
-                onChange={(e) => setTradeQuantity(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-4 py-2"
-              />
-            </label>
-            {tradeTarget.side === "sell" && tradeTarget.maxQuantity !== undefined && (
-              <p className="text-xs text-zinc-500">Vlastníš {tradeTarget.maxQuantity} ks.</p>
-            )}
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleConfirmTrade}
-                disabled={trading}
-                className="flex-1 rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-              >
-                {trading ? "Odesílám…" : tradeTarget.side === "buy" ? "Koupit" : "Prodat"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTradeTarget(null)}
-                className="rounded-full border border-border px-4 py-2.5 text-sm font-semibold"
-              >
-                Zrušit
-              </button>
+      {tradeTarget &&
+        createPortal(
+          // Portaled straight to <body> — this page's <main> carries a
+          // `viewTransitionName` (for the tab-slide animation), which per
+          // spec gives it its own stacking context. A `fixed inset-0 z-50`
+          // div nested inside main can't escape that context to out-rank
+          // the bottom nav bar (a sibling of main, outside it), so it was
+          // rendering *behind* the nav instead of on top of it. Every
+          // other full-screen modal in this page tree has the same
+          // constraint — this is the general fix, not a one-off hack.
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => setTradeTarget(null)}>
+            <div
+              className="flex w-full max-w-sm flex-col gap-3 rounded-t-2xl bg-surface p-5 sm:rounded-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="font-medium">
+                {tradeTarget.side === "buy" ? "Koupit" : "Prodat"} — {tradeTarget.name}
+              </p>
+              <p className="text-xs text-zinc-500">
+                {tradeTarget.symbol}
+                {" · "}
+                {tradeQuoteLoading
+                  ? "Načítám cenu…"
+                  : tradeQuote?.priceCzk != null && tradeQuote.price != null && tradeQuote.currency
+                    ? `${formatCzk(tradeQuote.priceCzk)}/ks (${formatNativePrice(tradeQuote.price, tradeQuote.currency)}) — aktuální cena se ověří při odeslání`
+                    : "Cena se ověří při odeslání."}
+              </p>
+              <label className="flex flex-col gap-1 text-sm">
+                Množství (kusů)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={tradeQuantity}
+                  onChange={(e) => setTradeQuantity(e.target.value)}
+                  className="rounded-lg border border-border bg-surface px-4 py-2"
+                />
+              </label>
+              {tradeTarget.side === "sell" && tradeTarget.maxQuantity !== undefined && (
+                <p className="text-xs text-zinc-500">Vlastníš {tradeTarget.maxQuantity} ks.</p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleConfirmTrade}
+                  disabled={trading}
+                  className="flex-1 rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                >
+                  {trading ? "Odesílám…" : tradeTarget.side === "buy" ? "Koupit" : "Prodat"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTradeTarget(null)}
+                  className="rounded-full border border-border px-4 py-2.5 text-sm font-semibold"
+                >
+                  Zrušit
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {transactions.length > 0 && (
         <div className="flex flex-col gap-2">

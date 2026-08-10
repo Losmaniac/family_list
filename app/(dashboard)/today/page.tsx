@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { PartyPopper, Sparkles, Star, X } from "lucide-react";
@@ -486,28 +487,33 @@ export default function TodayPage() {
         )}
       </section>
 
-      {expandedPhotoUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setExpandedPhotoUrl(null)}
-        >
-          <button
-            type="button"
+      {expandedPhotoUrl &&
+        createPortal(
+          // Portaled to <body> — see the comment in InvestDemoPanel's
+          // trade drawer for why a `fixed inset-0` nested inside <main>
+          // can't out-rank the bottom nav bar.
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
             onClick={() => setExpandedPhotoUrl(null)}
-            aria-label="Zavřít"
-            className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white"
           >
-            <X size={20} />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
-          <img
-            src={expandedPhotoUrl}
-            alt="Foto potvrzení úkolu"
-            className="max-h-full max-w-full rounded-lg object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => setExpandedPhotoUrl(null)}
+              aria-label="Zavřít"
+              className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white"
+            >
+              <X size={20} />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded Storage URL, not a static asset */}
+            <img
+              src={expandedPhotoUrl}
+              alt="Foto potvrzení úkolu"
+              className="max-h-full max-w-full rounded-lg object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
