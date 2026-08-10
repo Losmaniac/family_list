@@ -5,6 +5,7 @@ import {
   CUSTOM_TOPIC_ID,
   difficultyLabelForStreak,
   MAX_CUSTOM_TOPIC_LENGTH,
+  MAX_RECENT_QUESTIONS,
   normalizeCustomTopic,
   parseAiQuizResponse,
   shuffleThree,
@@ -33,6 +34,19 @@ describe("buildAiQuizPrompt", () => {
   it("includes a custom difficulty label when given one", () => {
     const prompt = buildAiQuizPrompt("Matematika", "expertní úroveň");
     expect(prompt).toContain("expertní úroveň");
+  });
+
+  it("includes a do-not-repeat list when given recent questions, omits it otherwise", () => {
+    const withHistory = buildAiQuizPrompt("Fotbal", undefined, ["Kolik hráčů má fotbalový tým na hřišti?"]);
+    expect(withHistory).toContain("Kolik hráčů má fotbalový tým na hřišti?");
+    expect(withHistory).toContain("nesmíš zopakovat");
+
+    const withoutHistory = buildAiQuizPrompt("Fotbal");
+    expect(withoutHistory).not.toContain("nesmíš zopakovat");
+  });
+
+  it("has a sane MAX_RECENT_QUESTIONS", () => {
+    expect(MAX_RECENT_QUESTIONS).toBeGreaterThan(0);
   });
 
   it("instructs the model to use grammatically correct Czech", () => {

@@ -43,17 +43,40 @@ export function difficultyLabelForStreak(streak: number): string {
 const CZECH_QUALITY_INSTRUCTION =
   'Jsi český asistent. Tvým úkolem je odpovídat výhradně v plynulé, spisovné a gramaticky absolutně správné češtině. Zkontroluj si skloňování a časování slov předtím, než vypíšeš odpověď.';
 
-/** Strict-JSON-only instructions — parseAiQuizResponse only ever accepts exactly this shape, so the prompt has to be unambiguous about it. */
-export function buildAiQuizPrompt(topicLabel: string, difficultyLabel: string = difficultyLabelForStreak(0)): string {
-  return [
+/** How many recently-asked questions per topic are remembered and fed back into the prompt as a do-not-repeat list — see recentQuestions in functions/src/aiQuiz.ts. */
+export const MAX_RECENT_QUESTIONS = 8;
+
+/**
+ * Strict-JSON-only instructions — parseAiQuizResponse only ever accepts
+ * exactly this shape, so the prompt has to be unambiguous about it.
+ *
+ * `recentQuestions` (most recent last) is the do-not-repeat list for this
+ * topic — without it, a model asked the same narrow topic repeatedly (e.g.
+ * auto-advance on a custom topic) tends to keep landing on the single most
+ * "obvious" question every time (e.g. always "how many players on a
+ * football team"), since nothing in the prompt tells it that's already
+ * been asked.
+ */
+export function buildAiQuizPrompt(topicLabel: string, difficultyLabel: string = difficultyLabelForStreak(0), recentQuestions: string[] = []): string {
+  const lines = [
     CZECH_QUALITY_INSTRUCTION,
     "Jsi generátor vzdělávacích kvízových otázek pro žáky druhého stupně základní školy (přibližně 10-15 let, 5.-9. třída). Otázky nesmí být primitivní ani triviální — cílíš na úroveň druhého stupně, ne na úplné začátečníky.",
     `Vytvoř JEDNU otázku s výběrem odpovědí na téma "${topicLabel}" v češtině.`,
     `Obtížnost otázky: ${difficultyLabel}.`,
+    "Otázky musí být pestré: střídej úhly pohledu (historie, pravidla/zásady, zajímavosti, čísla a rekordy, osobnosti, souvislosti s jinými obory...) — nedrž se pořád jedné a té samé nejzřejmější otázky k tématu.",
+  ];
+  if (recentQuestions.length > 0) {
+    lines.push(
+      "Tyto otázky už na toto téma padly — ani jednu z nich nesmíš zopakovat, ani jen mírně přeformulovat. Vymysli otázku na jiný úhel pohledu:",
+      ...recentQuestions.map((q) => `- ${q}`)
+    );
+  }
+  lines.push(
     "Odpověz VÝHRADNĚ validním JSON objektem v tomto přesném tvaru, bez jakéhokoliv dalšího textu a bez markdown bloků:",
     '{"question": "text otázky", "options": ["možnost A", "možnost B", "možnost C"], "correctIndex": 0}',
-    '"correctIndex" je index (0, 1 nebo 2) správné možnosti v poli "options". Možnosti musí být krátké, jednoznačné a jen jedna z nich smí být správně.',
-  ].join("\n");
+    '"correctIndex" je index (0, 1 nebo 2) správné možnosti v poli "options". Možnosti musí být krátké, jednoznačné a jen jedna z nich smí být správně.'
+  );
+  return lines.join("\n");
 }
 
 /** The pseudo-topic id for a user-typed subject — not in AI_QUIZ_TOPICS since it has no fixed label. */
