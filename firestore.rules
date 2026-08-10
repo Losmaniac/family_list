@@ -140,6 +140,14 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // AI-written weekly recap (functions/src/weeklyDigest.ts, Sunday
+      // cron) — readable by the family like any other recap, but only ever
+      // written by the Admin SDK, never a client.
+      match /weeklyDigests/{weekKey} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
       match /rewards/{rewardId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

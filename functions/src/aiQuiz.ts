@@ -1,20 +1,9 @@
 /**
  * "AI otázky" — a Vzdělání subject with no fixed question bank at all:
- * every question is generated on demand by an LLM. A family can configure
- * either (or both) of two providers in Settings — Gemini, or OpenRouter
- * (a router that fronts many models, several with a free tier) — each key
- * entered once (setGeminiApiKey / setOpenRouterConfig below) and stored
- * server-only in families/{familyId}/secrets/{gemini,openrouter}; it never
- * touches a client after that first submit, same trust boundary as
- * everything else money/credential-shaped in this app.
- *
- * Generation order (generateAiQuizQuestion): Gemini is always tried first
- * when configured (it's the family's own Google API key). If Gemini isn't
- * configured, or it fails/returns something unparseable (quota, transient
- * error, malformed JSON, ...), it falls back to OpenRouter — starting with
- * the family's saved model, then automatically cycling through OpenRouter's
- * free-tier catalog (fetched live, cached briefly) until one of them
- * actually produces a valid question, or the attempt budget runs out.
+ * every question is generated on demand by an LLM. Provider selection/
+ * fallback (Gemini first, then OpenRouter) and API key storage are shared
+ * with weeklyDigest.ts via aiProvider.ts — see that file for the full
+ * explanation of the Gemini→OpenRouter fallback chain and key storage.
  *
  * Difficulty ramps up per topic: families/{familyId}/aiQuizProgress/{uid}
  * tracks a consecutive-correct streak per topic (keyed via
@@ -36,14 +25,11 @@ import {
   parseAiQuizResponse,
   shuffleThree,
   streakKeyForTopic,
-  type ParsedAiQuizQuestion,
 } from "../../lib/ai-quiz";
-import { OPENROUTER_MODELS_URL, parseOpenRouterModels } from "../../lib/openrouter";
 import { isAnswerCorrect, primaryAnswer, PRACTICE_XP_PER_PROBLEM } from "../../lib/practice";
 import { requireAuth, requireFamilyMember, awardCappedPracticeXp, getPracticeXpHeadroomToday } from "./practice";
+import { loadAiSecrets, generateWithFallback } from "./aiProvider";
 import type { Member } from "../../lib/types";
-
-const GEMINI_MODEL = "gemini-2.0-flash";
 
 async function requireParent(db: Firestore, familyId: string, uid: string): Promise<void> {
   const memberSnap = await db.collection("families").doc(familyId).collection("members").doc(uid).get();
@@ -120,145 +106,6 @@ export const setOpenRouterConfig = onCall<SetOpenRouterConfigRequest>(async (req
   return { configured: true };
 });
 
-interface AiSecrets {
-  gemini?: { apiKey?: string };
-  openRouter?: { apiKey?: string; model?: string };
-}
-
-async function loadAiSecrets(db: Firestore, familyId: string): Promise<AiSecrets> {
-  const familyRef = db.collection("families").doc(familyId);
-  const [openRouterSnap, geminiSnap] = await Promise.all([
-    familyRef.collection("secrets").doc("openrouter").get(),
-    familyRef.collection("secrets").doc("gemini").get(),
-  ]);
-  return {
-    gemini: geminiSnap.data() as { apiKey?: string } | undefined,
-    openRouter: openRouterSnap.data() as { apiKey?: string; model?: string } | undefined,
-  };
-}
-
-// Cheap module-level cache so a burst of questions doesn't re-fetch
-// OpenRouter's full model catalog on every single call.
-let freeOpenRouterModelsCache: { ids: string[]; fetchedAt: number } | null = null;
-const FREE_MODELS_CACHE_TTL_MS = 10 * 60 * 1000;
-
-async function getFreeOpenRouterModelIds(): Promise<string[]> {
-  if (freeOpenRouterModelsCache && Date.now() - freeOpenRouterModelsCache.fetchedAt < FREE_MODELS_CACHE_TTL_MS) {
-    return freeOpenRouterModelsCache.ids;
-  }
-  try {
-    const res = await fetch(OPENROUTER_MODELS_URL);
-    if (!res.ok) return freeOpenRouterModelsCache?.ids ?? [];
-    const ids = parseOpenRouterModels(await res.json())
-      .filter((m) => m.free)
-      .map((m) => m.id);
-    freeOpenRouterModelsCache = { ids, fetchedAt: Date.now() };
-    return ids;
-  } catch {
-    return freeOpenRouterModelsCache?.ids ?? [];
-  }
-}
-
-const MAX_OPENROUTER_MODEL_ATTEMPTS = 5;
-
-async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    }
-  );
-  if (res.status === 400 || res.status === 403) {
-    throw new HttpsError("failed-precondition", "API klíč pro Gemini se zdá být neplatný — zkontroluj ho v Nastavení.");
-  }
-  if (res.status === 429) {
-    // Gemini's free tier has a low per-minute/per-day request quota — this
-    // is expected under normal family use, not a bug. generateWithFallback
-    // already falls back to OpenRouter automatically when this happens, so
-    // this message only ever reaches the caller if OpenRouter also isn't
-    // configured or exhausted the fallback list too.
-    throw new HttpsError(
-      "resource-exhausted",
-      "Gemini má vyčerpaný bezplatný limit dotazů na dnes/tuto minutu — zkus to za chvíli znovu, nebo nastav v Nastavení i OpenRouter jako druhou možnost."
-    );
-  }
-  if (!res.ok) {
-    throw new HttpsError("unavailable", `Gemini je momentálně nedostupné (HTTP ${res.status}).`);
-  }
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (typeof text !== "string") throw new HttpsError("internal", "Neplatná odpověď od AI.");
-  return text;
-}
-
-async function callOpenRouter(apiKey: string, model: string, prompt: string): Promise<string> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }] }),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new HttpsError("failed-precondition", "API klíč pro OpenRouter se zdá být neplatný — zkontroluj ho v Nastavení.");
-  }
-  if (res.status === 429) {
-    throw new HttpsError("resource-exhausted", "Zvolený model na OpenRouter má vyčerpaný limit dotazů — zkus to za chvíli znovu, nebo v Nastavení vyber jiný model.");
-  }
-  if (!res.ok) {
-    throw new HttpsError("unavailable", `OpenRouter je momentálně nedostupný (HTTP ${res.status}).`);
-  }
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const text = data.choices?.[0]?.message?.content;
-  if (typeof text !== "string") throw new HttpsError("internal", "Neplatná odpověď od AI.");
-  return text;
-}
-
-async function attemptGemini(apiKey: string, prompt: string): Promise<ParsedAiQuizQuestion | null> {
-  try {
-    return parseAiQuizResponse(await callGemini(apiKey, prompt));
-  } catch {
-    return null;
-  }
-}
-
-async function attemptOpenRouter(apiKey: string, model: string, prompt: string): Promise<ParsedAiQuizQuestion | null> {
-  try {
-    return parseAiQuizResponse(await callOpenRouter(apiKey, model, prompt));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Tries Gemini first, then OpenRouter — starting with the family's saved
- * model, then working through OpenRouter's free-tier catalog — stopping as
- * soon as one attempt yields a valid question. Individual provider/model
- * failures (quota, invalid key, malformed output, ...) are swallowed here
- * so the caller only ever sees "nothing worked" as a single outcome.
- */
-async function generateWithFallback(secrets: AiSecrets, prompt: string): Promise<ParsedAiQuizQuestion | null> {
-  if (secrets.gemini?.apiKey) {
-    const parsed = await attemptGemini(secrets.gemini.apiKey, prompt);
-    if (parsed) return parsed;
-  }
-
-  if (secrets.openRouter?.apiKey) {
-    const candidateModels = [...new Set([secrets.openRouter.model, ...(await getFreeOpenRouterModelIds())].filter((m): m is string => !!m))].slice(
-      0,
-      MAX_OPENROUTER_MODEL_ATTEMPTS
-    );
-    for (const model of candidateModels) {
-      const parsed = await attemptOpenRouter(secrets.openRouter.apiKey, model, prompt);
-      if (parsed) return parsed;
-    }
-  }
-
-  return null;
-}
-
 interface GenerateRequest {
   familyId: string;
   topicId: string;
@@ -301,7 +148,7 @@ export const generateAiQuizQuestion = onCall<GenerateRequest>(async (request) =>
   const progressSnap = await familyRef.collection("aiQuizProgress").doc(uid).get();
   const streak = (progressSnap.data()?.streaks?.[streakKey] as number | undefined) ?? 0;
 
-  const parsed = await generateWithFallback(secrets, buildAiQuizPrompt(topicLabel, difficultyLabelForStreak(streak)));
+  const parsed = await generateWithFallback(secrets, buildAiQuizPrompt(topicLabel, difficultyLabelForStreak(streak)), parseAiQuizResponse);
   if (!parsed) {
     throw new HttpsError("internal", "Ani jeden nastavený model se nepodařilo použít — zkus to znovu za chvíli.");
   }
