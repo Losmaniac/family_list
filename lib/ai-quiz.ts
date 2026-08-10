@@ -29,10 +29,10 @@ export const AI_QUIZ_TOPICS: AiQuizTopic[] = [
  * level forever. Resets to 0 on any wrong answer (see submitAiQuizAnswer).
  */
 export function difficultyLabelForStreak(streak: number): string {
-  if (streak >= 8) return "expertní — klidně na hranici znalostí pro tento věk, méně známý detail nebo chyták";
-  if (streak >= 5) return "obtížná — vyžaduje přemýšlení a souvislosti, ne jen základní fakta";
-  if (streak >= 2) return "středně obtížná";
-  return "základní, přiměřená pro úplný začátek";
+  if (streak >= 8) return "expertní — na hranici učiva druhého stupně, klidně méně známý detail, souvislost mezi předměty nebo chyták";
+  if (streak >= 5) return "obtížná — látka vyšších ročníků druhého stupně, vyžaduje přemýšlení a souvislosti, ne jen zapamatovaná fakta";
+  if (streak >= 2) return "středně obtížná — běžné učivo druhého stupně, ne jen memorování";
+  return "přiměřená úrovni druhého stupně základní školy (5.–9. třída) — rozhodně ne triviální ani pro nejmladší děti, ale zvládnutelná bez pokročilých znalostí";
 }
 
 /**
@@ -47,7 +47,7 @@ const CZECH_QUALITY_INSTRUCTION =
 export function buildAiQuizPrompt(topicLabel: string, difficultyLabel: string = difficultyLabelForStreak(0)): string {
   return [
     CZECH_QUALITY_INSTRUCTION,
-    "Jsi generátor vzdělávacích kvízových otázek pro děti ve věku 8-14 let.",
+    "Jsi generátor vzdělávacích kvízových otázek pro žáky druhého stupně základní školy (přibližně 10-15 let, 5.-9. třída). Otázky nesmí být primitivní ani triviální — cílíš na úroveň druhého stupně, ne na úplné začátečníky.",
     `Vytvoř JEDNU otázku s výběrem odpovědí na téma "${topicLabel}" v češtině.`,
     `Obtížnost otázky: ${difficultyLabel}.`,
     "Odpověz VÝHRADNĚ validním JSON objektem v tomto přesném tvaru, bez jakéhokoliv dalšího textu a bez markdown bloků:",
