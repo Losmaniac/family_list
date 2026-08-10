@@ -116,3 +116,24 @@ export const ASSET_TYPE_LABELS: Record<InvestDemoAssetType, string> = {
   index: "Index",
   crypto: "Kryptoměna",
 };
+
+/**
+ * A hand-picked starter list shown up front, before any search — mainstream
+ * indices and well-known stocks a kid is likely to have heard of, so there's
+ * always something to look at/trade even without knowing what to search
+ * for. Michelin (ML.PA, its primary Euronext Paris listing) is included
+ * explicitly per a parent's request — a real-world example of a
+ * non-tech, non-US household name.
+ */
+export const FEATURED_ASSETS: InvestDemoAsset[] = [
+  { symbol: "^GSPC", name: "S&P 500", assetType: "index" },
+  { symbol: "^DJI", name: "Dow Jones Industrial Average", assetType: "index" },
+  { symbol: "^IXIC", name: "Nasdaq Composite", assetType: "index" },
+  { symbol: "AAPL", name: "Apple Inc.", assetType: "stock" },
+  { symbol: "MSFT", name: "Microsoft Corporation", assetType: "stock" },
+  { symbol: "NVDA", name: "NVIDIA Corporation", assetType: "stock" },
+  { symbol: "AMZN", name: "Amazon.com Inc.", assetType: "stock" },
+  { symbol: "ML.PA", name: "Michelin", assetType: "stock", exchange: "Paris" },
+  { symbol: "BTC-USD", name: "Bitcoin", assetType: "crypto" },
+  { symbol: "ETH-USD", name: "Ethereum", assetType: "crypto" },
+];

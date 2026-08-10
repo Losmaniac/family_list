@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FEATURED_ASSETS,
   formatCzk,
   mapQuoteType,
   nextAvgCost,
@@ -110,5 +111,18 @@ describe("nextAvgCost", () => {
 describe("formatCzk", () => {
   it("formats with a thousands separator and Kč suffix", () => {
     expect(formatCzk(100000)).toBe(`${(100000).toLocaleString("cs-CZ")} Kč`);
+  });
+});
+
+describe("FEATURED_ASSETS", () => {
+  it("includes both indices and stocks, and Michelin specifically", () => {
+    expect(FEATURED_ASSETS.some((a) => a.assetType === "index")).toBe(true);
+    expect(FEATURED_ASSETS.some((a) => a.assetType === "stock")).toBe(true);
+    expect(FEATURED_ASSETS.find((a) => a.symbol === "ML.PA")?.name).toBe("Michelin");
+  });
+
+  it("every entry has a unique symbol", () => {
+    const symbols = FEATURED_ASSETS.map((a) => a.symbol);
+    expect(new Set(symbols).size).toBe(symbols.length);
   });
 });

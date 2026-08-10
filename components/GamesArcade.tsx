@@ -13,13 +13,22 @@ const GAMES: { id: GameId; label: string; description: string }[] = [
   { id: "stack", label: "Věž", description: "Klepni přesně ve chvíli, kdy kostka leží nad tou předchozí." },
 ];
 
-/** No-XP arcade — three short reflex/timing games, same "trivial controls, fast-escalating difficulty" shape as their genre's best-known examples, built from scratch (canvas + requestAnimationFrame), no external game engine or assets. */
+/**
+ * No-XP arcade — three short reflex/timing games, same "trivial controls,
+ * fast-escalating difficulty" shape as their genre's best-known examples,
+ * built from scratch (canvas + requestAnimationFrame), no external game
+ * engine or assets.
+ *
+ * `select-none` stops the native text-selection a rapid click-drag (or
+ * quick repeated tap, on some browsers) would otherwise trigger while
+ * steering a game.
+ */
 export default function GamesArcade() {
   const [active, setActive] = useState<GameId>("duo");
   const activeGame = GAMES.find((g) => g.id === active)!;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex select-none flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         {GAMES.map((g) => (
           <button
