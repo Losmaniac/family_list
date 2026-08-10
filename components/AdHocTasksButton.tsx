@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
@@ -133,68 +134,73 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
         <Plus size={18} />
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}
-        >
+      {open &&
+        createPortal(
+          // Portaled to <body> — see the comment in InvestDemoPanel's
+          // trade drawer for why a `fixed inset-0` nested inside <main>
+          // can't out-rank the bottom nav bar.
           <div
-            className="flex max-h-[85vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setOpen(false)}
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Jednorázové úkoly</h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Zavřít"
-                className="text-zinc-400 hover:text-zinc-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {activeTypes.length === 0 ? (
-              <p className="text-sm text-zinc-500">
-                Rodič zatím nenastavil žádné jednorázové úkoly (Nastavení → Jednorázové úkoly).
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {activeTypes.map((type) => {
-                  const cooldown = adHocCooldownInfo(type.cooldownMinutes, latestByType[type.id], now);
-                  return (
-                    <div
-                      key={type.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{type.title}</p>
-                        <p className="text-sm text-zinc-500">
-                          +{formatXp(type.xpValue)} XP{type.photoRequired ? " · vyžaduje foto" : ""}
-                        </p>
-                      </div>
-                      {cooldown.onCooldown ? (
-                        <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1.5 text-sm text-zinc-500">
-                          {formatCooldownRemaining(cooldown.remainingMs)}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleComplete(type)}
-                          disabled={submittingId === type.id}
-                          className="shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-                        >
-                          Splnit
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+            <div
+              className="flex max-h-[85vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Jednorázové úkoly</h2>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Zavřít"
+                  className="text-zinc-400 hover:text-zinc-600"
+                >
+                  <X size={20} />
+                </button>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+
+              {activeTypes.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  Rodič zatím nenastavil žádné jednorázové úkoly (Nastavení → Jednorázové úkoly).
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {activeTypes.map((type) => {
+                    const cooldown = adHocCooldownInfo(type.cooldownMinutes, latestByType[type.id], now);
+                    return (
+                      <div
+                        key={type.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{type.title}</p>
+                          <p className="text-sm text-zinc-500">
+                            +{formatXp(type.xpValue)} XP{type.photoRequired ? " · vyžaduje foto" : ""}
+                          </p>
+                        </div>
+                        {cooldown.onCooldown ? (
+                          <span className="shrink-0 rounded-full bg-surface-muted px-3 py-1.5 text-sm text-zinc-500">
+                            {formatCooldownRemaining(cooldown.remainingMs)}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleComplete(type)}
+                            disabled={submittingId === type.id}
+                            className="shrink-0 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                          >
+                            Splnit
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

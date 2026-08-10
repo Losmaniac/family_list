@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { Heart, Pause, Play, Radio as RadioIcon, Search, Tv } from "lucide-react";
@@ -605,38 +606,43 @@ function TvTab() {
         </div>
       )}
 
-      {playing && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setPlaying(null)}
-        >
-          <div className="flex w-full max-w-lg flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-            <p className="truncate text-center text-sm font-medium text-white">{playing.name}</p>
-            <p className="text-center text-xs text-white/70">
-              {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
-            </p>
-            <video
-              key={playing.id}
-              src={playing.streamUrl}
-              autoPlay
-              controls
-              playsInline
-              onError={() => {
-                toast.error("Vysílání se nepodařilo přehrát — zkus jiný kanál.");
-                setPlaying(null);
-              }}
-              className="w-full rounded-lg"
-            />
-            <button
-              type="button"
-              onClick={() => setPlaying(null)}
-              className="self-center rounded-full border border-white/30 px-4 py-1.5 text-sm font-semibold text-white"
-            >
-              Zavřít
-            </button>
-          </div>
-        </div>
-      )}
+      {playing &&
+        createPortal(
+          // Portaled to <body> — see the identical comment in
+          // InvestDemoPanel's trade drawer for why a `fixed inset-0 z-50`
+          // nested inside this page's <main> can't out-rank the bottom nav.
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+            onClick={() => setPlaying(null)}
+          >
+            <div className="flex w-full max-w-lg flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+              <p className="truncate text-center text-sm font-medium text-white">{playing.name}</p>
+              <p className="text-center text-xs text-white/70">
+                {formatElapsed(elapsedSeconds)} · {spentXp > 0 ? `−${formatXp(spentXp)} XP` : "zdarma"}
+              </p>
+              <video
+                key={playing.id}
+                src={playing.streamUrl}
+                autoPlay
+                controls
+                playsInline
+                onError={() => {
+                  toast.error("Vysílání se nepodařilo přehrát — zkus jiný kanál.");
+                  setPlaying(null);
+                }}
+                className="w-full rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={() => setPlaying(null)}
+                className="self-center rounded-full border border-white/30 px-4 py-1.5 text-sm font-semibold text-white"
+              >
+                Zavřít
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

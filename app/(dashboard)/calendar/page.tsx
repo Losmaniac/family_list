@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { collection, deleteDoc, doc, onSnapshot, writeBatch } from "firebase/firestore";
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { getDb } from "@/lib/firebase";
@@ -236,8 +237,12 @@ export default function CalendarPage() {
         })}
       </div>
 
-      {openDateKey && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      {openDateKey &&
+        createPortal(
+          // Portaled to <body> — see the comment in InvestDemoPanel's
+          // trade drawer for why a `fixed inset-0` nested inside <main>
+          // can't out-rank the bottom nav bar.
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex max-h-[85vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-2xl bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold capitalize">{openDayLabel}</h2>
@@ -426,8 +431,9 @@ export default function CalendarPage() {
               </form>
             )}
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
