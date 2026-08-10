@@ -87,7 +87,46 @@ export interface Family {
   openRouterApiKeyConfigured?: boolean;
   /** The chosen OpenRouter model id (e.g. "openai/gpt-4o-mini") — not a secret, safe to read directly, unlike the key itself. */
   openRouterModel?: string;
+  /**
+   * Per-notification-type on/off + optional recipient allowlist, parent-
+   * configured in Settings (see NotificationSettingsPanel). A missing
+   * entry for a type means enabled, default audience. `recipientIds`
+   * only ever narrows that type's natural audience (e.g. "parents" for
+   * task_submitted) down to a subset — it can never add a recipient who
+   * wouldn't otherwise be eligible, so this can't be used to route a
+   * parent-only notification to a child. See functions/src/notifyHelpers.ts's
+   * notifyMembers, which resolves this on every send. Does not cover the
+   * evening reminder (its own eveningReminderEnabled field, unchanged) or
+   * the AI otázky test notification (deliberately unfiltered — it's a
+   * device self-check, not a real event).
+   */
+  notificationSettings?: Partial<Record<NotificationTypeId, { enabled?: boolean; recipientIds?: string[] }>>;
 }
+
+/**
+ * Every event-driven push this app sends, keyed for
+ * Family.notificationSettings and functions/src/notifyHelpers.ts's
+ * notifyMembers. Types whose natural audience is always exactly one
+ * person (task_decided, marketplace_offer, investment_matured) support
+ * the enabled/disabled toggle but not a recipient allowlist — there's
+ * nobody else in the audience to narrow.
+ */
+export type NotificationTypeId =
+  | "task_submitted"
+  | "task_decided"
+  | "task_proposal"
+  | "task_request"
+  | "xp_adjustment"
+  | "pooled_contribution"
+  | "reward_redemption"
+  | "marketplace_offer"
+  | "investment_matured"
+  | "weekly_digest"
+  // Not exposed in the Settings notification-preferences list — it already
+  // has its own dedicated eveningReminderEnabled toggle (checked before
+  // notifyMembers is even called), kept separate to avoid two conflicting
+  // on/off switches for the same thing.
+  | "evening_reminder";
 
 export type MemberRole = "parent" | "child";
 

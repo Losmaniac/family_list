@@ -144,6 +144,7 @@ export const maturedInvestmentsPayout = onSchedule(
         if (member) {
           await notifyMembers(
             familyDoc.id,
+            "investment_matured",
             [{ userId: investment.userId, fcmToken: member.fcmToken }],
             "Family Quest",
             `Investice dozrála! +${payout} XP připsáno na účet.`,

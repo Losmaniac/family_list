@@ -32,7 +32,7 @@ export const sendReminders = onSchedule(
       for (const [userId, count] of pendingByMember) {
         const memberDoc = await familyDoc.ref.collection("members").doc(userId).get();
         const fcmToken = memberDoc.data()?.fcmToken as string | undefined;
-        await notifyMembers(familyDoc.id, [{ userId, fcmToken }], "Family Quest", `Máš ${count} nedokončených úkolů na dnes.`, db);
+        await notifyMembers(familyDoc.id, "evening_reminder", [{ userId, fcmToken }], "Family Quest", `Máš ${count} nedokončených úkolů na dnes.`, db);
       }
     }
   }
