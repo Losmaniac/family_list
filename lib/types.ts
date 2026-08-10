@@ -719,3 +719,21 @@ export interface WeeklyDigest {
   stats: { name: string; tasksCompleted: number; xpEarned: number; currentStreak: number }[];
   generatedAt: number;
 }
+
+/**
+ * families/{familyId}/notifications/{id} — an in-app log of every push this
+ * app has sent, one doc per recipient (functions/src/notifyHelpers.ts's
+ * notifyMembers writes one alongside the actual FCM send, whether or not
+ * that recipient has a push token — this is what drives the unread-count
+ * badge on the header avatar, independent of whether push is even enabled
+ * on the device). `read` is the one field a member may flip on their own
+ * doc (see firestore.rules); everything else is server-only.
+ */
+export interface NotificationRecord {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  createdAt: number;
+  read: boolean;
+}

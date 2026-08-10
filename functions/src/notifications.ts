@@ -27,8 +27,11 @@ export const sendTestNotification = onCall(async (request) => {
   try {
     await getMessaging().send({
       token: member.fcmToken,
-      // data-only, not notification — see notifyHelpers.ts's sendToTokens
-      // comment for why (avoids a duplicate on-device notification).
+      // data-only, not notification — see notifyHelpers.ts's notifyMembers
+      // comment for why (avoids a duplicate on-device notification). This
+      // diagnostic ping intentionally skips notifyMembers (and its
+      // notification-log write) so a real send failure surfaces back to
+      // the caller instead of being swallowed.
       data: {
         title: "Family Quest",
         body: "Testovací upozornění dorazilo! 🎉",

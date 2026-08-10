@@ -148,6 +148,18 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // In-app notification log (functions/src/notifyHelpers.ts's
+      // notifyMembers) — drives the unread-count badge on the header
+      // avatar. Only the recipient may ever read their own docs, and the
+      // only client-writable field on them is `read` (marking one seen) —
+      // everything else (creation, title/body/userId) is Admin-SDK-only.
+      match /notifications/{notificationId} {
+        allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+        allow update: if isSignedIn() && request.auth.uid == resource.data.userId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create, delete: if false;
+      }
+
       match /rewards/{rewardId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

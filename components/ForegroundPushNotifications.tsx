@@ -17,6 +17,11 @@ import { getFirebaseMessaging } from "@/lib/firebase";
  * the service worker itself uses — makes the foreground case produce a
  * real OS-level notification too, not a custom in-app toast, so it looks
  * and behaves the same as any other app's notification, focused or not.
+ *
+ * Every push this app sends carries only a "data" payload, never a
+ * top-level "notification" one (see functions/src/notifyHelpers.ts, which
+ * avoids a duplicate on-device notification) — read payload.data here to
+ * match, not payload.notification (which is always empty now).
  */
 export default function ForegroundPushNotifications() {
   useEffect(() => {
@@ -28,9 +33,9 @@ export default function ForegroundPushNotifications() {
       if (!messaging) return;
       const registration = await navigator.serviceWorker.ready;
       unsubscribe = onMessage(messaging, (payload) => {
-        const title = payload.notification?.title ?? "Family Quest";
+        const title = payload.data?.title ?? "Family Quest";
         registration.showNotification(title, {
-          body: payload.notification?.body,
+          body: payload.data?.body,
           icon: "/icons/icon-192.png",
         });
       });

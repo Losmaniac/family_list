@@ -18,7 +18,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, type Firestore } from "firebase-admin/firestore";
 import { buildLedgerEntry } from "../../lib/xp-engine";
 import { maturityPayout } from "../../lib/investments";
-import { sendToTokens } from "./notifyHelpers";
+import { notifyMembers } from "./notifyHelpers";
 import type { Investment, Member } from "../../lib/types";
 
 async function reconcileInvestment(db: Firestore, familyId: string, investmentId: string): Promise<void> {
@@ -140,9 +140,15 @@ export const maturedInvestmentsPayout = onSchedule(
         });
 
         const memberSnap = await memberRef.get();
-        const token = (memberSnap.data() as Member | undefined)?.fcmToken;
-        if (token) {
-          await sendToTokens([token], "Family Quest", `Investice dozrála! +${payout} XP připsáno na účet.`);
+        const member = memberSnap.data() as Member | undefined;
+        if (member) {
+          await notifyMembers(
+            familyDoc.id,
+            [{ userId: investment.userId, fcmToken: member.fcmToken }],
+            "Family Quest",
+            `Investice dozrála! +${payout} XP připsáno na účet.`,
+            db
+          );
         }
       }
     }
