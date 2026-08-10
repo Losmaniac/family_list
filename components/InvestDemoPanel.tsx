@@ -11,10 +11,17 @@ import {
   ASSET_TYPE_LABELS,
   FEATURED_ASSETS,
   formatCzk,
+  formatNativePrice,
   roundMoney,
   type InvestDemoAsset,
   type InvestDemoAssetType,
 } from "@/lib/invest-demo";
+
+interface QuoteInfo {
+  priceCzk: number | null;
+  price: number | null;
+  currency: string | null;
+}
 import type { InvestDemoHolding, InvestDemoTransaction } from "@/lib/types";
 
 function describeError(err: unknown, fallback: string): string {
@@ -40,7 +47,7 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
   const [cashBalance, setCashBalance] = useState<number | null>(null);
   const [holdings, setHoldings] = useState<InvestDemoHolding[]>([]);
   const [transactions, setTransactions] = useState<InvestDemoTransaction[]>([]);
-  const [quotesBySymbol, setQuotesBySymbol] = useState<Record<string, number | null>>({});
+  const [quotesBySymbol, setQuotesBySymbol] = useState<Record<string, QuoteInfo>>({});
   const [quotesLoading, setQuotesLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,6 +58,8 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
   const [tradeTarget, setTradeTarget] = useState<TradeTarget | null>(null);
   const [tradeQuantity, setTradeQuantity] = useState("");
   const [trading, setTrading] = useState(false);
+  const [tradeQuote, setTradeQuote] = useState<QuoteInfo | null>(null);
+  const [tradeQuoteLoading, setTradeQuoteLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -88,12 +97,17 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
 
   const holdingSymbols = useMemo(() => holdings.map((h) => h.symbol).sort().join(","), [holdings]);
 
-  async function fetchQuotesFor(symbols: string[]): Promise<Record<string, number | null>> {
-    const result = await httpsCallable<{ familyId: string; symbols: string[] }, { quotes: { symbol: string; priceCzk: number | null }[] }>(
+  async function fetchQuotesFor(symbols: string[]): Promise<Record<string, QuoteInfo>> {
+    const result = await httpsCallable<
+      { familyId: string; symbols: string[] },
+      { quotes: { symbol: string; priceCzk: number | null; price: number | null; currency: string | null }[] }
+    >(
       getFirebaseFunctions(),
       "getInvestDemoQuotes"
     )({ familyId, symbols });
-    return Object.fromEntries(result.data.quotes.map((q) => [q.symbol, q.priceCzk]));
+    return Object.fromEntries(
+      result.data.quotes.map((q) => [q.symbol, { priceCzk: q.priceCzk, price: q.price, currency: q.currency }])
+    );
   }
 
   async function refreshQuotes() {
@@ -129,7 +143,7 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the actual symbol set changes, not on every toast/function-instance identity change
   }, [holdingSymbols]);
 
-  const [featuredQuotes, setFeaturedQuotes] = useState<Record<string, number | null>>({});
+  const [featuredQuotes, setFeaturedQuotes] = useState<Record<string, QuoteInfo>>({});
   const [featuredLoading, setFeaturedLoading] = useState(true);
 
   useEffect(() => {
@@ -170,14 +184,34 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
     }
   }
 
+  async function loadTradeQuote(symbol: string, cached?: QuoteInfo) {
+    if (cached?.priceCzk != null) {
+      setTradeQuote(cached);
+      return;
+    }
+    setTradeQuoteLoading(true);
+    try {
+      const quotes = await fetchQuotesFor([symbol]);
+      setTradeQuote(quotes[symbol] ?? null);
+    } catch {
+      setTradeQuote(null);
+    } finally {
+      setTradeQuoteLoading(false);
+    }
+  }
+
   function openBuy(asset: InvestDemoAsset) {
     setTradeTarget({ symbol: asset.symbol, name: asset.name, assetType: asset.assetType, side: "buy" });
     setTradeQuantity("");
+    setTradeQuote(null);
+    loadTradeQuote(asset.symbol, featuredQuotes[asset.symbol]);
   }
 
   function openSell(holding: InvestDemoHolding) {
     setTradeTarget({ symbol: holding.symbol, name: holding.name, assetType: holding.assetType, side: "sell", maxQuantity: holding.quantity });
     setTradeQuantity(String(holding.quantity));
+    setTradeQuote(null);
+    loadTradeQuote(holding.symbol, quotesBySymbol[holding.symbol]);
   }
 
   async function handleConfirmTrade() {
@@ -215,8 +249,8 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
   }
 
   const holdingsValueCzk = holdings.reduce((sum, h) => {
-    const price = quotesBySymbol[h.symbol];
-    return sum + (price ?? h.avgCostCzk) * h.quantity;
+    const priceCzk = quotesBySymbol[h.symbol]?.priceCzk;
+    return sum + (priceCzk ?? h.avgCostCzk) * h.quantity;
   }, 0);
   const totalValueCzk = (cashBalance ?? 0) + holdingsValueCzk;
 
@@ -253,7 +287,7 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
         ) : (
           <div className="flex flex-col gap-2">
             {FEATURED_ASSETS.map((asset) => {
-              const price = featuredQuotes[asset.symbol];
+              const quote = featuredQuotes[asset.symbol];
               return (
                 <div key={asset.symbol} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
                   <div className="min-w-0 flex-1">
@@ -262,7 +296,14 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
                       {asset.symbol} · {ASSET_TYPE_LABELS[asset.assetType]}
                     </p>
                   </div>
-                  {price !== undefined && price !== null && <p className="shrink-0 text-sm font-semibold">{formatCzk(price)}</p>}
+                  {quote?.priceCzk != null && (
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold">{formatCzk(quote.priceCzk)}</p>
+                      {quote.price != null && quote.currency && (
+                        <p className="text-xs text-zinc-500">{formatNativePrice(quote.price, quote.currency)}</p>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => openBuy(asset)}
@@ -287,9 +328,10 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
           </div>
           <div className="flex flex-col gap-2">
             {holdings.map((h) => {
-              const price = quotesBySymbol[h.symbol];
-              const valueCzk = (price ?? h.avgCostCzk) * h.quantity;
-              const gainCzk = price !== undefined && price !== null ? (price - h.avgCostCzk) * h.quantity : null;
+              const quote = quotesBySymbol[h.symbol];
+              const priceCzk = quote?.priceCzk;
+              const valueCzk = (priceCzk ?? h.avgCostCzk) * h.quantity;
+              const gainCzk = priceCzk != null ? (priceCzk - h.avgCostCzk) * h.quantity : null;
               return (
                 <div key={h.symbol} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
                   <div className="min-w-0 flex-1">
@@ -297,6 +339,9 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
                     <p className="truncate text-xs text-zinc-500">
                       {h.symbol} · {ASSET_TYPE_LABELS[h.assetType]} · {h.quantity} ks
                     </p>
+                    {quote?.price != null && quote.currency && (
+                      <p className="truncate text-xs text-zinc-400">{formatNativePrice(quote.price, quote.currency)}/ks</p>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-semibold">{formatCzk(roundMoney(valueCzk))}</p>
@@ -379,7 +424,15 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
             <p className="font-medium">
               {tradeTarget.side === "buy" ? "Koupit" : "Prodat"} — {tradeTarget.name}
             </p>
-            <p className="text-xs text-zinc-500">{tradeTarget.symbol} · Cena se ověří při odeslání.</p>
+            <p className="text-xs text-zinc-500">
+              {tradeTarget.symbol}
+              {" · "}
+              {tradeQuoteLoading
+                ? "Načítám cenu…"
+                : tradeQuote?.priceCzk != null && tradeQuote.price != null && tradeQuote.currency
+                  ? `${formatCzk(tradeQuote.priceCzk)}/ks (${formatNativePrice(tradeQuote.price, tradeQuote.currency)}) — aktuální cena se ověří při odeslání`
+                  : "Cena se ověří při odeslání."}
+            </p>
             <label className="flex flex-col gap-1 text-sm">
               Množství (kusů)
               <input

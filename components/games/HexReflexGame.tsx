@@ -4,11 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { readHighScore } from "@/lib/local-high-score";
 
 const HIGH_SCORE_KEY = "games:hexreflex:highScore";
-const PLAYER_RADIUS = 46;
-const PLAYER_ROTATE_SPEED = 4.2; // radians/sec while held
-const BASE_WALL_SPEED = 90; // px/sec inward
-const SPEED_RAMP_PER_SEC = 3.5;
-const SPAWN_INTERVAL_BASE = 1.0;
+// A fraction of the canvas's shorter side, not a fixed pixel count — keeps
+// the orbit (and the gap-vs-wall-thickness proportions) sane across screen
+// sizes, same reasoning as Duo's orbitRadius.
+const PLAYER_RADIUS_FRACTION = 0.14;
+const PLAYER_ROTATE_SPEED = 5.2; // radians/sec while held — a full circle in ~1.2s
+const BASE_WALL_SPEED = 80; // px/sec inward
+// px/sec added *per second elapsed* (i.e. acceleration) — the shipped
+// version accidentally multiplied this by elapsed*10 instead of elapsed,
+// which made walls reach lethal speed within a couple of seconds instead
+// of the intended ~20-30s ramp.
+const SPEED_RAMP_PER_SEC = 9;
+const SPAWN_INTERVAL_BASE = 1.3;
 const WALL_THICKNESS = 18;
 
 interface Wall {
@@ -84,8 +91,9 @@ export default function HexReflexGame() {
       const cx = w / 2;
       const cy = h / 2;
       const maxRadius = Math.hypot(w, h) / 2 + 30;
-      const wallSpeed = BASE_WALL_SPEED + SPEED_RAMP_PER_SEC * s.elapsed * 10;
-      const spawnInterval = Math.max(0.45, SPAWN_INTERVAL_BASE - s.elapsed * 0.012);
+      const playerRadius = Math.min(w, h) * PLAYER_RADIUS_FRACTION;
+      const wallSpeed = BASE_WALL_SPEED + SPEED_RAMP_PER_SEC * s.elapsed;
+      const spawnInterval = Math.max(0.5, SPAWN_INTERVAL_BASE - s.elapsed * 0.015);
 
       if (s.running) {
         s.elapsed += dt;
@@ -98,14 +106,18 @@ export default function HexReflexGame() {
         s.timeSinceSpawn += dt;
         if (s.timeSinceSpawn >= spawnInterval) {
           s.timeSinceSpawn = 0;
-          const gapWidth = Math.max(0.55, 1.3 - s.elapsed * 0.012);
+          // Gap width relative to a full turn, not a fixed radian count —
+          // starts wide (over a quarter turn) and narrows toward a floor
+          // that's still comfortably wider than the rotate speed needs to
+          // cover between spawns.
+          const gapWidth = Math.max(0.6, 1.6 - s.elapsed * 0.018);
           const gapStart = Math.random() * Math.PI * 2;
           s.walls.push({ radius: maxRadius, gapStart, gapWidth });
         }
         for (const wall of s.walls) wall.radius -= wallSpeed * dt;
 
         for (const wall of s.walls) {
-          if (wall.radius <= PLAYER_RADIUS + WALL_THICKNESS / 2 && wall.radius >= PLAYER_RADIUS - WALL_THICKNESS / 2) {
+          if (wall.radius <= playerRadius + WALL_THICKNESS / 2 && wall.radius >= playerRadius - WALL_THICKNESS / 2) {
             const rel = normalizeAngle(s.angle - wall.gapStart);
             if (rel > wall.gapWidth) {
               endGame();
@@ -135,8 +147,8 @@ export default function HexReflexGame() {
       ctx!.arc(cx, cy, 8, 0, Math.PI * 2);
       ctx!.fill();
 
-      const px = cx + PLAYER_RADIUS * Math.cos(s.angle);
-      const py = cy + PLAYER_RADIUS * Math.sin(s.angle);
+      const px = cx + playerRadius * Math.cos(s.angle);
+      const py = cy + playerRadius * Math.sin(s.angle);
       const normal = s.angle;
       ctx!.save();
       ctx!.translate(px, py);
@@ -161,7 +173,18 @@ export default function HexReflexGame() {
   }, []);
 
   function start() {
-    stateRef.current = { angle: 0, holding: 0, walls: [], elapsed: 0, timeSinceSpawn: 0, running: true, lastReportedScore: -1 };
+    stateRef.current = {
+      angle: 0,
+      holding: 0,
+      walls: [],
+      elapsed: 0,
+      // A small head start on the spawn clock — gives the very first wall
+      // an extra moment before it's even created, on top of the normal
+      // spawn interval, so the round doesn't open with zero prep time.
+      timeSinceSpawn: -0.6,
+      running: true,
+      lastReportedScore: -1,
+    };
     setPhase("playing");
     setScore(0);
     setLiveScore(0);
@@ -185,10 +208,15 @@ export default function HexReflexGame() {
       <div className="relative aspect-square w-full max-w-sm self-center overflow-hidden rounded-xl border border-border">
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none"
-          onPointerDown={(e) => setHolding(pointerSide(e))}
+          className="h-full w-full touch-none select-none"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            setHolding(pointerSide(e));
+          }}
           onPointerUp={() => setHolding(0)}
           onPointerLeave={() => setHolding(0)}
+          onPointerCancel={() => setHolding(0)}
+          onContextMenu={(e) => e.preventDefault()}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") setHolding(-1);
             if (e.key === "ArrowRight") setHolding(1);

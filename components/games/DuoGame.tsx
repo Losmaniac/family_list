@@ -2,15 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { readHighScore } from "@/lib/local-high-score";
+import { pickReachableGap } from "@/lib/duo-game";
 
 const HIGH_SCORE_KEY = "games:duo:highScore";
-const ROTATION_SPEED = 3.2; // radians/sec while held
-const ORBIT_RADIUS = 34;
-const BALL_RADIUS = 8;
-const BASE_FALL_SPEED = 140; // px/sec
-const SPEED_RAMP_PER_SEC = 4; // how much falling speed grows per second survived
-const SPAWN_INTERVAL_BASE = 1.15; // seconds between obstacles at the start
-const GAP_WIDTH_MIN = 90;
+const ROTATION_SPEED = 3.6; // radians/sec while held
+// A fraction of canvas width, not a fixed pixel count — the pair needs to
+// visibly sweep a good chunk of the screen (a tiny fixed radius just looks
+// like "a thing spinning in place"), and obstacle gaps are generated
+// relative to this same value so they always land inside actual reach
+// (see lib/duo-game.ts — a gap generated across the *whole* canvas width
+// used to land outside the reachable band more often than not, making
+// those obstacles impossible to pass no matter the angle).
+const ORBIT_RADIUS_FRACTION = 0.3;
+const BALL_RADIUS = 9;
+const BASE_FALL_SPEED = 130; // px/sec
+const SPEED_RAMP_PER_SEC = 9; // px/sec added per second survived (acceleration)
+const SPAWN_INTERVAL_BASE = 1.3; // seconds between obstacles at the start
 
 interface Obstacle {
   y: number;
@@ -82,7 +89,8 @@ export default function DuoGame() {
       const w = canvas!.width / devicePixelRatio;
       const h = canvas!.height / devicePixelRatio;
       const pivot = { x: w / 2, y: h * 0.72 };
-      const fallSpeed = BASE_FALL_SPEED + SPEED_RAMP_PER_SEC * s.elapsed * 10;
+      const orbitRadius = Math.min(w, h) * ORBIT_RADIUS_FRACTION;
+      const fallSpeed = BASE_FALL_SPEED + SPEED_RAMP_PER_SEC * s.elapsed;
       const spawnInterval = Math.max(0.55, SPAWN_INTERVAL_BASE - s.elapsed * 0.01);
 
       if (s.running) {
@@ -96,15 +104,20 @@ export default function DuoGame() {
         s.timeSinceSpawn += dt;
         if (s.timeSinceSpawn >= spawnInterval) {
           s.timeSinceSpawn = 0;
-          const gapWidth = Math.max(GAP_WIDTH_MIN, 170 - s.elapsed * 2.2);
-          const gapStart = Math.random() * (w - gapWidth);
-          s.obstacles.push({ y: -20, height: 16, gapStart, gapWidth, passed: false });
+          // A gap width relative to orbitRadius (rather than a fixed pixel
+          // value) so the difficulty ramp stays meaningful regardless of
+          // canvas size — always somewhere between "as wide as the full
+          // reachable band" (trivial) and "just wide enough for a ball"
+          // (brutal), never so narrow it's unreachable.
+          const gapWidth = Math.max(orbitRadius * 0.65, orbitRadius * 1.5 - s.elapsed * 3);
+          const gap = pickReachableGap(w, pivot.x, orbitRadius, gapWidth);
+          s.obstacles.push({ y: -20, height: 16, gapStart: gap.gapStart, gapWidth: gap.gapWidth, passed: false });
         }
         for (const o of s.obstacles) o.y += fallSpeed * dt;
         s.obstacles = s.obstacles.filter((o) => o.y < h + 40);
 
-        const p1 = { x: pivot.x + ORBIT_RADIUS * Math.cos(s.angle), y: pivot.y + ORBIT_RADIUS * Math.sin(s.angle) };
-        const p2 = { x: pivot.x + ORBIT_RADIUS * Math.cos(s.angle + Math.PI), y: pivot.y + ORBIT_RADIUS * Math.sin(s.angle + Math.PI) };
+        const p1 = { x: pivot.x + orbitRadius * Math.cos(s.angle), y: pivot.y + orbitRadius * Math.sin(s.angle) };
+        const p2 = { x: pivot.x + orbitRadius * Math.cos(s.angle + Math.PI), y: pivot.y + orbitRadius * Math.sin(s.angle + Math.PI) };
 
         for (const o of s.obstacles) {
           for (const p of [p1, p2]) {
@@ -128,8 +141,8 @@ export default function DuoGame() {
         ctx!.fillRect(o.gapStart + o.gapWidth, o.y, w - (o.gapStart + o.gapWidth), o.height);
       }
 
-      const p1 = { x: pivot.x + ORBIT_RADIUS * Math.cos(s.angle), y: pivot.y + ORBIT_RADIUS * Math.sin(s.angle) };
-      const p2 = { x: pivot.x + ORBIT_RADIUS * Math.cos(s.angle + Math.PI), y: pivot.y + ORBIT_RADIUS * Math.sin(s.angle + Math.PI) };
+      const p1 = { x: pivot.x + orbitRadius * Math.cos(s.angle), y: pivot.y + orbitRadius * Math.sin(s.angle) };
+      const p2 = { x: pivot.x + orbitRadius * Math.cos(s.angle + Math.PI), y: pivot.y + orbitRadius * Math.sin(s.angle + Math.PI) };
       ctx!.strokeStyle = "#f59e0b";
       ctx!.lineWidth = 3;
       ctx!.beginPath();
@@ -159,7 +172,9 @@ export default function DuoGame() {
       holding: 0,
       obstacles: [],
       elapsed: 0,
-      timeSinceSpawn: 0,
+      // A small head start on the spawn clock — see the identical comment
+      // in HexReflexGame's start().
+      timeSinceSpawn: -0.6,
       running: true,
       over: false,
       lastReportedScore: -1,
@@ -187,10 +202,15 @@ export default function DuoGame() {
       <div className="relative aspect-[3/4] w-full max-w-sm self-center overflow-hidden rounded-xl border border-border">
         <canvas
           ref={canvasRef}
-          className="h-full w-full touch-none"
-          onPointerDown={(e) => setHolding(pointerSide(e))}
+          className="h-full w-full touch-none select-none"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            setHolding(pointerSide(e));
+          }}
           onPointerUp={() => setHolding(0)}
           onPointerLeave={() => setHolding(0)}
+          onPointerCancel={() => setHolding(0)}
+          onContextMenu={(e) => e.preventDefault()}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") setHolding(-1);
             if (e.key === "ArrowRight") setHolding(1);

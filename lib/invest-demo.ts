@@ -111,6 +111,11 @@ export function formatCzk(amount: number): string {
   return `${amount.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
 }
 
+/** The asset's own quoted price, in its native currency (USD/EUR/…) — shown alongside the CZK conversion so the number matches what a real broker/ticker would show. */
+export function formatNativePrice(price: number, currency: string): string {
+  return `${price.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} ${currency}`;
+}
+
 export const ASSET_TYPE_LABELS: Record<InvestDemoAssetType, string> = {
   stock: "Akcie",
   index: "Index",

@@ -63,6 +63,13 @@ async function fetchPriceCzk(symbol: string): Promise<number> {
   return roundMoney(quote.price * fxRate);
 }
 
+/** Like fetchPriceCzk, but also returns the native price/currency — used where the UI shows both (e.g. "3 200 Kč · 150.25 USD"). */
+async function fetchQuoteWithCzk(symbol: string): Promise<{ priceCzk: number; price: number; currency: string }> {
+  const quote = await fetchQuote(symbol);
+  const fxRate = await fetchFxRateToCzk(quote.currency);
+  return { priceCzk: roundMoney(quote.price * fxRate), price: quote.price, currency: quote.currency };
+}
+
 async function requireInvestDemoEnabled(familyRef: DocumentReference): Promise<Family> {
   const familySnap = await familyRef.get();
   const family = familySnap.data() as Family | undefined;
@@ -255,9 +262,10 @@ export const getInvestDemoQuotes = onCall<QuotesRequest>(async (request) => {
   const quotes = await Promise.all(
     limited.map(async (symbol) => {
       try {
-        return { symbol, priceCzk: await fetchPriceCzk(symbol) };
+        const { priceCzk, price, currency } = await fetchQuoteWithCzk(symbol);
+        return { symbol, priceCzk, price, currency };
       } catch {
-        return { symbol, priceCzk: null as number | null };
+        return { symbol, priceCzk: null as number | null, price: null as number | null, currency: null as string | null };
       }
     })
   );
