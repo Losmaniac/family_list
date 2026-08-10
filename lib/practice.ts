@@ -39,6 +39,7 @@ export const PRACTICE_SUBJECTS: PracticeSubject[] = [
   { id: "food", label: "Potraviny", available: true },
   { id: "wiki", label: "Encyklopedie", available: true },
   { id: "worldbank", label: "World Bank", available: true },
+  { id: "chess", label: "Šachy", available: true },
 ];
 
 /** Flat XP for every correct answer — the daily cap is the only limiter. */
