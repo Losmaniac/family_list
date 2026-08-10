@@ -91,6 +91,14 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Per-user "AI otázky" difficulty streaks (functions/src/aiQuiz.ts) —
+      // server-only, same as secrets: only generateAiQuizQuestion/
+      // submitAiQuizAnswer (Admin SDK) ever read or write this.
+      match /aiQuizProgress/{uid} {
+        allow read: if false;
+        allow write: if false;
+      }
+
       match /taskTemplates/{templateId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

@@ -7,7 +7,7 @@ import { getFirebaseFunctions } from "@/lib/firebase";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { formatXp } from "@/lib/xp-engine";
-import { AI_QUIZ_TOPICS, type AiQuizTopic } from "@/lib/ai-quiz";
+import { AI_QUIZ_TOPICS, CUSTOM_TOPIC_ID, MAX_CUSTOM_TOPIC_LENGTH, normalizeCustomTopic, type AiQuizTopic } from "@/lib/ai-quiz";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -20,16 +20,20 @@ interface CurrentQuestion {
 }
 
 /**
- * "AI otázky" — pick a topic, Gemini generates a fresh multiple-choice
- * question on the spot (functions/src/aiQuiz.ts; the API key never
- * reaches this client). No fixed bank, so questions never run out and
- * never repeat in a trackable way, unlike every other Vzdělání subject.
+ * "AI otázky" — pick a topic (or type your own) and Gemini/OpenRouter
+ * generates a fresh multiple-choice question on the spot
+ * (functions/src/aiQuiz.ts; no API key ever reaches this client). No fixed
+ * bank, so questions never run out and never repeat in a trackable way,
+ * unlike every other Vzdělání subject. Difficulty quietly ramps up the
+ * more consecutive correct answers a topic has (server-tracked), so a
+ * child who keeps acing a topic gets progressively harder questions on it.
  */
 export default function AiQuizPanel() {
   const { familyId, family } = useFamily();
   const toast = useToast();
 
   const [topic, setTopic] = useState<AiQuizTopic | null>(null);
+  const [customTopicInput, setCustomTopicInput] = useState("");
   const [current, setCurrent] = useState<CurrentQuestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -38,20 +42,22 @@ export default function AiQuizPanel() {
 
   const configured = family?.geminiApiKeyConfigured === true || family?.openRouterApiKeyConfigured === true;
 
-  async function handleNewQuestion(selectedTopic: AiQuizTopic) {
+  async function requestQuestion(selectedTopic: AiQuizTopic, customTopic?: string) {
     if (!familyId) return;
     setTopic(selectedTopic);
     setLoading(true);
     setFeedback(null);
     setCurrent(null);
     try {
+      const payload: { familyId: string; topicId: string; customTopic?: string } = { familyId, topicId: selectedTopic.id };
+      if (customTopic) payload.customTopic = customTopic;
       const result = await httpsCallable<
-        { familyId: string; topicId: string },
+        typeof payload,
         { question: string | null; options: [string, string, string] | null; capReached: boolean }
       >(
         getFirebaseFunctions(),
         "generateAiQuizQuestion"
-      )({ familyId, topicId: selectedTopic.id });
+      )(payload);
       if (result.data.capReached || !result.data.question || !result.data.options) {
         setCapReached(true);
         return;
@@ -62,6 +68,20 @@ export default function AiQuizPanel() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleNewQuestion(selectedTopic: AiQuizTopic) {
+    requestQuestion(selectedTopic);
+  }
+
+  function handleCustomSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const normalized = normalizeCustomTopic(customTopicInput);
+    if (!normalized) {
+      toast.error(`Napiš téma (max ${MAX_CUSTOM_TOPIC_LENGTH} znaků).`);
+      return;
+    }
+    requestQuestion({ id: CUSTOM_TOPIC_ID, label: normalized }, normalized);
   }
 
   async function handleAnswer(option: string) {
@@ -120,6 +140,25 @@ export default function AiQuizPanel() {
           </button>
         ))}
       </div>
+
+      <form onSubmit={handleCustomSubmit} className="flex items-center gap-2">
+        <input
+          type="text"
+          value={customTopicInput}
+          onChange={(e) => setCustomTopicInput(e.target.value)}
+          placeholder="Vlastní téma… (např. dinosauři)"
+          maxLength={MAX_CUSTOM_TOPIC_LENGTH}
+          disabled={loading}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={loading || !customTopicInput.trim()}
+          className="shrink-0 rounded-full border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+        >
+          Zeptat se AI
+        </button>
+      </form>
 
       {loading ? (
         <div className="flex flex-col gap-2">

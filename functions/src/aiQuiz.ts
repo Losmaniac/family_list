@@ -15,10 +15,29 @@
  * the family's saved model, then automatically cycling through OpenRouter's
  * free-tier catalog (fetched live, cached briefly) until one of them
  * actually produces a valid question, or the attempt budget runs out.
+ *
+ * Difficulty ramps up per topic: families/{familyId}/aiQuizProgress/{uid}
+ * tracks a consecutive-correct streak per topic (keyed via
+ * lib/ai-quiz.ts's streakKeyForTopic), which submitAiQuizAnswer increments
+ * on a correct answer and resets to 0 on a wrong one; generateAiQuizQuestion
+ * reads it and turns it into a difficulty label for the prompt. A topicId of
+ * "custom" lets the user type their own subject instead of picking from
+ * AI_QUIZ_TOPICS — validated server-side by normalizeCustomTopic and never
+ * trusted as a fixed id, since its streak bucket is derived from the text.
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { AI_QUIZ_TOPICS, buildAiQuizPrompt, parseAiQuizResponse, shuffleThree, type ParsedAiQuizQuestion } from "../../lib/ai-quiz";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import {
+  AI_QUIZ_TOPICS,
+  buildAiQuizPrompt,
+  CUSTOM_TOPIC_ID,
+  difficultyLabelForStreak,
+  normalizeCustomTopic,
+  parseAiQuizResponse,
+  shuffleThree,
+  streakKeyForTopic,
+  type ParsedAiQuizQuestion,
+} from "../../lib/ai-quiz";
 import { OPENROUTER_MODELS_URL, parseOpenRouterModels } from "../../lib/openrouter";
 import { isAnswerCorrect, primaryAnswer, PRACTICE_XP_PER_PROBLEM } from "../../lib/practice";
 import { requireAuth, requireFamilyMember, awardCappedPracticeXp, getPracticeXpHeadroomToday } from "./practice";
@@ -225,14 +244,26 @@ async function generateWithFallback(secrets: AiSecrets, prompt: string): Promise
 interface GenerateRequest {
   familyId: string;
   topicId: string;
+  customTopic?: string;
 }
 
 export const generateAiQuizQuestion = onCall<GenerateRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
-  const { familyId, topicId } = request.data;
-  const topic = AI_QUIZ_TOPICS.find((t) => t.id === topicId);
-  if (!familyId || !topic) throw new HttpsError("invalid-argument", "Neplatný požadavek.");
+  const { familyId, topicId, customTopic } = request.data;
+
+  let topicLabel: string;
+  if (topicId === CUSTOM_TOPIC_ID) {
+    const normalized = typeof customTopic === "string" ? normalizeCustomTopic(customTopic) : null;
+    if (!familyId || !normalized) {
+      throw new HttpsError("invalid-argument", "Napiš platné vlastní téma.");
+    }
+    topicLabel = normalized;
+  } else {
+    const topic = AI_QUIZ_TOPICS.find((t) => t.id === topicId);
+    if (!familyId || !topic) throw new HttpsError("invalid-argument", "Neplatný požadavek.");
+    topicLabel = topic.label;
+  }
   await requireFamilyMember(familyId, uid);
 
   const db = getFirestore();
@@ -248,7 +279,11 @@ export const generateAiQuizQuestion = onCall<GenerateRequest>(async (request) =>
     throw new HttpsError("failed-precondition", "Rodič ještě nezadal žádný API klíč pro AI otázky v Nastavení.");
   }
 
-  const parsed = await generateWithFallback(secrets, buildAiQuizPrompt(topic.label));
+  const streakKey = streakKeyForTopic(topicId, topicId === CUSTOM_TOPIC_ID ? topicLabel : undefined);
+  const progressSnap = await familyRef.collection("aiQuizProgress").doc(uid).get();
+  const streak = (progressSnap.data()?.streaks?.[streakKey] as number | undefined) ?? 0;
+
+  const parsed = await generateWithFallback(secrets, buildAiQuizPrompt(topicLabel, difficultyLabelForStreak(streak)));
   if (!parsed) {
     throw new HttpsError("internal", "Ani jeden nastavený model se nepodařilo použít — zkus to znovu za chvíli.");
   }
@@ -259,6 +294,7 @@ export const generateAiQuizQuestion = onCall<GenerateRequest>(async (request) =>
     question: parsed.question,
     options,
     answer: parsed.answer,
+    streakKey,
     createdAt: Date.now(),
   });
 
@@ -290,6 +326,12 @@ export const submitAiQuizAnswer = onCall<SubmitRequest>(async (request) => {
 
   const correct = isAnswerCorrect(answer, pending.answer as string);
   await pendingRef.delete();
+
+  const streakKey = pending.streakKey as string | undefined;
+  if (streakKey) {
+    const progressRef = familyRef.collection("aiQuizProgress").doc(uid);
+    await progressRef.set({ streaks: { [streakKey]: correct ? FieldValue.increment(1) : 0 } }, { merge: true });
+  }
 
   if (!correct) {
     return { correct: false, correctAnswer: primaryAnswer(pending.answer as string), awarded: 0 };
