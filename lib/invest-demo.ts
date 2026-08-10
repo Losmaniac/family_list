@@ -122,6 +122,16 @@ export const ASSET_TYPE_LABELS: Record<InvestDemoAssetType, string> = {
   crypto: "Kryptoměna",
 };
 
+/** A plain-language explanation of what owning each asset type actually means — shown to a kid before they buy, not just the type's one-word label. */
+export const ASSET_TYPE_EXPLANATIONS: Record<InvestDemoAssetType, string> = {
+  stock:
+    "Akcie je malý podíl vlastnictví jedné konkrétní firmy. Když ji koupíš, staneš se (v malém) spoluvlastníkem té společnosti — pokud se firmě daří, cena akcie obvykle roste, pokud ne, může klesat.",
+  index:
+    "Index není jedna firma, ale sleduje průměrnou výkonnost velké skupiny firem najednou (např. 500 největších amerických společností). Koupí indexu tak nevsázíš na jednu firmu, ale na to, jak se daří celému trhu.",
+  crypto:
+    "Kryptoměna je digitální měna, která nepatří žádné bance ani státu — funguje na technologii zvané blockchain. Cena bývá mnohem více kolísavá (nahoru i dolů) než u akcií nebo indexů.",
+};
+
 /**
  * A hand-picked starter list shown up front, before any search — mainstream
  * indices and well-known stocks a kid is likely to have heard of, so there's

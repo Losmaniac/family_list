@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ASSET_TYPE_EXPLANATIONS,
+  ASSET_TYPE_LABELS,
   FEATURED_ASSETS,
   formatCzk,
   formatNativePrice,
@@ -119,6 +121,14 @@ describe("formatNativePrice", () => {
   it("formats with two decimal places and the currency code", () => {
     expect(formatNativePrice(150.2, "USD")).toBe("150.20 USD");
     expect(formatNativePrice(34.4699, "EUR")).toBe("34.47 EUR");
+  });
+});
+
+describe("ASSET_TYPE_EXPLANATIONS", () => {
+  it("has a non-empty explanation for every asset type", () => {
+    for (const type of Object.keys(ASSET_TYPE_LABELS) as (keyof typeof ASSET_TYPE_LABELS)[]) {
+      expect(ASSET_TYPE_EXPLANATIONS[type].length).toBeGreaterThan(20);
+    }
   });
 });
 
