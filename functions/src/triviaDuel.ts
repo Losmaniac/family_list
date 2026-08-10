@@ -63,7 +63,17 @@ function buildQuestionSet(count: number): StoredQuestion[] {
     }
     if (!picked) break;
     excludeIds.add(picked.id);
-    questions.push({ id: picked.id, question: picked.question, answer: picked.answer, options: picked.options });
+    // Free-text subjects (math, čeština, přírodověda, vlastivěda) have no
+    // `options` at all — spreading `options: picked.options` would set the
+    // field to `undefined` explicitly, and the Admin SDK throws on writing
+    // an `undefined` value (masked to the client as a bare "internal"
+    // error), so the `options` key must be omitted entirely rather than
+    // set to undefined whenever the picked question doesn't have one.
+    questions.push(
+      picked.options
+        ? { id: picked.id, question: picked.question, answer: picked.answer, options: picked.options }
+        : { id: picked.id, question: picked.question, answer: picked.answer }
+    );
   }
   return questions;
 }
