@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { Sparkles } from "lucide-react";
 import { getFirebaseFunctions } from "@/lib/firebase";
@@ -8,6 +8,8 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { formatXp } from "@/lib/xp-engine";
 import { AI_QUIZ_TOPICS, CUSTOM_TOPIC_ID, MAX_CUSTOM_TOPIC_LENGTH, normalizeCustomTopic, type AiQuizTopic } from "@/lib/ai-quiz";
+
+const AUTO_ADVANCE_DELAY_MS = 1600;
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -27,6 +29,12 @@ interface CurrentQuestion {
  * unlike every other Vzdělání subject. Difficulty quietly ramps up the
  * more consecutive correct answers a topic has (server-tracked), so a
  * child who keeps acing a topic gets progressively harder questions on it.
+ *
+ * After answering, the next question on the same topic loads automatically
+ * (same auto-advance pattern as the general practice page) — the user
+ * keeps getting questions on whatever topic they picked until they leave
+ * this tab or explicitly pick a different one, rather than having to
+ * re-request every single time.
  */
 export default function AiQuizPanel() {
   const { familyId, family } = useFamily();
@@ -37,20 +45,30 @@ export default function AiQuizPanel() {
   const [current, setCurrent] = useState<CurrentQuestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
   const [capReached, setCapReached] = useState(false);
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    };
+  }, []);
 
   const configured = family?.geminiApiKeyConfigured === true || family?.openRouterApiKeyConfigured === true;
 
-  async function requestQuestion(selectedTopic: AiQuizTopic, customTopic?: string) {
+  async function requestQuestion(selectedTopic: AiQuizTopic) {
     if (!familyId) return;
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
     setTopic(selectedTopic);
     setLoading(true);
-    setFeedback(null);
     setCurrent(null);
     try {
       const payload: { familyId: string; topicId: string; customTopic?: string } = { familyId, topicId: selectedTopic.id };
-      if (customTopic) payload.customTopic = customTopic;
+      if (selectedTopic.id === CUSTOM_TOPIC_ID) payload.customTopic = selectedTopic.label;
       const result = await httpsCallable<
         typeof payload,
         { question: string | null; options: [string, string, string] | null; capReached: boolean }
@@ -67,6 +85,7 @@ export default function AiQuizPanel() {
       toast.error(describeError(err, "Otázku se nepodařilo vygenerovat."));
     } finally {
       setLoading(false);
+      setTransitioning(false);
     }
   }
 
@@ -81,11 +100,11 @@ export default function AiQuizPanel() {
       toast.error(`Napiš téma (max ${MAX_CUSTOM_TOPIC_LENGTH} znaků).`);
       return;
     }
-    requestQuestion({ id: CUSTOM_TOPIC_ID, label: normalized }, normalized);
+    requestQuestion({ id: CUSTOM_TOPIC_ID, label: normalized });
   }
 
   async function handleAnswer(option: string) {
-    if (!familyId || !current) return;
+    if (!familyId || !current || !topic) return;
     setSubmitting(true);
     try {
       const result = await httpsCallable<
@@ -98,10 +117,19 @@ export default function AiQuizPanel() {
       if (result.data.correct) {
         toast.success(result.data.awarded > 0 ? `Správně! +${formatXp(result.data.awarded)} XP` : "Správně!");
       } else {
-        setFeedback(`Bylo to: ${result.data.correctAnswer}`);
+        toast.error(`Bylo to: ${result.data.correctAnswer}`);
       }
       setCurrent(null);
-      if (result.data.capReached) setCapReached(true);
+      if (result.data.capReached) {
+        setCapReached(true);
+      } else {
+        setTransitioning(true);
+        const nextTopic = topic;
+        autoAdvanceTimer.current = setTimeout(() => {
+          autoAdvanceTimer.current = null;
+          requestQuestion(nextTopic);
+        }, AUTO_ADVANCE_DELAY_MS);
+      }
     } catch (err) {
       toast.error(describeError(err, "Odpověď se nepodařilo odeslat."));
     } finally {
@@ -187,7 +215,7 @@ export default function AiQuizPanel() {
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10 text-center text-zinc-500">
           <Sparkles size={40} />
-          <p className="text-lg">{feedback ?? "Vyber si téma výš a AI ti připraví otázku."}</p>
+          <p className="text-lg">{transitioning ? "Za chvíli přijde další otázka…" : "Vyber si téma výš a AI ti připraví otázku."}</p>
         </div>
       )}
     </div>
