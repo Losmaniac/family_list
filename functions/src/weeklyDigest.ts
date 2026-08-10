@@ -108,6 +108,7 @@ export const weeklyDigestGenerator = onSchedule({ schedule: "0 18 * * 0", timeZo
 
       await notifyMembers(
         familyDoc.id,
+        "weekly_digest",
         members.map((m) => ({ userId: m.id, fcmToken: m.fcmToken })),
         "Týdenní souhrn",
         text.length > 150 ? `${text.slice(0, 147)}…` : text,

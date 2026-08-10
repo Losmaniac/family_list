@@ -40,6 +40,7 @@ import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
 import SettingsSection from "@/components/SettingsSection";
+import NotificationSettingsPanel from "@/components/NotificationSettingsPanel";
 import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, UserPlus, Zap } from "lucide-react";
 import type { Member } from "@/lib/types";
 
@@ -548,6 +549,18 @@ export default function SettingsPage() {
             />
             Posílat večerní připomínku nedokončených úkolů (19:00)
           </label>
+        )}
+        {member.role === "parent" && familyId && (
+          <div className="flex flex-col gap-2 border-t border-border pt-3">
+            <p className="flex items-center gap-1 text-sm font-medium">
+              Co a komu se posílá
+              <InfoButton
+                title="Co a komu se posílá"
+                description="Pro každý typ notifikace lze vypnout odesílání úplně, nebo zúžit okruh příjemců na vybrané členy z jejich přirozeného okruhu (např. jen jednoho rodiče místo obou) — nikdy ale nejde poslat notifikaci někomu, kdo by ji normálně vůbec nedostal."
+              />
+            </p>
+            <NotificationSettingsPanel familyId={familyId} members={members} notificationSettings={family?.notificationSettings} />
+          </div>
         )}
       </SettingsSection>
 

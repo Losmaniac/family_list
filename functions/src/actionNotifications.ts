@@ -47,7 +47,7 @@ export const onTaskProposalCreated = onDocumentCreated(
     if (targets.length === 0) return;
 
     const proposerName = await memberName(db, familyId, proposal.proposedBy);
-    await notifyMembers(familyId, targets, "Family Quest", `${proposerName} navrhl(a) nový úkol: „${proposal.title}“.`, db);
+    await notifyMembers(familyId, "task_proposal", targets, "Family Quest", `${proposerName} navrhl(a) nový úkol: „${proposal.title}“.`, db);
   }
 );
 
@@ -68,7 +68,7 @@ export const onTaskRequestOpened = onDocumentWritten(
     if (targets.length === 0) return;
 
     const requesterName = await memberName(db, familyId, requesterId);
-    await notifyMembers(familyId, targets, "Family Quest", `${requesterName} chce nový úkol — navrhni mu/jí nějaký.`, db);
+    await notifyMembers(familyId, "task_request", targets, "Family Quest", `${requesterName} chce nový úkol — navrhni mu/jí nějaký.`, db);
   }
 );
 
@@ -92,6 +92,7 @@ export const onXpAdjustmentRequestCreated = onDocumentCreated(
 
     await notifyMembers(
       familyId,
+      "xp_adjustment",
       targets,
       "Family Quest",
       `Žádost o úpravu XP (${request.delta >= 0 ? "+" : ""}${request.delta}) čeká na tvé schválení.`,
@@ -113,7 +114,7 @@ export const onPooledContributionCreated = onDocumentCreated(
 
     const rewardSnap = await db.collection("families").doc(familyId).collection("rewards").doc(pool.rewardId).get();
     const reward = rewardSnap.data() as Reward | undefined;
-    await notifyMembers(familyId, targets, "Family Quest", `Zveme tě do sbírky na „${reward?.title ?? "odměnu"}“ — přispěj svým dílem XP.`, db);
+    await notifyMembers(familyId, "pooled_contribution", targets, "Family Quest", `Zveme tě do sbírky na „${reward?.title ?? "odměnu"}“ — přispěj svým dílem XP.`, db);
   }
 );
 
@@ -145,7 +146,7 @@ export const onRewardRedemptionActionable = onDocumentWritten(
     const message = becameRequested
       ? `${requesterName} žádá o odměnu „${reward?.title ?? after.rewardId}“ — čeká na schválení.`
       : `Odměna „${reward?.title ?? after.rewardId}“ pro ${requesterName} je schválená — čeká na vyřízení.`;
-    await notifyMembers(familyId, targets, "Family Quest", message, db);
+    await notifyMembers(familyId, "reward_redemption", targets, "Family Quest", message, db);
   }
 );
 
@@ -192,6 +193,6 @@ export const onMarketplaceOfferActionable = onDocumentWritten(
 
     const targets = await targetsFor(db, familyId, [notifyUserId]);
     if (targets.length === 0) return;
-    await notifyMembers(familyId, targets, "Family Quest", message, db);
+    await notifyMembers(familyId, "marketplace_offer", targets, "Family Quest", message, db);
   }
 );

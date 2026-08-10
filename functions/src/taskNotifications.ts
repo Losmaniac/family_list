@@ -30,7 +30,7 @@ export const onTaskStatusNotify = onDocumentUpdated(
       const assigneeSnap = await familyRef.collection("members").doc(after.assignedTo).get();
       const assigneeName = (assigneeSnap.data() as Member | undefined)?.name ?? "Někdo";
       const targets = parentsSnapshot.docs.map((d) => ({ userId: d.id, fcmToken: (d.data() as Member).fcmToken }));
-      await notifyMembers(familyId, targets, "Family Quest", `${assigneeName} odeslal(a) „${taskTitle}“ ke schválení.`, db);
+      await notifyMembers(familyId, "task_submitted", targets, "Family Quest", `${assigneeName} odeslal(a) „${taskTitle}“ ke schválení.`, db);
       return;
     }
 
@@ -40,10 +40,11 @@ export const onTaskStatusNotify = onDocumentUpdated(
       if (!assignee) return;
       const target = [{ userId: after.assignedTo, fcmToken: assignee.fcmToken }];
       if (after.status === "done") {
-        await notifyMembers(familyId, target, "Family Quest", `„${taskTitle}“ bylo schváleno! +${template?.xpValue ?? 0} XP`, db);
+        await notifyMembers(familyId, "task_decided", target, "Family Quest", `„${taskTitle}“ bylo schváleno! +${template?.xpValue ?? 0} XP`, db);
       } else {
         await notifyMembers(
           familyId,
+          "task_decided",
           target,
           "Family Quest",
           after.returnComment ? `„${taskTitle}“ bylo vráceno: ${after.returnComment}` : `„${taskTitle}“ bylo vráceno.`,
