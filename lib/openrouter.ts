@@ -12,12 +12,18 @@ export interface OpenRouterModel {
   id: string;
   name: string;
   free: boolean;
+  /** Context window in tokens, if the catalog reports one — OpenRouter has no
+   * parameter-count/"intelligence" field (proprietary models like GPT-4o or
+   * Claude never state one), so this is the closest structured proxy for a
+   * model's size/capability that's actually available. */
+  contextLength: number | null;
 }
 
 interface RawModel {
   id?: string;
   name?: string;
   pricing?: { prompt?: string; completion?: string };
+  context_length?: number;
 }
 
 export function parseOpenRouterModels(raw: unknown): OpenRouterModel[] {
@@ -29,5 +35,18 @@ export function parseOpenRouterModels(raw: unknown): OpenRouterModel[] {
       id: m.id,
       name: m.name,
       free: m.pricing?.prompt === "0" && m.pricing?.completion === "0",
+      contextLength: typeof m.context_length === "number" && m.context_length > 0 ? m.context_length : null,
     }));
+}
+
+export function formatContextLength(tokens: number): string {
+  if (tokens >= 1_000_000) {
+    const millions = tokens / 1_000_000;
+    return `${millions % 1 === 0 ? millions : millions.toFixed(1)}M`;
+  }
+  if (tokens >= 1_000) {
+    const thousands = tokens / 1_000;
+    return `${thousands % 1 === 0 ? thousands : thousands.toFixed(1)}K`;
+  }
+  return `${tokens}`;
 }

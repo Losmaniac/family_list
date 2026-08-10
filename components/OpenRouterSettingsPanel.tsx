@@ -4,7 +4,7 @@ import { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { getFirebaseFunctions } from "@/lib/firebase";
 import { useToast } from "@/lib/toast-context";
-import { OPENROUTER_MODELS_URL, parseOpenRouterModels, type OpenRouterModel } from "@/lib/openrouter";
+import { formatContextLength, OPENROUTER_MODELS_URL, parseOpenRouterModels, type OpenRouterModel } from "@/lib/openrouter";
 
 function describeError(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : undefined;
@@ -148,8 +148,15 @@ export default function OpenRouterSettingsPanel({
                         selectedModel === m.id ? "bg-accent text-accent-foreground" : "hover:bg-surface-muted"
                       }`}
                     >
-                      <span className="truncate">{m.name}</span>
-                      {m.free && <span className="shrink-0 text-xs opacity-80">zdarma</span>}
+                      <span className="min-w-0 truncate">{m.name}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {m.contextLength && (
+                          <span className="text-xs opacity-70" title="Velikost kontextového okna — nejbližší dostupné vodítko k síle modelu, OpenRouter neuvádí počet parametrů">
+                            {formatContextLength(m.contextLength)} ctx
+                          </span>
+                        )}
+                        {m.free && <span className="text-xs opacity-80">zdarma</span>}
+                      </span>
                     </button>
                   ))
                 )}
