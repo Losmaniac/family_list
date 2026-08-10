@@ -88,8 +88,9 @@ export default function OpenRouterSettingsPanel({
         <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="underline">
           OpenRouter
         </a>{" "}
-        — jeden klíč, přístup k mnoha modelům (několik zdarma). Pokud je nastavený i Gemini klíč, pro &bdquo;AI
-        otázky&ldquo; se použije přednostně OpenRouter.
+        — jeden klíč, přístup k mnoha modelům (několik zdarma). Pro &bdquo;AI otázky&ldquo; se vždy nejdřív zkusí
+        Gemini; pokud otázku nevygeneruje (limit, výpadek…), automaticky se přeskočí na tento vybraný model a pak na
+        další zdarma dostupné modely z OpenRouter, dokud se otázka nepovede vygenerovat.
       </p>
 
       {!editing ? (
