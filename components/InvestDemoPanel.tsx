@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import {
   ASSET_TYPE_LABELS,
+  FEATURED_ASSETS,
   formatCzk,
   roundMoney,
   type InvestDemoAsset,
@@ -128,6 +129,29 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the actual symbol set changes, not on every toast/function-instance identity change
   }, [holdingSymbols]);
 
+  const [featuredQuotes, setFeaturedQuotes] = useState<Record<string, number | null>>({});
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setFeaturedLoading(true);
+      try {
+        const quotes = await fetchQuotesFor(FEATURED_ASSETS.map((a) => a.symbol));
+        if (!cancelled) setFeaturedQuotes(quotes);
+      } catch (err) {
+        if (!cancelled) toast.error(describeError(err, "Populární nástroje se nepodařilo načíst."));
+      } finally {
+        if (!cancelled) setFeaturedLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch-once on mount, FEATURED_ASSETS is a fixed module-level list
+  }, []);
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (searchQuery.trim().length < 2) return;
@@ -216,6 +240,41 @@ export default function InvestDemoPanel({ familyId }: { familyId: string }) {
           <p className="text-xs text-zinc-500">Celkem</p>
           <p className="text-lg font-semibold">{formatCzk(roundMoney(totalValueCzk))}</p>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-zinc-500">Populární</p>
+        {featuredLoading ? (
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-muted" />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {FEATURED_ASSETS.map((asset) => {
+              const price = featuredQuotes[asset.symbol];
+              return (
+                <div key={asset.symbol} className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{asset.name}</p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {asset.symbol} · {ASSET_TYPE_LABELS[asset.assetType]}
+                    </p>
+                  </div>
+                  {price !== undefined && price !== null && <p className="shrink-0 text-sm font-semibold">{formatCzk(price)}</p>}
+                  <button
+                    type="button"
+                    onClick={() => openBuy(asset)}
+                    className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground"
+                  >
+                    Koupit
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {holdings.length > 0 && (

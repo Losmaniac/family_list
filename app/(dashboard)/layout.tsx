@@ -157,7 +157,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { t } = useLocale();
 
   const loading = authLoading || familyLoading;
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [navOrder, setNavOrder] = useState<string[]>(() => NAV_ITEMS.map((item) => item.href));
   const [loadedOrderForUid, setLoadedOrderForUid] = useState<string | null>(null);
 
@@ -187,6 +186,30 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setHeaderHeight(el.offsetHeight);
     return () => observer.disconnect();
   }, []);
+
+  // The "bar"/"bar-2row" nav is also `position: fixed`, sitting on top of
+  // whatever's at the very bottom of `main` unless that much space is
+  // reserved as padding. A hardcoded padding guess drifts out of sync
+  // whenever the nav's actual height changes (more items wrapping into a
+  // row, a taller safe-area inset on a given device, a longer translated
+  // label) — long pages (Vzdělání's Hry, Investice's demo panel) are
+  // exactly where that drift became visible: their last buttons ended up
+  // rendered under the nav, unclickable. Measured live instead, same
+  // reasoning as headerHeight above. Re-attached whenever navStyle changes
+  // since the underlying DOM node is swapped (a different <nav> renders).
+  const navRef = useRef<HTMLElement>(null);
+  const [navBarHeight, setNavBarHeight] = useState(0);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) {
+      setNavBarHeight(0);
+      return;
+    }
+    const observer = new ResizeObserver(() => setNavBarHeight(el.offsetHeight));
+    observer.observe(el);
+    setNavBarHeight(el.offsetHeight);
+    return () => observer.disconnect();
+  }, [navStyle]);
 
   // Adjust state during rendering (React's documented pattern for "sync
   // once when an external identity becomes available/changes") instead of
@@ -283,47 +306,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     document.startViewTransition(() => router.push(href));
   }
 
-  function isInsideHorizontalScroller(el: EventTarget | null): boolean {
-    let node = el instanceof Element ? el : null;
-    while (node && node !== document.body) {
-      const style = getComputedStyle(node);
-      if ((style.overflowX === "auto" || style.overflowX === "scroll") && node.scrollWidth > node.clientWidth) {
-        return true;
-      }
-      node = node.parentElement;
-    }
-    return false;
-  }
-
-  function handleTouchStart(e: React.TouchEvent) {
-    // Don't hijack swipes that belong to a horizontally-scrolling element
-    // (the day-selector strips, the week schedule grid) — let those scroll
-    // natively instead of also triggering a tab change.
-    if (isInsideHorizontalScroller(e.target)) return;
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    const start = touchStartRef.current;
-    touchStartRef.current = null;
-    if (!start || !member) return;
-
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-
-    const visibleItems = visibleNavItems();
-    const currentIndex = visibleItems.findIndex((item) => pathname?.startsWith(item.href));
-    if (currentIndex === -1) return;
-    // Swipe left (negative dx) advances to the next tab, like turning a page.
-    const targetIndex = currentIndex + (dx < 0 ? 1 : -1);
-    if (targetIndex < 0 || targetIndex >= visibleItems.length) return;
-
-    navigateToTab(visibleItems[targetIndex].href);
-  }
-
   useEffect(() => {
     if (!loading && (!user || !member)) {
       router.replace("/login");
@@ -361,13 +343,22 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const mainPaddingClass =
     navStyle === "radial"
       ? "pb-20"
-      : navStyle === "bar-2row"
-        ? "pb-40"
-        : navStyle === "column-left"
-          ? "pl-20"
-          : navStyle === "column-right"
-            ? "pr-20"
-            : "pb-28";
+      : navStyle === "column-left"
+        ? "pl-20"
+        : navStyle === "column-right"
+          ? "pr-20"
+          : ""; // "bar"/"bar-2row" get their bottom padding from the measured navBarHeight below instead
+
+  // Before the first ResizeObserver measurement lands, fall back to roughly
+  // the old hardcoded guesses so there's no visible flash of unpadded
+  // content on first paint.
+  const isBottomBarStyle = navStyle === "bar" || navStyle === "bar-2row";
+  const mainStyle: React.CSSProperties = {
+    viewTransitionName: "page-content",
+    ...(isBottomBarStyle
+      ? { paddingBottom: (navBarHeight || (navStyle === "bar-2row" ? 160 : 112)) + 8 }
+      : {}),
+  };
 
   function renderSortableItems(grow: boolean = true) {
     return items.map((item) => (
@@ -413,12 +404,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </Link>
       </header>
 
-      <main
-        className={`flex-1 p-4 ${mainPaddingClass}`}
-        style={{ viewTransitionName: "page-content" }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <main className={`flex-1 p-4 ${mainPaddingClass}`} style={mainStyle}>
         {children}
       </main>
 
@@ -426,6 +412,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <FloatingNavMenu items={items} activeHref={activeHref} onSelect={navigateToTab} />
       ) : navStyle === "bar-2row" ? (
         <nav
+          ref={navRef}
           className="fixed inset-x-0 bottom-0 grid border-t border-border bg-surface pt-2"
           style={{
             gridTemplateColumns: `repeat(${Math.ceil(items.length / 2)}, 1fr)`,
@@ -458,6 +445,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
       ) : (
         <nav
+          ref={navRef}
           className="fixed inset-x-0 bottom-0 flex border-t border-border bg-surface pt-2"
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         >
