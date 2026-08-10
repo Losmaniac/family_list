@@ -13,6 +13,12 @@
  * "custom" lets the user type their own subject instead of picking from
  * AI_QUIZ_TOPICS — validated server-side by normalizeCustomTopic and never
  * trusted as a fixed id, since its streak bucket is derived from the text.
+ *
+ * The same doc also tracks up to MAX_RECENT_QUESTIONS previously-asked
+ * questions per topic (`recentQuestions`), fed back into the prompt as a
+ * do-not-repeat list — without this, a narrow topic asked repeatedly (e.g.
+ * auto-advance on a custom topic) tends to keep landing on the same single
+ * "obvious" question every time.
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
@@ -21,6 +27,7 @@ import {
   buildAiQuizPrompt,
   CUSTOM_TOPIC_ID,
   difficultyLabelForStreak,
+  MAX_RECENT_QUESTIONS,
   normalizeCustomTopic,
   parseAiQuizResponse,
   shuffleThree,
@@ -145,23 +152,35 @@ export const generateAiQuizQuestion = onCall<GenerateRequest>(async (request) =>
   }
 
   const streakKey = streakKeyForTopic(topicId, topicId === CUSTOM_TOPIC_ID ? topicLabel : undefined);
-  const progressSnap = await familyRef.collection("aiQuizProgress").doc(uid).get();
+  const progressRef = familyRef.collection("aiQuizProgress").doc(uid);
+  const progressSnap = await progressRef.get();
   const streak = (progressSnap.data()?.streaks?.[streakKey] as number | undefined) ?? 0;
+  const recentQuestions = (progressSnap.data()?.recentQuestions?.[streakKey] as string[] | undefined) ?? [];
 
-  const parsed = await generateWithFallback(secrets, buildAiQuizPrompt(topicLabel, difficultyLabelForStreak(streak)), parseAiQuizResponse);
+  const parsed = await generateWithFallback(
+    secrets,
+    buildAiQuizPrompt(topicLabel, difficultyLabelForStreak(streak), recentQuestions),
+    parseAiQuizResponse
+  );
   if (!parsed) {
     throw new HttpsError("internal", "Ani jeden nastavený model se nepodařilo použít — zkus to znovu za chvíli.");
   }
 
   const options = shuffleThree(parsed.options);
 
-  await familyRef.collection("practicePendingAi").doc(uid).set({
-    question: parsed.question,
-    options,
-    answer: parsed.answer,
-    streakKey,
-    createdAt: Date.now(),
-  });
+  await Promise.all([
+    familyRef.collection("practicePendingAi").doc(uid).set({
+      question: parsed.question,
+      options,
+      answer: parsed.answer,
+      streakKey,
+      createdAt: Date.now(),
+    }),
+    progressRef.set(
+      { recentQuestions: { [streakKey]: [...recentQuestions, parsed.question].slice(-MAX_RECENT_QUESTIONS) } },
+      { merge: true }
+    ),
+  ]);
 
   return { question: parsed.question, options, capReached: false };
 });
