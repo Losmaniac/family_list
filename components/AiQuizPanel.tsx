@@ -36,7 +36,7 @@ export default function AiQuizPanel() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [capReached, setCapReached] = useState(false);
 
-  const configured = family?.geminiApiKeyConfigured === true;
+  const configured = family?.geminiApiKeyConfigured === true || family?.openRouterApiKeyConfigured === true;
 
   async function handleNewQuestion(selectedTopic: AiQuizTopic) {
     if (!familyId) return;
@@ -94,7 +94,7 @@ export default function AiQuizPanel() {
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center text-zinc-500">
         <Sparkles size={40} />
         <p className="text-lg">Tahle sekce ještě čeká na API klíč.</p>
-        <p className="max-w-xs text-sm">Rodič ho může zadat v Nastavení → AI otázky (zdarma z Google AI Studio).</p>
+        <p className="max-w-xs text-sm">Rodič ho může zadat v Nastavení → AI otázky (zdarma z Google AI Studio nebo OpenRouter).</p>
       </div>
     );
   }

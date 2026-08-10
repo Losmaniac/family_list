@@ -83,6 +83,10 @@ export interface Family {
    * nastaven" without ever reading the actual secret back to a client.
    */
   geminiApiKeyConfigured?: boolean;
+  /** Same idea as geminiApiKeyConfigured, for an OpenRouter key — see families/{familyId}/secrets/openrouter. */
+  openRouterApiKeyConfigured?: boolean;
+  /** The chosen OpenRouter model id (e.g. "openai/gpt-4o-mini") — not a secret, safe to read directly, unlike the key itself. */
+  openRouterModel?: string;
 }
 
 export type MemberRole = "parent" | "child";
