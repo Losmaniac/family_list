@@ -2,6 +2,7 @@ import type { RadioStation } from "./radio-browser";
 import type { TvChannel } from "./iptv-org";
 import type { InvestDemoAssetType } from "./invest-demo";
 import type { TriviaDuelStatus } from "./trivia-duel";
+import type { ChessDifficulty } from "./chess-ai";
 
 /**
  * users/{userId} — top-level lookup so the client can resolve which family a
@@ -777,4 +778,45 @@ export interface NotificationRecord {
   body: string;
   createdAt: number;
   read: boolean;
+}
+
+/**
+ * won/lost are always from the human's perspective — the AI has no XP or
+ * feelings to speak of. 'in_progress' is the only status submitChessMove
+ * accepts a move against; every other status means the game is over and a
+ * fresh startChessGame call is needed to play that difficulty again.
+ */
+export type ChessGameStatus = "in_progress" | "won" | "lost" | "draw" | "resigned";
+
+/**
+ * families/{familyId}/chessGames/{gameId} — one game per member per
+ * difficulty (gameId = `${userId}_${difficulty}`), so starting a new game
+ * for a difficulty simply overwrites any prior finished one rather than
+ * accumulating abandoned games. Server-authoritative — only
+ * functions/src/chess.ts writes it; the client only ever sends
+ * from/to/promotion and reads back the resulting position. `history` is
+ * the SAN move list (human and AI moves interleaved) for display only.
+ */
+export interface ChessGame {
+  id: string;
+  userId: string;
+  difficulty: ChessDifficulty;
+  fen: string;
+  history: string[];
+  status: ChessGameStatus;
+  /** Total XP actually credited across every win of this game doc's lifetime — 0/absent if the daily cap for this difficulty was already spent on a prior win today. */
+  xpAwarded?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * families/{familyId}/chessProgress/{userId} — tracks the last date (family
+ * zone) each difficulty's win XP was already claimed, so a member can keep
+ * playing/winning for fun but only earns the CHESS_WIN_XP reward once per
+ * difficulty per day (functions/src/chess.ts). Doc ID is the member's own uid.
+ */
+export interface ChessProgress {
+  id: string;
+  lastWinDateByDifficulty?: Partial<Record<ChessDifficulty, string>>;
 }

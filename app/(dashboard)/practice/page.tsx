@@ -16,7 +16,7 @@ import AtlasCountryList from "@/components/AtlasCountryList";
 import FoodFactsExplorer from "@/components/FoodFactsExplorer";
 import EncyclopediaExplorer from "@/components/EncyclopediaExplorer";
 import WorldBankExplorer from "@/components/WorldBankExplorer";
-import ChessDailyPuzzle from "@/components/ChessDailyPuzzle";
+import ChessGame from "@/components/ChessGame";
 import GamesArcade from "@/components/GamesArcade";
 import TriviaDuelPanel from "@/components/TriviaDuelPanel";
 import SpanishFlashcards from "@/components/SpanishFlashcards";
@@ -322,9 +322,11 @@ export default function PracticePage() {
             ? "Vyzvi člena rodiny na kvíz o vlastní vklad XP — mimo denní limit z ostatních předmětů."
             : subject === "aiquiz"
               ? "AI ti na vybrané téma vygeneruje úplně novou otázku a získáš +1 XP za správnou odpověď — otázky se na rozdíl od ostatních předmětů nikdy neopakují ani nedojdou."
-              : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "chess" || subject === "games"
-                ? "Bez XP — jen k nahlédnutí a hledání."
-                : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
+              : subject === "chess"
+                ? "Skutečná hra šachu proti počítači na třech obtížnostech — za výhru získáš XP, každou obtížnost ale jen jednou denně."
+                : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "games"
+                  ? "Bez XP — jen k nahlédnutí a hledání."
+                  : `Vyřeš úlohu a získej +${formatXp(PRACTICE_XP_PER_PROBLEM)} XP. Za den je limit, kolik XP takhle můžeš nasbírat. Jednou zodpovězenou otázku už znovu nedostaneš.`}
       </p>
 
       {capInfo &&
@@ -376,7 +378,7 @@ export default function PracticePage() {
       {subject === "wiki" && <EncyclopediaExplorer />}
       {subject === "atlas" && <AtlasCountryList />}
       {subject === "worldbank" && <WorldBankExplorer />}
-      {subject === "chess" && <ChessDailyPuzzle />}
+      {subject === "chess" && <ChessGame />}
       {subject === "games" && <GamesArcade familyId={familyId ?? undefined} />}
       {subject === "trivia" && familyId && <TriviaDuelPanel familyId={familyId} />}
       {subject === "aiquiz" && <AiQuizPanel />}

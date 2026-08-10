@@ -35,6 +35,7 @@ const REASON_TO_CATEGORY: Record<string, XpReasonCategory> = {
   manual_adjustment: "manual",
   radio_listening: "media",
   tv_watching: "media",
+  chess_win: "education",
 };
 
 export function categoryForReason(reason: string): XpReasonCategory {
@@ -72,6 +73,7 @@ const REASON_LABELS: Record<string, string> = {
   manual_adjustment: "Ruční úprava rodičem",
   radio_listening: "Poslech rádia",
   tv_watching: "Sledování TV",
+  chess_win: "Výhra v šachu",
 };
 
 export function reasonLabel(reason: string): string {
