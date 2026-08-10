@@ -79,16 +79,25 @@ export const setGeminiApiKey = onCall<SetGeminiKeyRequest>(async (request) => {
 
 interface SetOpenRouterConfigRequest {
   familyId: string;
-  apiKey: string;
+  apiKey?: string;
   model: string;
 }
 
+/**
+ * apiKey is optional so the model can be switched quickly without having to
+ * re-paste the key every time — settings.tsx's "Rychlá změna modelu" flow
+ * calls this with just {familyId, model}. Omitting it requires a key to
+ * already be on file; nothing here ever reads the stored key back out.
+ */
 export const setOpenRouterConfig = onCall<SetOpenRouterConfigRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, apiKey, model } = request.data;
-  if (!familyId || typeof apiKey !== "string" || apiKey.trim().length < 10 || typeof model !== "string" || !model.trim()) {
-    throw new HttpsError("invalid-argument", "Zadej platný API klíč a vyber model.");
+  if (!familyId || typeof model !== "string" || !model.trim()) {
+    throw new HttpsError("invalid-argument", "Vyber platný model.");
+  }
+  if (apiKey !== undefined && (typeof apiKey !== "string" || apiKey.trim().length < 10)) {
+    throw new HttpsError("invalid-argument", "Zadej platný API klíč.");
   }
   await requireFamilyMember(familyId, uid);
 
@@ -96,7 +105,16 @@ export const setOpenRouterConfig = onCall<SetOpenRouterConfigRequest>(async (req
   const familyRef = db.collection("families").doc(familyId);
   await requireParent(db, familyId, uid);
 
-  await familyRef.collection("secrets").doc("openrouter").set({ apiKey: apiKey.trim(), model: model.trim(), updatedAt: Date.now() });
+  const secretRef = familyRef.collection("secrets").doc("openrouter");
+  if (apiKey) {
+    await secretRef.set({ apiKey: apiKey.trim(), model: model.trim(), updatedAt: Date.now() });
+  } else {
+    const existing = (await secretRef.get()).data() as { apiKey?: string } | undefined;
+    if (!existing?.apiKey) {
+      throw new HttpsError("failed-precondition", "Nejdřív zadej API klíč.");
+    }
+    await secretRef.set({ model: model.trim(), updatedAt: Date.now() }, { merge: true });
+  }
   await familyRef.update({ openRouterApiKeyConfigured: true, openRouterModel: model.trim() });
 
   return { configured: true };

@@ -11,14 +11,21 @@ function describeError(err: unknown, fallback: string): string {
   return message ? `${fallback} (${message})` : fallback;
 }
 
+type Mode = "view" | "model" | "key";
+
 /**
  * Parent-only: enter an OpenRouter API key and pick which model "AI
  * otázky" should use. The model catalog (openrouter.ai/api/v1/models) is
- * public and keyless, so it's fetched straight from the browser the
- * moment the key is pasted — the key itself is only needed once actual
- * generation happens, server-side, and is stored the same way as the
- * Gemini key (families/{familyId}/secrets/openrouter, never read back to
- * any client).
+ * public and keyless, so it's fetched straight from the browser as soon as
+ * the picker opens — no key needed for that part. The key itself is only
+ * needed once actual generation happens, server-side, and is stored the
+ * same way as the Gemini key (families/{familyId}/secrets/openrouter,
+ * never read back to any client).
+ *
+ * Once a key is on file, switching models doesn't need it re-pasted:
+ * "model" mode calls setOpenRouterConfig with just {familyId, model} — the
+ * function reuses the already-stored key. "key" mode is the full form,
+ * used for first-time setup or an explicit key change.
  */
 export default function OpenRouterSettingsPanel({
   familyId,
@@ -30,7 +37,7 @@ export default function OpenRouterSettingsPanel({
   currentModel?: string;
 }) {
   const toast = useToast();
-  const [editing, setEditing] = useState(!configured);
+  const [mode, setMode] = useState<Mode>(configured ? "view" : "key");
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<OpenRouterModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -54,21 +61,29 @@ export default function OpenRouterSettingsPanel({
     }
   }
 
+  function openModelPicker() {
+    setMode("model");
+    if (models.length === 0) handleLoadModels();
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (apiKey.trim().length < 10 || !selectedModel) {
-      toast.error("Zadej platný API klíč a vyber model.");
+    if (mode === "key" && apiKey.trim().length < 10) {
+      toast.error("Zadej platný API klíč.");
+      return;
+    }
+    if (!selectedModel) {
+      toast.error("Vyber model.");
       return;
     }
     setSaving(true);
     try {
-      await httpsCallable<{ familyId: string; apiKey: string; model: string }, { configured: boolean }>(
-        getFirebaseFunctions(),
-        "setOpenRouterConfig"
-      )({ familyId, apiKey: apiKey.trim(), model: selectedModel });
-      toast.success("OpenRouter nastaven.");
+      const payload: { familyId: string; apiKey?: string; model: string } = { familyId, model: selectedModel };
+      if (mode === "key") payload.apiKey = apiKey.trim();
+      await httpsCallable<typeof payload, { configured: boolean }>(getFirebaseFunctions(), "setOpenRouterConfig")(payload);
+      toast.success(mode === "key" ? "OpenRouter nastaven." : "Model změněn.");
       setApiKey("");
-      setEditing(false);
+      setMode("view");
     } catch (err) {
       toast.error(describeError(err, "Nastavení se nepodařilo uložit."));
     } finally {
@@ -93,33 +108,42 @@ export default function OpenRouterSettingsPanel({
         další zdarma dostupné modely z OpenRouter, dokud se otázka nepovede vygenerovat.
       </p>
 
-      {!editing ? (
-        <div className="flex items-center gap-2">
+      {mode === "view" ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-sm text-success">✓ Nastaveno{currentModel ? ` — ${currentModel}` : ""}</p>
-          <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-accent">
-            Změnit
+          <button type="button" onClick={openModelPicker} className="text-sm font-semibold text-accent">
+            Rychlá změna modelu
+          </button>
+          <button type="button" onClick={() => setMode("key")} className="text-sm font-semibold text-zinc-500">
+            Změnit klíč
           </button>
         </div>
       ) : (
         <form onSubmit={handleSave} className="flex flex-col gap-3 rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-or-…"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
-            />
-            <button
-              type="button"
-              onClick={handleLoadModels}
-              disabled={loadingModels}
-              className="shrink-0 rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
-            >
-              {loadingModels ? "Načítám…" : "Načíst modely"}
-            </button>
-          </div>
+          {mode === "key" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-or-…"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 py-2"
+              />
+              <button
+                type="button"
+                onClick={handleLoadModels}
+                disabled={loadingModels}
+                className="shrink-0 rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                {loadingModels ? "Načítám…" : "Načíst modely"}
+              </button>
+            </div>
+          )}
+
+          {mode === "model" && loadingModels && models.length === 0 && (
+            <p className="text-sm text-zinc-500">Načítám modely…</p>
+          )}
 
           {models.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -177,7 +201,7 @@ export default function OpenRouterSettingsPanel({
             {configured && (
               <button
                 type="button"
-                onClick={() => setEditing(false)}
+                onClick={() => setMode("view")}
                 className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
               >
                 Zrušit
