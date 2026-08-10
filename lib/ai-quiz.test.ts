@@ -34,6 +34,12 @@ describe("buildAiQuizPrompt", () => {
     const prompt = buildAiQuizPrompt("Matematika", "expertní úroveň");
     expect(prompt).toContain("expertní úroveň");
   });
+
+  it("instructs the model to use grammatically correct Czech", () => {
+    const prompt = buildAiQuizPrompt("Matematika");
+    expect(prompt).toContain("gramaticky absolutně správné češtině");
+    expect(prompt).toContain("skloňování a časování");
+  });
 });
 
 describe("difficultyLabelForStreak", () => {

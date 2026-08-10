@@ -35,9 +35,18 @@ export function difficultyLabelForStreak(streak: number): string {
   return "základní, přiměřená pro úplný začátek";
 }
 
+/**
+ * Prepended to every prompt — some OpenRouter models (unlike Gemini, which
+ * is naturally strong in Czech) otherwise produce Czech with declension/
+ * conjugation mistakes, since it's a small fraction of their training data.
+ */
+const CZECH_QUALITY_INSTRUCTION =
+  'Jsi český asistent. Tvým úkolem je odpovídat výhradně v plynulé, spisovné a gramaticky absolutně správné češtině. Zkontroluj si skloňování a časování slov předtím, než vypíšeš odpověď.';
+
 /** Strict-JSON-only instructions — parseAiQuizResponse only ever accepts exactly this shape, so the prompt has to be unambiguous about it. */
 export function buildAiQuizPrompt(topicLabel: string, difficultyLabel: string = difficultyLabelForStreak(0)): string {
   return [
+    CZECH_QUALITY_INSTRUCTION,
     "Jsi generátor vzdělávacích kvízových otázek pro děti ve věku 8-14 let.",
     `Vytvoř JEDNU otázku s výběrem odpovědí na téma "${topicLabel}" v češtině.`,
     `Obtížnost otázky: ${difficultyLabel}.`,
