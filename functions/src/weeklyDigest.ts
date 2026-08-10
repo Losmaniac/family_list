@@ -15,9 +15,9 @@
  */
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, type DocumentData, type QueryDocumentSnapshot } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
 import { loadAiSecrets, generateWithFallback } from "./aiProvider";
+import { notifyMembers } from "./notifyHelpers";
 import type { Member } from "../../lib/types";
 
 const CZECH_QUALITY_INSTRUCTION =
@@ -45,7 +45,6 @@ function buildDigestPrompt(familyName: string, stats: MemberWeekStats[]): string
 
 export const weeklyDigestGenerator = onSchedule({ schedule: "0 18 * * 0", timeZone: "Europe/Prague" }, async () => {
   const db = getFirestore();
-  const messaging = getMessaging();
   const now = new Date();
 
   // The 7 family-zone calendar dates this digest covers, oldest first —
@@ -107,23 +106,13 @@ export const weeklyDigestGenerator = onSchedule({ schedule: "0 18 * * 0", timeZo
         generatedAt: Date.now(),
       });
 
-      for (const m of members) {
-        if (!m.fcmToken) continue;
-        try {
-          await messaging.send({
-            token: m.fcmToken,
-            // data-only, not notification — see notifyHelpers.ts's sendToTokens
-            // comment for why (avoids a duplicate on-device notification).
-            data: {
-              title: "Týdenní souhrn",
-              body: text.length > 150 ? `${text.slice(0, 147)}…` : text,
-            },
-          });
-        } catch {
-          // A stale/invalid token shouldn't stop the digest from reaching
-          // everyone else in the family.
-        }
-      }
+      await notifyMembers(
+        familyDoc.id,
+        members.map((m) => ({ userId: m.id, fcmToken: m.fcmToken })),
+        "Týdenní souhrn",
+        text.length > 150 ? `${text.slice(0, 147)}…` : text,
+        db
+      );
     } catch {
       // One family's AI/query failure shouldn't block the rest — they get
       // this week's digest skipped, same as "no AI key configured".

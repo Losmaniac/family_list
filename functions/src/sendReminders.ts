@@ -3,14 +3,13 @@
  */
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
 import { dateKeyInFamilyZone } from "../../lib/date-utils";
+import { notifyMembers } from "./notifyHelpers";
 
 export const sendReminders = onSchedule(
   { schedule: "0 19 * * *", timeZone: "Europe/Prague" },
   async () => {
     const db = getFirestore();
-    const messaging = getMessaging();
     const today = dateKeyInFamilyZone(new Date());
 
     const familiesSnapshot = await db.collection("families").get();
@@ -33,17 +32,7 @@ export const sendReminders = onSchedule(
       for (const [userId, count] of pendingByMember) {
         const memberDoc = await familyDoc.ref.collection("members").doc(userId).get();
         const fcmToken = memberDoc.data()?.fcmToken as string | undefined;
-        if (!fcmToken) continue;
-
-        await messaging.send({
-          token: fcmToken,
-          // data-only, not notification — see notifyHelpers.ts's sendToTokens
-          // comment for why (avoids a duplicate on-device notification).
-          data: {
-            title: "Family Quest",
-            body: `Máš ${count} nedokončených úkolů na dnes.`,
-          },
-        });
+        await notifyMembers(familyDoc.id, [{ userId, fcmToken }], "Family Quest", `Máš ${count} nedokončených úkolů na dnes.`, db);
       }
     }
   }

@@ -56,6 +56,7 @@ import AccentColorSync from "@/components/AccentColorSync";
 import AppBadgeSync from "@/components/AppBadgeSync";
 import ForegroundPushNotifications from "@/components/ForegroundPushNotifications";
 import FloatingNavMenu from "@/components/FloatingNavMenu";
+import NotificationBadge from "@/components/NotificationBadge";
 
 interface NavItem {
   href: string;
@@ -154,7 +155,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
-  const { loading: familyLoading, member, family } = useFamily();
+  const { loading: familyLoading, member, family, familyId } = useFamily();
   const { style: navStyle } = useNavStyle();
   const { t } = useLocale();
 
@@ -367,9 +368,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <AppBadgeSync />
       <ForegroundPushNotifications />
       <header ref={headerRef} className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
-        <Link href={`/profile/${user.uid}`} className="flex items-center gap-3">
-          <Avatar name={member.name} avatarUrl={member.avatarUrl} />
-        </Link>
+        <div className="relative shrink-0">
+          <Link href={`/profile/${user.uid}`}>
+            <Avatar name={member.name} avatarUrl={member.avatarUrl} />
+          </Link>
+          {familyId && <NotificationBadge familyId={familyId} />}
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{member.name}</p>

@@ -9,7 +9,7 @@
  */
 import { onDocumentCreated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { sendToTokens } from "./notifyHelpers";
+import { notifyMembers, type NotifyTarget } from "./notifyHelpers";
 import { xpAdjustmentNeedsApproval } from "../../lib/xp-engine";
 import type {
   Member,
@@ -22,10 +22,10 @@ import type {
   XpAdjustmentRequest,
 } from "../../lib/types";
 
-async function tokensFor(db: Firestore, familyId: string, userIds: string[]): Promise<string[]> {
+async function targetsFor(db: Firestore, familyId: string, userIds: string[]): Promise<NotifyTarget[]> {
   const familyRef = db.collection("families").doc(familyId);
   const snaps = await Promise.all(userIds.map((id) => familyRef.collection("members").doc(id).get()));
-  return snaps.map((s) => (s.data() as Member | undefined)?.fcmToken).filter((t): t is string => Boolean(t));
+  return snaps.filter((s) => s.exists).map((s) => ({ userId: s.id, fcmToken: (s.data() as Member | undefined)?.fcmToken }));
 }
 
 async function memberName(db: Firestore, familyId: string, userId: string): Promise<string> {
@@ -43,11 +43,11 @@ export const onTaskProposalCreated = onDocumentCreated(
     const db = getFirestore();
     const membersSnap = await db.collection("families").doc(familyId).collection("members").get();
     const otherIds = membersSnap.docs.map((d) => d.id).filter((id) => id !== proposal.proposedBy);
-    const tokens = await tokensFor(db, familyId, otherIds);
-    if (tokens.length === 0) return;
+    const targets = await targetsFor(db, familyId, otherIds);
+    if (targets.length === 0) return;
 
     const proposerName = await memberName(db, familyId, proposal.proposedBy);
-    await sendToTokens(tokens, "Family Quest", `${proposerName} navrhl(a) nový úkol: „${proposal.title}“.`);
+    await notifyMembers(familyId, targets, "Family Quest", `${proposerName} navrhl(a) nový úkol: „${proposal.title}“.`, db);
   }
 );
 
@@ -64,11 +64,11 @@ export const onTaskRequestOpened = onDocumentWritten(
     const db = getFirestore();
     const membersSnap = await db.collection("families").doc(familyId).collection("members").get();
     const otherIds = membersSnap.docs.map((d) => d.id).filter((id) => id !== requesterId);
-    const tokens = await tokensFor(db, familyId, otherIds);
-    if (tokens.length === 0) return;
+    const targets = await targetsFor(db, familyId, otherIds);
+    if (targets.length === 0) return;
 
     const requesterName = await memberName(db, familyId, requesterId);
-    await sendToTokens(tokens, "Family Quest", `${requesterName} chce nový úkol — navrhni mu/jí nějaký.`);
+    await notifyMembers(familyId, targets, "Family Quest", `${requesterName} chce nový úkol — navrhni mu/jí nějaký.`, db);
   }
 );
 
@@ -87,13 +87,15 @@ export const onXpAdjustmentRequestCreated = onDocumentCreated(
     if (!xpAdjustmentNeedsApproval(parentsSnap.size)) return;
 
     const otherParentIds = parentsSnap.docs.map((d) => d.id).filter((id) => id !== request.requestedBy);
-    const tokens = await tokensFor(db, familyId, otherParentIds);
-    if (tokens.length === 0) return;
+    const targets = await targetsFor(db, familyId, otherParentIds);
+    if (targets.length === 0) return;
 
-    await sendToTokens(
-      tokens,
+    await notifyMembers(
+      familyId,
+      targets,
       "Family Quest",
-      `Žádost o úpravu XP (${request.delta >= 0 ? "+" : ""}${request.delta}) čeká na tvé schválení.`
+      `Žádost o úpravu XP (${request.delta >= 0 ? "+" : ""}${request.delta}) čeká na tvé schválení.`,
+      db
     );
   }
 );
@@ -106,12 +108,12 @@ export const onPooledContributionCreated = onDocumentCreated(
 
     const { familyId } = event.params;
     const db = getFirestore();
-    const tokens = await tokensFor(db, familyId, pool.invitedUserIds);
-    if (tokens.length === 0) return;
+    const targets = await targetsFor(db, familyId, pool.invitedUserIds);
+    if (targets.length === 0) return;
 
     const rewardSnap = await db.collection("families").doc(familyId).collection("rewards").doc(pool.rewardId).get();
     const reward = rewardSnap.data() as Reward | undefined;
-    await sendToTokens(tokens, "Family Quest", `Zveme tě do sbírky na „${reward?.title ?? "odměnu"}“ — přispěj svým dílem XP.`);
+    await notifyMembers(familyId, targets, "Family Quest", `Zveme tě do sbírky na „${reward?.title ?? "odměnu"}“ — přispěj svým dílem XP.`, db);
   }
 );
 
@@ -129,12 +131,12 @@ export const onRewardRedemptionActionable = onDocumentWritten(
     const db = getFirestore();
     const familyRef = db.collection("families").doc(familyId);
     const parentsSnap = await familyRef.collection("members").where("role", "==", "parent").get();
-    const tokens = await tokensFor(
+    const targets = await targetsFor(
       db,
       familyId,
       parentsSnap.docs.map((d) => d.id)
     );
-    if (tokens.length === 0) return;
+    if (targets.length === 0) return;
 
     const rewardSnap = await familyRef.collection("rewards").doc(after.rewardId).get();
     const reward = rewardSnap.data() as Reward | undefined;
@@ -143,7 +145,7 @@ export const onRewardRedemptionActionable = onDocumentWritten(
     const message = becameRequested
       ? `${requesterName} žádá o odměnu „${reward?.title ?? after.rewardId}“ — čeká na schválení.`
       : `Odměna „${reward?.title ?? after.rewardId}“ pro ${requesterName} je schválená — čeká na vyřízení.`;
-    await sendToTokens(tokens, "Family Quest", message);
+    await notifyMembers(familyId, targets, "Family Quest", message, db);
   }
 );
 
@@ -188,8 +190,8 @@ export const onMarketplaceOfferActionable = onDocumentWritten(
       return;
     }
 
-    const tokens = await tokensFor(db, familyId, [notifyUserId]);
-    if (tokens.length === 0) return;
-    await sendToTokens(tokens, "Family Quest", message);
+    const targets = await targetsFor(db, familyId, [notifyUserId]);
+    if (targets.length === 0) return;
+    await notifyMembers(familyId, targets, "Family Quest", message, db);
   }
 );

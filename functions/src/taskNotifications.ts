@@ -8,7 +8,7 @@
  */
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
-import { sendToTokens } from "./notifyHelpers";
+import { notifyMembers } from "./notifyHelpers";
 import type { DailyTask, Member, TaskTemplate } from "../../lib/types";
 
 export const onTaskStatusNotify = onDocumentUpdated(
@@ -19,7 +19,8 @@ export const onTaskStatusNotify = onDocumentUpdated(
     if (!before || !after || before.status === after.status) return;
 
     const db = getFirestore();
-    const familyRef = db.collection("families").doc(event.params.familyId);
+    const familyId = event.params.familyId;
+    const familyRef = db.collection("families").doc(familyId);
     const templateSnap = await familyRef.collection("taskTemplates").doc(after.templateId).get();
     const template = templateSnap.data() as TaskTemplate | undefined;
     const taskTitle = template?.title ?? "Úkol";
@@ -28,26 +29,25 @@ export const onTaskStatusNotify = onDocumentUpdated(
       const parentsSnapshot = await familyRef.collection("members").where("role", "==", "parent").get();
       const assigneeSnap = await familyRef.collection("members").doc(after.assignedTo).get();
       const assigneeName = (assigneeSnap.data() as Member | undefined)?.name ?? "Někdo";
-      const tokens = parentsSnapshot.docs
-        .map((d) => (d.data() as Member).fcmToken)
-        .filter((token): token is string => Boolean(token));
-      if (tokens.length > 0) {
-        await sendToTokens(tokens, "Family Quest", `${assigneeName} odeslal(a) „${taskTitle}“ ke schválení.`);
-      }
+      const targets = parentsSnapshot.docs.map((d) => ({ userId: d.id, fcmToken: (d.data() as Member).fcmToken }));
+      await notifyMembers(familyId, targets, "Family Quest", `${assigneeName} odeslal(a) „${taskTitle}“ ke schválení.`, db);
       return;
     }
 
     if (before.status === "submitted" && (after.status === "done" || after.status === "returned")) {
       const assigneeSnap = await familyRef.collection("members").doc(after.assignedTo).get();
-      const token = (assigneeSnap.data() as Member | undefined)?.fcmToken;
-      if (!token) return;
+      const assignee = assigneeSnap.data() as Member | undefined;
+      if (!assignee) return;
+      const target = [{ userId: after.assignedTo, fcmToken: assignee.fcmToken }];
       if (after.status === "done") {
-        await sendToTokens([token], "Family Quest", `„${taskTitle}“ bylo schváleno! +${template?.xpValue ?? 0} XP`);
+        await notifyMembers(familyId, target, "Family Quest", `„${taskTitle}“ bylo schváleno! +${template?.xpValue ?? 0} XP`, db);
       } else {
-        await sendToTokens(
-          [token],
+        await notifyMembers(
+          familyId,
+          target,
           "Family Quest",
-          after.returnComment ? `„${taskTitle}“ bylo vráceno: ${after.returnComment}` : `„${taskTitle}“ bylo vráceno.`
+          after.returnComment ? `„${taskTitle}“ bylo vráceno: ${after.returnComment}` : `„${taskTitle}“ bylo vráceno.`,
+          db
         );
       }
     }
