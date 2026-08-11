@@ -22,6 +22,7 @@ export { startChessGame, submitChessMove, resignChessGame } from "./chess";
 export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
 export { generateSpanishFlashcards, submitSpanishFlashcardAnswer } from "./spanishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
+export { onAdHocCompletionDecided } from "./onAdHocCompletionDecided";
 export {
   searchInvestDemoAssets,
   initInvestDemoPortfolio,
