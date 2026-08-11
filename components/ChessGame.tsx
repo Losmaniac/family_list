@@ -219,7 +219,7 @@ export default function ChessGame() {
 
       {inProgress && (
         <>
-          <div className="mx-auto grid aspect-square w-full max-w-sm grid-cols-8 overflow-hidden rounded-md shadow-md">
+          <div className="mx-auto grid aspect-square w-full max-w-sm grid-cols-8 auto-rows-fr overflow-hidden rounded-md shadow-md">
             {RANKS.map((rank) =>
               FILES.map((file) => {
                 const square = `${file}${rank}` as Square;
