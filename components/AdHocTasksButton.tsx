@@ -17,6 +17,7 @@ import type { AdHocTaskCompletion, AdHocTaskType } from "@/lib/types";
 
 interface SubmitResponse {
   awarded: number;
+  pending: boolean;
 }
 
 function describeError(err: unknown, fallback: string): string {
@@ -82,7 +83,7 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
         getFirebaseFunctions(),
         "completeAdHocTask"
       )({ familyId, typeId: type.id, photoUrl });
-      toast.success(`Hotovo! +${formatXp(result.data.awarded)} XP`);
+      toast.success(result.data.pending ? "Foto odesláno ke schválení rodiči." : `Hotovo! +${formatXp(result.data.awarded)} XP`);
     } catch (err) {
       toast.error(describeError(err, "Úkol se nepodařilo splnit."));
     } finally {

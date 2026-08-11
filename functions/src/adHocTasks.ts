@@ -4,8 +4,15 @@
  * the type (title, XP, cooldown) in Settings, and any family member can mark
  * one done on demand from /today. Awarding XP and enforcing the cooldown
  * both happen here, server-side — the client only ever reads adHocCompletions
- * (read-only, same trust tier as xpLedger) to render its countdown, never
- * decides for itself whether enough time has passed.
+ * (read-only except for a parent's approve/reject, same trust tier as
+ * xpLedger) to render its countdown, never decides for itself whether
+ * enough time has passed.
+ *
+ * A type with photoRequired doesn't award XP here at all — the photo is
+ * evidence a parent still needs to actually look at, so the completion is
+ * written 'pending' with no XP, and functions/src/onAdHocCompletionDecided.ts
+ * awards it once a parent approves (see PendingAdHocApprovals.tsx). A type
+ * with no photo requirement stays self-service and instant, same as before.
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
@@ -38,7 +45,7 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     .orderBy("timestamp", "desc")
     .limit(1);
 
-  const awarded = await db.runTransaction(async (tx) => {
+  const { awarded, pending } = await db.runTransaction(async (tx) => {
     const [typeSnap, lastSnap] = await Promise.all([tx.get(typeRef), tx.get(lastCompletionQuery)]);
     const type = typeSnap.data() as AdHocTaskType | undefined;
     if (!type || !type.active) throw new HttpsError("failed-precondition", "Tento úkol už není dostupný.");
@@ -53,11 +60,24 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
       );
     }
 
+    if (type.photoRequired) {
+      tx.set(familyRef.collection("adHocCompletions").doc(), {
+        typeId,
+        completedBy: uid,
+        timestamp: Date.now(),
+        xpAwarded: 0,
+        status: "pending",
+        photoUrl,
+      });
+      return { awarded: 0, pending: true };
+    }
+
     tx.set(familyRef.collection("adHocCompletions").doc(), {
       typeId,
       completedBy: uid,
       timestamp: Date.now(),
       xpAwarded: type.xpValue,
+      status: "approved",
       ...(photoUrl ? { photoUrl } : {}),
     });
     tx.set(
@@ -65,8 +85,8 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
       buildLedgerEntry({ userId: uid, delta: type.xpValue, reason: "adhoc_task", relatedTaskId: typeId })
     );
     tx.update(memberRef, { xpBalance: FieldValue.increment(type.xpValue) });
-    return type.xpValue;
+    return { awarded: type.xpValue, pending: false };
   });
 
-  return { awarded };
+  return { awarded, pending };
 });

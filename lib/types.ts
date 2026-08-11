@@ -678,19 +678,39 @@ export interface AdHocTaskType {
 }
 
 /**
+ * approved is the terminal "XP has been credited" state — reached either
+ * instantly (a type with no photoRequired is self-service, no review
+ * needed) or once a parent approves a pending photo. pending only exists
+ * for a photoRequired type awaiting that decision; rejected is terminal
+ * too, XP never moves. Absent on completions written before this field
+ * existed — treat a missing status the same as 'approved' (they already
+ * had XP credited at creation time, back when every completion did).
+ */
+export type AdHocCompletionStatus = "pending" | "approved" | "rejected";
+
+/**
  * families/{familyId}/adHocCompletions/{id} — append-only log of completed
- * ad-hoc tasks, only ever written by the completeAdHocTask Cloud Function
- * (same trust tier as xpLedger). It's both the XP award record and the
- * source of truth for "when was this type last done" that the server-side
- * cooldown check and the client's countdown display both read from.
+ * ad-hoc tasks. Only ever created by the completeAdHocTask Cloud Function
+ * (same trust tier as xpLedger) — the client's only write access is a
+ * parent flipping a 'pending' completion to 'approved'/'rejected' (see
+ * firestore.rules), which functions/src/onAdHocCompletionDecided.ts then
+ * turns into the actual XP award, mirroring dailyTasks' submitted->done
+ * approval flow. It's both the XP award record and the source of truth
+ * for "when was this type last done" that the server-side cooldown check
+ * and the client's countdown display both read from — regardless of
+ * status, so a rejected claim still occupies the cooldown window.
  */
 export interface AdHocTaskCompletion {
   id: string;
   typeId: string;
   completedBy: string;
   timestamp: number;
+  /** XP actually credited so far — 0 while pending or rejected. */
   xpAwarded: number;
   photoUrl?: string;
+  status?: AdHocCompletionStatus;
+  decidedBy?: string;
+  decidedAt?: number;
 }
 
 /**
