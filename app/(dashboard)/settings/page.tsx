@@ -34,6 +34,7 @@ import PracticeSettingsPanel from "@/components/PracticeSettingsPanel";
 import ScheduleSettingsPanel from "@/components/ScheduleSettingsPanel";
 import ShoppingSettingsPanel from "@/components/ShoppingSettingsPanel";
 import AdHocTaskSettingsPanel from "@/components/AdHocTaskSettingsPanel";
+import MediaBillingSettingsPanel from "@/components/MediaBillingSettingsPanel";
 import NavVisibilitySettingsPanel from "@/components/NavVisibilitySettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
@@ -455,6 +456,16 @@ export default function SettingsPage() {
       {member.role === "parent" && familyId && (
         <SettingsSection id="adhoc" title="Jednorázové úkoly">
           <AdHocTaskSettingsPanel familyId={familyId} />
+        </SettingsSection>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <SettingsSection id="media" title="Rádio a TV">
+          <MediaBillingSettingsPanel
+            familyId={familyId}
+            mediaGracePeriodMinutes={family?.mediaGracePeriodMinutes}
+            mediaXpCostPerBlock={family?.mediaXpCostPerBlock}
+          />
         </SettingsSection>
       )}
 

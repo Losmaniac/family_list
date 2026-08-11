@@ -86,6 +86,10 @@ export interface Family {
   geminiApiKeyConfigured?: boolean;
   /** Same idea as geminiApiKeyConfigured, for an OpenRouter key — see families/{familyId}/secrets/openrouter. */
   openRouterApiKeyConfigured?: boolean;
+  /** Minutes of free Rádio/TV playback before billing starts; absent = the built-in default (see lib/media-billing.ts). */
+  mediaGracePeriodMinutes?: number;
+  /** XP charged per started 5-minute block after the grace period, per kind; absent = the built-in defaults (see lib/media-billing.ts). */
+  mediaXpCostPerBlock?: { radio: number; tv: number };
   /** The chosen OpenRouter model id (e.g. "openai/gpt-4o-mini") — not a secret, safe to read directly, unlike the key itself. */
   openRouterModel?: string;
   /**

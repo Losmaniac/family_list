@@ -10,6 +10,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { buildLedgerEntry, canAffordReward } from "../../lib/xp-engine";
 import { MEDIA_XP_COST_PER_BLOCK, type MediaKind } from "../../lib/media-billing";
+import type { Family } from "../../lib/types";
 
 const MAX_CHANNEL_NAME_LENGTH = 120;
 
@@ -33,11 +34,12 @@ export const chargeMediaListening = onCall<ChargeRequest>(async (request) => {
   const db = getFirestore();
   const familyRef = db.collection("families").doc(familyId);
   const memberRef = familyRef.collection("members").doc(uid);
-  const cost = MEDIA_XP_COST_PER_BLOCK[kind];
 
   return db.runTransaction(async (tx) => {
-    const memberSnap = await tx.get(memberRef);
+    const [memberSnap, familySnap] = await Promise.all([tx.get(memberRef), tx.get(familyRef)]);
     const member = memberSnap.data() as { xpBalance: number } | undefined;
+    const family = familySnap.data() as Family | undefined;
+    const cost = family?.mediaXpCostPerBlock?.[kind] ?? MEDIA_XP_COST_PER_BLOCK[kind];
     if (!member || !canAffordReward(member.xpBalance, cost)) {
       return { charged: false };
     }

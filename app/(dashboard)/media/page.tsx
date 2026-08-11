@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { isFavorite, toggleFavorite } from "@/lib/media-favorites";
-import { billableBlocksElapsed, MEDIA_XP_COST_PER_BLOCK, type MediaKind } from "@/lib/media-billing";
+import { billableBlocksElapsed, DEFAULT_MEDIA_GRACE_PERIOD_MINUTES, MEDIA_XP_COST_PER_BLOCK, type MediaKind } from "@/lib/media-billing";
 import { formatXp } from "@/lib/xp-engine";
 import {
   buildStationsSearchUrl,
@@ -80,7 +80,9 @@ function useMediaBilling(
   kind: MediaKind,
   playingId: string | null,
   playingName: string | null,
-  onInsufficientFunds: () => void
+  onInsufficientFunds: () => void,
+  gracePeriodMinutes: number,
+  costPerBlock: number
 ) {
   const toast = useToast();
   const toastRef = useRef(toast);
@@ -116,7 +118,7 @@ function useMediaBilling(
     }, ELAPSED_TICK_INTERVAL_MS);
 
     const billingInterval = setInterval(async () => {
-      const due = billableBlocksElapsed(Date.now() - startedAt);
+      const due = billableBlocksElapsed(Date.now() - startedAt, gracePeriodMinutes);
       while (!cancelled && charged < due) {
         try {
           const result = await httpsCallable<{ familyId: string; kind: MediaKind; channelName?: string }, { charged: boolean }>(
@@ -145,9 +147,9 @@ function useMediaBilling(
       clearInterval(tickInterval);
       clearInterval(billingInterval);
     };
-  }, [familyId, kind, playingId, playingName]);
+  }, [familyId, kind, playingId, playingName, gracePeriodMinutes]);
 
-  return { elapsedSeconds: Math.floor(elapsedMs / 1000), spentXp: chargedBlocks * MEDIA_XP_COST_PER_BLOCK[kind] };
+  return { elapsedSeconds: Math.floor(elapsedMs / 1000), spentXp: chargedBlocks * costPerBlock };
 }
 
 /** A heart toggle shared by the play/pause button pattern — same shape, different fill state, no play/pause side effects of its own. */
@@ -215,7 +217,8 @@ function StationRow({
 function RadioTab() {
   const toast = useToast();
   const { user } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
+  const gracePeriodMinutes = family?.mediaGracePeriodMinutes ?? DEFAULT_MEDIA_GRACE_PERIOD_MINUTES;
   const [nameQuery, setNameQuery] = useState("");
   const [country, setCountry] = useState("");
   const [tag, setTag] = useState("");
@@ -227,7 +230,16 @@ function RadioTab() {
   const [playing, setPlaying] = useState<RadioStation | null>(null);
   const favorites = member?.favoriteRadioStations ?? [];
 
-  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "radio", playing?.id ?? null, playing?.name ?? null, () => setPlaying(null));
+  const radioCostPerBlock = family?.mediaXpCostPerBlock?.radio ?? MEDIA_XP_COST_PER_BLOCK.radio;
+  const { elapsedSeconds, spentXp } = useMediaBilling(
+    familyId,
+    "radio",
+    playing?.id ?? null,
+    playing?.name ?? null,
+    () => setPlaying(null),
+    gracePeriodMinutes,
+    radioCostPerBlock
+  );
 
   useEffect(() => {
     async function loadFacets() {
@@ -277,7 +289,7 @@ function RadioTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-zinc-500">
-        Poslech stojí XP: první 2 minuty zdarma, poté {formatXp(MEDIA_XP_COST_PER_BLOCK.radio)} XP za každých započatých 5 minut.
+        Poslech stojí XP: prvních {gracePeriodMinutes} min zdarma, poté {formatXp(radioCostPerBlock)} XP za každých započatých 5 minut.
       </p>
 
       {playing && (
@@ -443,7 +455,8 @@ function ChannelRow({
 function TvTab() {
   const toast = useToast();
   const { user } = useAuth();
-  const { familyId, member } = useFamily();
+  const { familyId, member, family } = useFamily();
+  const gracePeriodMinutes = family?.mediaGracePeriodMinutes ?? DEFAULT_MEDIA_GRACE_PERIOD_MINUTES;
   const [nameQuery, setNameQuery] = useState("");
   const [country, setCountry] = useState("");
   const [category, setCategory] = useState("");
@@ -455,7 +468,16 @@ function TvTab() {
   const [playing, setPlaying] = useState<TvChannel | null>(null);
   const favorites = member?.favoriteTvChannels ?? [];
 
-  const { elapsedSeconds, spentXp } = useMediaBilling(familyId, "tv", playing?.id ?? null, playing?.name ?? null, () => setPlaying(null));
+  const tvCostPerBlock = family?.mediaXpCostPerBlock?.tv ?? MEDIA_XP_COST_PER_BLOCK.tv;
+  const { elapsedSeconds, spentXp } = useMediaBilling(
+    familyId,
+    "tv",
+    playing?.id ?? null,
+    playing?.name ?? null,
+    () => setPlaying(null),
+    gracePeriodMinutes,
+    tvCostPerBlock
+  );
 
   useEffect(() => {
     async function loadFacets() {
@@ -517,7 +539,7 @@ function TvTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-zinc-500">
-        Sledování stojí XP: první 2 minuty zdarma, poté {formatXp(MEDIA_XP_COST_PER_BLOCK.tv)} XP za každých započatých 5 minut.
+        Sledování stojí XP: prvních {gracePeriodMinutes} min zdarma, poté {formatXp(tvCostPerBlock)} XP za každých započatých 5 minut.
       </p>
 
       {favorites.length > 0 && (
