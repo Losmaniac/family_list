@@ -22,6 +22,9 @@ import MyPenaltyTasks from "@/components/MyPenaltyTasks";
 import PendingXpAdjustments from "@/components/PendingXpAdjustments";
 import PendingJournalDeletions from "@/components/PendingJournalDeletions";
 import PendingAdHocApprovals from "@/components/PendingAdHocApprovals";
+import PendingTaskProposals from "@/components/PendingTaskProposals";
+import PendingPooledContributions from "@/components/PendingPooledContributions";
+import PendingRewardRedemptions from "@/components/PendingRewardRedemptions";
 import TodayDateBanner from "@/components/TodayDateBanner";
 import WeeklyDigestBanner from "@/components/WeeklyDigestBanner";
 import Link from "next/link";
@@ -360,6 +363,12 @@ export default function TodayPage() {
       {familyId && member?.role === "parent" && <PendingJournalDeletions familyId={familyId} />}
 
       {familyId && member?.role === "parent" && <PendingAdHocApprovals familyId={familyId} />}
+
+      {familyId && <PendingTaskProposals familyId={familyId} />}
+
+      {familyId && <PendingPooledContributions familyId={familyId} />}
+
+      {familyId && member?.role === "parent" && <PendingRewardRedemptions familyId={familyId} />}
 
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
