@@ -28,4 +28,10 @@ describe("billableBlocksElapsed", () => {
     expect(billableBlocksElapsed(12 * 60_000)).toBe(3);
     expect(billableBlocksElapsed(17 * 60_000)).toBe(4);
   });
+
+  it("honors a custom grace period", () => {
+    expect(billableBlocksElapsed(5 * 60_000 - 1, 5)).toBe(0);
+    expect(billableBlocksElapsed(5 * 60_000, 5)).toBe(1);
+    expect(billableBlocksElapsed(0, 0)).toBe(1);
+  });
 });

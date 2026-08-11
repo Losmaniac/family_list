@@ -27,10 +27,25 @@ const DIFFICULTIES: { id: ChessDifficulty; label: string }[] = [
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
-const PIECE_GLYPHS: Record<string, Record<string, string>> = {
-  w: { p: "♙", n: "♘", b: "♗", r: "♖", q: "♕", k: "♔" },
-  b: { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" },
-};
+// chess.com's classic "green" board theme — a chessboard's own colors don't
+// follow the app's light/dark theme, same as a real wooden board wouldn't.
+const LIGHT_SQUARE = "#eeeed2";
+const DARK_SQUARE = "#769656";
+const SELECTED_HIGHLIGHT = "rgba(246, 246, 105, 0.75)";
+const MOVE_DOT = "rgba(0, 0, 0, 0.22)";
+
+// A single filled glyph set for both colors — the "outline" white unicode
+// chess codepoints (♙♘♗♖♕♔) render inconsistently across fonts/platforms
+// (sometimes indistinguishable from black), so both sides use the same
+// filled glyphs and are told apart purely by fill/stroke color below,
+// closer to how chess.com's own piece set works.
+const PIECE_GLYPHS: Record<string, string> = { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" };
+
+function pieceStyle(color: "w" | "b"): React.CSSProperties {
+  return color === "w"
+    ? { color: "#fbfaf8", WebkitTextStroke: "1.3px #2b2b2b", textShadow: "0 1px 1px rgba(0,0,0,0.3)" }
+    : { color: "#2b2b2b" };
+}
 
 const PROMOTION_PIECES: { id: string; label: string }[] = [
   { id: "q", label: "Dáma" },
@@ -204,26 +219,54 @@ export default function ChessGame() {
 
       {inProgress && (
         <>
-          <div className="mx-auto grid aspect-square w-full max-w-sm grid-cols-8 overflow-hidden rounded-xl border border-border">
+          <div className="mx-auto grid aspect-square w-full max-w-sm grid-cols-8 overflow-hidden rounded-md shadow-md">
             {RANKS.map((rank) =>
               FILES.map((file) => {
                 const square = `${file}${rank}` as Square;
                 const piece = chess.get(square);
-                const isDark = (FILES.indexOf(file) + RANKS.indexOf(rank)) % 2 === 1;
+                const fileIndex = FILES.indexOf(file);
+                const rankIndex = RANKS.indexOf(rank);
+                const isDark = (fileIndex + rankIndex) % 2 === 1;
                 const isSelected = selected === square;
                 const isDestination = legalDestinations.has(square);
+                const isFirstFile = fileIndex === 0;
+                const isLastRank = rankIndex === RANKS.length - 1;
                 return (
                   <button
                     key={square}
                     type="button"
                     onClick={() => handleSquareClick(square)}
-                    className={`relative flex items-center justify-center text-2xl sm:text-3xl ${
-                      isDark ? "bg-surface-muted" : "bg-surface"
-                    } ${isSelected ? "ring-2 ring-inset ring-accent" : ""}`}
+                    style={{ backgroundColor: isDark ? DARK_SQUARE : LIGHT_SQUARE }}
+                    className="relative flex items-center justify-center text-3xl sm:text-4xl"
                   >
-                    {piece && <span>{PIECE_GLYPHS[piece.color][piece.type]}</span>}
-                    {isDestination && !piece && <span className="absolute h-2.5 w-2.5 rounded-full bg-accent/60" />}
-                    {isDestination && piece && <span className="absolute inset-0 ring-2 ring-inset ring-accent/60" />}
+                    {isSelected && <span className="absolute inset-0" style={{ backgroundColor: SELECTED_HIGHLIGHT }} />}
+                    {piece && (
+                      <span className="relative select-none" style={pieceStyle(piece.color)}>
+                        {PIECE_GLYPHS[piece.type]}
+                      </span>
+                    )}
+                    {isDestination && !piece && (
+                      <span className="absolute h-1/3 w-1/3 rounded-full" style={{ backgroundColor: MOVE_DOT }} />
+                    )}
+                    {isDestination && piece && (
+                      <span className="absolute inset-1 rounded-full" style={{ boxShadow: `inset 0 0 0 4px ${MOVE_DOT}` }} />
+                    )}
+                    {isLastRank && (
+                      <span
+                        className="absolute bottom-0.5 left-1 text-[10px] font-semibold"
+                        style={{ color: isDark ? LIGHT_SQUARE : DARK_SQUARE }}
+                      >
+                        {file}
+                      </span>
+                    )}
+                    {isFirstFile && (
+                      <span
+                        className="absolute left-1 top-0.5 text-[10px] font-semibold"
+                        style={{ color: isDark ? LIGHT_SQUARE : DARK_SQUARE }}
+                      >
+                        {rank}
+                      </span>
+                    )}
                   </button>
                 );
               })
@@ -266,10 +309,11 @@ export default function ChessGame() {
                   key={p.id}
                   type="button"
                   onClick={() => playMove(pendingPromotion.from, pendingPromotion.to, p.id)}
-                  className="flex flex-col items-center gap-1 rounded-lg border border-border px-3 py-2 text-2xl"
+                  className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-2xl"
+                  style={{ backgroundColor: DARK_SQUARE }}
                 >
-                  {PIECE_GLYPHS.w[p.id]}
-                  <span className="text-xs">{p.label}</span>
+                  <span style={pieceStyle("w")}>{PIECE_GLYPHS[p.id]}</span>
+                  <span className="text-xs text-white">{p.label}</span>
                 </button>
               ))}
             </div>
