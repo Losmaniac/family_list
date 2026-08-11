@@ -130,7 +130,6 @@ export const createTriviaDuel = onCall<CreateRequest>(async (request) => {
     questionCount: questions.length,
     createdAt: Date.now(),
   };
-  await duelRef.set(duel);
 
   const state: DuelState = {
     questions,
@@ -141,7 +140,20 @@ export const createTriviaDuel = onCall<CreateRequest>(async (request) => {
     opponentScore: 0,
     opponentDone: false,
   };
-  await familyRef.collection("triviaDuelState").doc(duelRef.id).set(state);
+
+  // Written atomically — the duel doc and its question state must both
+  // exist or neither does. Two separate writes here previously left a
+  // window where the duel doc could commit, be accepted, and go
+  // 'in_progress' while its triviaDuelState never got written (a partial
+  // failure between the two calls), leaving a duel that's visible and
+  // "Hrát"-able but permanently errors with "Data souboje nenalezena" —
+  // and, since cancelTriviaDuel only works from 'pending_acceptance',
+  // completely stuck. See loadInProgressDuel below for the self-healing
+  // fallback covering duels created before this fix.
+  const batch = db.batch();
+  batch.set(duelRef, duel);
+  batch.set(familyRef.collection("triviaDuelState").doc(duelRef.id), state);
+  await batch.commit();
 
   return { duelId: duelRef.id };
 });
@@ -239,7 +251,15 @@ async function loadInProgressDuel(
   const stateRef = familyRef.collection("triviaDuelState").doc(duelId);
   const stateSnap = await stateRef.get();
   const state = stateSnap.data() as DuelState | undefined;
-  if (!state) throw new HttpsError("not-found", "Data souboje nenalezena.");
+  if (!state) {
+    // A duel from before createTriviaDuel wrote both docs atomically (or
+    // any other corruption) — there's no question data to recover, and no
+    // escrow was taken to refund, so the only way out is to close it.
+    // Best-effort: if this update itself fails, the caller still gets a
+    // clear error instead of a silent no-op.
+    await duelRef.update({ status: "cancelled", respondedAt: Date.now() }).catch(() => {});
+    throw new HttpsError("not-found", "Data souboje se poškodila — souboj byl zrušen, zkus vyzvat znovu.");
+  }
 
   return { duelRef, duel, stateRef, state, role };
 }
