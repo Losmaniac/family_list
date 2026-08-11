@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { Chess, type Square } from "chess.js";
@@ -18,6 +18,10 @@ function describeError(err: unknown, fallback: string): string {
   return message ? `${fallback} (${message})` : fallback;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const DIFFICULTIES: { id: ChessDifficulty; label: string }[] = [
   { id: "easy", label: "Lehká" },
   { id: "medium", label: "Střední" },
@@ -32,19 +36,27 @@ const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 const LIGHT_SQUARE = "#eeeed2";
 const DARK_SQUARE = "#769656";
 const SELECTED_HIGHLIGHT = "rgba(246, 246, 105, 0.75)";
+const LAST_MOVE_HIGHLIGHT = "rgba(246, 246, 105, 0.5)";
 const MOVE_DOT = "rgba(0, 0, 0, 0.22)";
 
-// A single filled glyph set for both colors — the "outline" white unicode
-// chess codepoints (♙♘♗♖♕♔) render inconsistently across fonts/platforms
-// (sometimes indistinguishable from black), so both sides use the same
-// filled glyphs and are told apart purely by fill/stroke color below,
-// closer to how chess.com's own piece set works.
+// A single filled glyph set for both colors — telling white/black apart
+// via font stroke/color tricks on the glyph itself (an earlier version of
+// this component) rendered unreliably across devices, sometimes showing
+// both sides as the same dark blob. A solid disc *behind* the glyph is far
+// more robust: light disc + dark glyph for White, dark disc + light glyph
+// for Black — plain background-color and text-color, nothing font-rendering-dependent.
 const PIECE_GLYPHS: Record<string, string> = { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" };
+const WHITE_DISC = "#fbfaf8";
+const WHITE_GLYPH = "#2b2b2b";
+const BLACK_DISC = "#2b2b2b";
+const BLACK_GLYPH = "#fbfaf8";
 
-function pieceStyle(color: "w" | "b"): React.CSSProperties {
-  return color === "w"
-    ? { color: "#fbfaf8", WebkitTextStroke: "1.3px #2b2b2b", textShadow: "0 1px 1px rgba(0,0,0,0.3)" }
-    : { color: "#2b2b2b" };
+function pieceDiscStyle(color: "w" | "b"): React.CSSProperties {
+  return { backgroundColor: color === "w" ? WHITE_DISC : BLACK_DISC };
+}
+
+function pieceGlyphStyle(color: "w" | "b"): React.CSSProperties {
+  return { color: color === "w" ? WHITE_GLYPH : BLACK_GLYPH };
 }
 
 const PROMOTION_PIECES: { id: string; label: string }[] = [
@@ -63,14 +75,21 @@ interface SubmitMoveResponse {
   alreadyClaimedToday: boolean;
 }
 
+/** How long the AI's reply stays freshly highlighted before it's safe to move again — long enough to actually notice which piece moved. */
+const AI_MOVE_REVEAL_MS = 900;
+
 /**
  * Real chess vs a built-in AI (lib/chess-ai.ts's negamax search runs
  * server-side in functions/src/chess.ts) — three difficulties, human is
  * always White. Board state is authoritative from Firestore (chessGames is
- * server-write-only), this component only sends from/to/promotion and
- * renders whatever comes back. A local chess.js instance mirrors the FEN
- * purely to compute legal destinations for the currently selected square —
- * the server re-validates every move regardless.
+ * server-write-only), but rendering is driven by local `boardFen`/`highlight`
+ * state rather than the Firestore doc directly: submitChessMove applies both
+ * the human's move AND the AI's reply server-side in one write, so without
+ * this the AI's move would just "appear" instantly with no way to see what
+ * it was. playMove instead reconstructs the human-only position first (shown
+ * immediately), then — after a short pause — applies the AI's reply locally
+ * and highlights its from/to squares, before finally letting the Firestore
+ * doc (already caught up) take over rendering again.
  */
 export default function ChessGame() {
   const { user } = useAuth();
@@ -82,6 +101,9 @@ export default function ChessGame() {
   const [selected, setSelected] = useState<Square | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [boardFen, setBoardFen] = useState<string | undefined>(undefined);
+  const [highlight, setHighlight] = useState<{ from?: Square; to?: Square }>({});
+  const animatingRef = useRef(false);
 
   // Reset local UI state during render when the difficulty (or user) we're
   // showing a game for changes — the React-recommended "adjusting state
@@ -94,6 +116,8 @@ export default function ChessGame() {
     setGame(undefined);
     setSelected(null);
     setPendingPromotion(null);
+    setBoardFen(undefined);
+    setHighlight({});
   }
 
   useEffect(() => {
@@ -103,13 +127,23 @@ export default function ChessGame() {
     });
   }, [familyId, user, difficulty]);
 
+  // The live Firestore doc only drives the board while no move animation is
+  // in flight — playMove owns boardFen/highlight for the duration of its own
+  // sequence, otherwise a Firestore update landing mid-animation would jump
+  // straight to the final position and skip showing the AI's move.
+  useEffect(() => {
+    if (animatingRef.current) return;
+    setBoardFen(game?.fen);
+    setHighlight({});
+  }, [game?.fen]);
+
   const chess = useMemo(() => {
     try {
-      return new Chess(game?.fen);
+      return new Chess(boardFen);
     } catch {
       return new Chess();
     }
-  }, [game?.fen]);
+  }, [boardFen]);
 
   const inProgress = game?.status === "in_progress";
   const legalDestinations = useMemo(() => {
@@ -130,14 +164,33 @@ export default function ChessGame() {
   }
 
   async function playMove(from: Square, to: Square, promotion?: string) {
-    if (!familyId) return;
+    if (!familyId || !game) return;
+    const preMoveFen = game.fen;
     setBusy(true);
     setSelected(null);
     setPendingPromotion(null);
+    animatingRef.current = true;
     try {
-      const result = (
-        await httpsCallable(getFirebaseFunctions(), "submitChessMove")({ familyId, difficulty, from, to, promotion })
-      ).data as SubmitMoveResponse;
+      const resultPromise = httpsCallable(getFirebaseFunctions(), "submitChessMove")({ familyId, difficulty, from, to, promotion });
+
+      // Show the human's own move immediately — the server still validates
+      // it, this is just so the tap feels instant rather than frozen while
+      // waiting on the round trip.
+      const afterHuman = new Chess(preMoveFen);
+      afterHuman.move({ from, to, promotion });
+      setBoardFen(afterHuman.fen());
+      setHighlight({ from, to });
+
+      const result = (await resultPromise).data as SubmitMoveResponse;
+
+      if (result.aiMove) {
+        await sleep(AI_MOVE_REVEAL_MS);
+        const aiApplied = afterHuman.move(result.aiMove);
+        setBoardFen(afterHuman.fen());
+        setHighlight({ from: aiApplied.from, to: aiApplied.to });
+        await sleep(AI_MOVE_REVEAL_MS);
+      }
+
       if (result.status === "won") {
         toast.success(
           result.alreadyClaimedToday
@@ -151,7 +204,10 @@ export default function ChessGame() {
       }
     } catch (err) {
       toast.error(describeError(err, "Tah se nezdařil."));
+      setBoardFen(game.fen);
+      setHighlight({});
     } finally {
+      animatingRef.current = false;
       setBusy(false);
     }
   }
@@ -228,6 +284,7 @@ export default function ChessGame() {
                 const rankIndex = RANKS.indexOf(rank);
                 const isDark = (fileIndex + rankIndex) % 2 === 1;
                 const isSelected = selected === square;
+                const isLastMove = highlight.from === square || highlight.to === square;
                 const isDestination = legalDestinations.has(square);
                 const isFirstFile = fileIndex === 0;
                 const isLastRank = rankIndex === RANKS.length - 1;
@@ -237,12 +294,18 @@ export default function ChessGame() {
                     type="button"
                     onClick={() => handleSquareClick(square)}
                     style={{ backgroundColor: isDark ? DARK_SQUARE : LIGHT_SQUARE }}
-                    className="relative flex items-center justify-center text-3xl sm:text-4xl"
+                    className="relative flex items-center justify-center text-2xl transition-colors sm:text-3xl"
                   >
+                    {isLastMove && !isSelected && (
+                      <span className="absolute inset-0" style={{ backgroundColor: LAST_MOVE_HIGHLIGHT }} />
+                    )}
                     {isSelected && <span className="absolute inset-0" style={{ backgroundColor: SELECTED_HIGHLIGHT }} />}
                     {piece && (
-                      <span className="relative select-none" style={pieceStyle(piece.color)}>
-                        {PIECE_GLYPHS[piece.type]}
+                      <span
+                        className="relative flex h-[78%] w-[78%] select-none items-center justify-center rounded-full shadow-sm transition-transform duration-300"
+                        style={pieceDiscStyle(piece.color)}
+                      >
+                        <span style={pieceGlyphStyle(piece.color)}>{PIECE_GLYPHS[piece.type]}</span>
                       </span>
                     )}
                     {isDestination && !piece && (
@@ -273,7 +336,8 @@ export default function ChessGame() {
             )}
           </div>
 
-          {chess.isCheck() && <p className="text-center text-sm text-danger">Šach!</p>}
+          {busy && <p className="text-center text-xs text-zinc-500">Počítač přemýšlí…</p>}
+          {!busy && chess.isCheck() && <p className="text-center text-sm text-danger">Šach!</p>}
 
           <div className="flex justify-center">
             <button
@@ -312,7 +376,9 @@ export default function ChessGame() {
                   className="flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-2xl"
                   style={{ backgroundColor: DARK_SQUARE }}
                 >
-                  <span style={pieceStyle("w")}>{PIECE_GLYPHS[p.id]}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full" style={pieceDiscStyle("w")}>
+                    <span style={pieceGlyphStyle("w")}>{PIECE_GLYPHS[p.id]}</span>
+                  </span>
                   <span className="text-xs text-white">{p.label}</span>
                 </button>
               ))}
