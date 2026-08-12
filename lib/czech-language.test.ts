@@ -14,6 +14,24 @@ describe("VYJMENOVANA_SLOVA_EXERCISES", () => {
     const ids = VYJMENOVANA_SLOVA_EXERCISES.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("only ever answers with y or ý — never the unrelated i/í sound", () => {
+    for (const exercise of VYJMENOVANA_SLOVA_EXERCISES) {
+      expect(["y", "ý"]).toContain(exercise.answer);
+    }
+  });
+
+  it("answers with the long ý where the real word requires it, not just short y", () => {
+    // A representative sample across every word group (po B/L/M/P/S/V/Z) —
+    // these words are genuinely spelled with a long ý (e.g. "být", "mlýn",
+    // "sýr"), so accepting only short "y" would mark a correct answer wrong
+    // and teach the wrong spelling.
+    const expectedLong = ["vs-b1", "vs-l1", "vs-l4", "vs-l5", "vs-m1", "vs-m4", "vs-p3", "vs-p4", "vs-p5", "vs-s2", "vs-s3", "vs-v3", "vs-v5", "vs-z3", "vs-z4", "vs-z5"];
+    for (const id of expectedLong) {
+      const exercise = VYJMENOVANA_SLOVA_EXERCISES.find((e) => e.id === id);
+      expect(exercise?.answer).toBe("ý");
+    }
+  });
 });
 
 describe("CURRICULUM_EXERCISES", () => {

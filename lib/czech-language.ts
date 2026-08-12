@@ -19,47 +19,47 @@ export interface CzechExercise {
 // "být" vs "bít") the way a teacher would say it out loud.
 export const VYJMENOVANA_SLOVA_EXERCISES: CzechExercise[] = [
   // po B
-  { id: "vs-b1", question: "Dopln y/i: b_t (= existovat, žít)", answer: "y" },
+  { id: "vs-b1", question: "Dopln y/i: b_t (= existovat, žít)", answer: "ý" },
   { id: "vs-b2", question: "Dopln y/i: b_dlet (= mít někde domov)", answer: "y" },
   { id: "vs-b3", question: "Dopln y/i: kob_la (= samice koně)", answer: "y" },
   { id: "vs-b4", question: "Dopln y/i: dob_tek (= hospodářská zvířata, např. krávy)", answer: "y" },
   { id: "vs-b5", question: "Dopln y/i: b_strý (= chytrý, rychle chápavý)", answer: "y" },
   // po L
-  { id: "vs-l1", question: "Dopln y/i: ml_n (= stavba, kde se mele obilí na mouku)", answer: "y" },
+  { id: "vs-l1", question: "Dopln y/i: ml_n (= stavba, kde se mele obilí na mouku)", answer: "ý" },
   { id: "vs-l2", question: "Dopln y/i: l_že (= sportovní vybavení na sníh)", answer: "y" },
   { id: "vs-l3", question: "Dopln y/i: pol_kat (= polykat, posílat jídlo do žaludku)", answer: "y" },
-  { id: "vs-l4", question: "Dopln y/i: bl_skat se (= svítit jako blesk)", answer: "y" },
-  { id: "vs-l5", question: "Dopln y/i: pl_tvat (= zbytečně utrácet, mrhat)", answer: "y" },
+  { id: "vs-l4", question: "Dopln y/i: bl_skat se (= svítit jako blesk)", answer: "ý" },
+  { id: "vs-l5", question: "Dopln y/i: pl_tvat (= zbytečně utrácet, mrhat)", answer: "ý" },
   // po M
-  { id: "vs-m1", question: "Dopln y/i: m_lit se (= dělat chybu)", answer: "y" },
+  { id: "vs-m1", question: "Dopln y/i: m_lit se (= dělat chybu)", answer: "ý" },
   { id: "vs-m2", question: "Dopln y/i: hm_z (= drobná zvířátka jako mouchy a brouci)", answer: "y" },
   { id: "vs-m3", question: "Dopln y/i: m_š (= malý hlodavec)", answer: "y" },
-  { id: "vs-m4", question: "Dopln y/i: hlem_žď (= plž s ulitou)", answer: "y" },
+  { id: "vs-m4", question: "Dopln y/i: hlem_žď (= plž s ulitou)", answer: "ý" },
   { id: "vs-m5", question: "Dopln y/i: zam_kat (= zavírat na klíč)", answer: "y" },
   // po P
   { id: "vs-p1", question: "Dopln y/i: p_tel (= velký látkový nebo plastový vak)", answer: "y" },
   { id: "vs-p2", question: "Dopln y/i: kop_to (= noha koně nebo krávy)", answer: "y" },
-  { id: "vs-p3", question: "Dopln y/i: netop_r (= létající noční savec)", answer: "y" },
-  { id: "vs-p4", question: "Dopln y/i: slep_š (= plaz bez nohou, podobá se hadovi)", answer: "y" },
-  { id: "vs-p5", question: "Dopln y/i: klop_tat (= zakopávat, škobrtat při chůzi)", answer: "y" },
+  { id: "vs-p3", question: "Dopln y/i: netop_r (= létající noční savec)", answer: "ý" },
+  { id: "vs-p4", question: "Dopln y/i: slep_š (= plaz bez nohou, podobá se hadovi)", answer: "ý" },
+  { id: "vs-p5", question: "Dopln y/i: klop_tat (= zakopávat, škobrtat při chůzi)", answer: "ý" },
   // po S
   { id: "vs-s1", question: "Dopln y/i: s_n (= mužský potomek)", answer: "y" },
-  { id: "vs-s2", question: "Dopln y/i: s_r (= mléčný výrobek)", answer: "y" },
-  { id: "vs-s3", question: "Dopln y/i: s_kora (= malý zpěvný pták)", answer: "y" },
+  { id: "vs-s2", question: "Dopln y/i: s_r (= mléčný výrobek)", answer: "ý" },
+  { id: "vs-s3", question: "Dopln y/i: s_kora (= malý zpěvný pták)", answer: "ý" },
   { id: "vs-s4", question: "Dopln y/i: s_rový (= nevařený, nezpracovaný)", answer: "y" },
   { id: "vs-s5", question: "Dopln y/i: s_pat (= nasypávat, např. písek)", answer: "y" },
   // po V
   { id: "vs-v1", question: "Dopln y/i: v_soký (= opak slova nízký)", answer: "y" },
   { id: "vs-v2", question: "Dopln y/i: v_dra (= vodní šelma)", answer: "y" },
-  { id: "vs-v3", question: "Dopln y/i: v_r (= druh velké sovy)", answer: "y" },
+  { id: "vs-v3", question: "Dopln y/i: v_r (= druh velké sovy)", answer: "ý" },
   { id: "vs-v4", question: "Dopln y/i: zv_k (= návyk, obvyklé chování)", answer: "y" },
-  { id: "vs-v5", question: "Dopln y/i: v_t (= vydávat protažený zvuk jako vlk)", answer: "y" },
+  { id: "vs-v5", question: "Dopln y/i: v_t (= vydávat protažený zvuk jako vlk)", answer: "ý" },
   // po Z
   { id: "vs-z1", question: "Dopln y/i: brz_ (= za krátkou chvíli)", answer: "y" },
   { id: "vs-z2", question: "Dopln y/i: jaz_k (= orgán v ústech, kterým mluvíme)", answer: "y" },
-  { id: "vs-z3", question: "Dopln y/i: naz_vat (= dávat jméno)", answer: "y" },
-  { id: "vs-z4", question: "Dopln y/i: oz_vat se (= ohlásit se zvukem)", answer: "y" },
-  { id: "vs-z5", question: "Dopln y/i: vyz_vat (= vybízet někoho k něčemu)", answer: "y" },
+  { id: "vs-z3", question: "Dopln y/i: naz_vat (= dávat jméno)", answer: "ý" },
+  { id: "vs-z4", question: "Dopln y/i: oz_vat se (= ohlásit se zvukem)", answer: "ý" },
+  { id: "vs-z5", question: "Dopln y/i: vyz_vat (= vybízet někoho k něčemu)", answer: "ý" },
 ];
 
 // Broader 5th-grade curriculum: slovní druhy, antonyma, shoda přísudku s
