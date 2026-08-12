@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ASSET_TYPE_EXPLANATIONS,
   ASSET_TYPE_LABELS,
+  CONTEST_XP_AWARDS,
   FEATURED_ASSETS,
   formatCzk,
   formatNativePrice,
@@ -10,6 +11,7 @@ import {
   parseChartQuote,
   parseFxRate,
   parseSearchResults,
+  rankContestParticipants,
   roundMoney,
   roundQuantity,
 } from "./invest-demo";
@@ -142,5 +144,31 @@ describe("FEATURED_ASSETS", () => {
   it("every entry has a unique symbol", () => {
     const symbols = FEATURED_ASSETS.map((a) => a.symbol);
     expect(new Set(symbols).size).toBe(symbols.length);
+  });
+});
+
+describe("rankContestParticipants", () => {
+  it("ranks by return descending, not raw total value", () => {
+    const standings = rankContestParticipants([
+      { userId: "a", totalValueCzk: 11_000, baselineCzk: 10_000 }, // +10%
+      { userId: "b", totalValueCzk: 105_000, baselineCzk: 100_000 }, // +5%, but bigger absolute value
+      { userId: "c", totalValueCzk: 9_000, baselineCzk: 10_000 }, // -10%
+    ]);
+    expect(standings.map((s) => s.userId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("awards CONTEST_XP_AWARDS to the top 3 and 0 to everyone else", () => {
+    const standings = rankContestParticipants([
+      { userId: "a", totalValueCzk: 140_000, baselineCzk: 100_000 },
+      { userId: "b", totalValueCzk: 130_000, baselineCzk: 100_000 },
+      { userId: "c", totalValueCzk: 120_000, baselineCzk: 100_000 },
+      { userId: "d", totalValueCzk: 110_000, baselineCzk: 100_000 },
+    ]);
+    expect(standings.map((s) => s.xpAwarded)).toEqual([...CONTEST_XP_AWARDS, 0]);
+  });
+
+  it("treats a zero baseline as 0% return instead of dividing by zero", () => {
+    const standings = rankContestParticipants([{ userId: "a", totalValueCzk: 500, baselineCzk: 0 }]);
+    expect(standings[0].returnPct).toBe(0);
   });
 });

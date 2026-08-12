@@ -412,6 +412,16 @@ export interface Investment {
 export interface InvestDemoPortfolio {
   cashBalance: number;
   createdAt: number;
+  /**
+   * Total portfolio value (cash + holdings at live prices) at the start of
+   * the current monthly contest round — see functions/src/investDemo.ts's
+   * investDemoContestReset, which snapshots this for every portfolio on the
+   * 1st of each month, and initInvestDemoPortfolio, which sets it at
+   * creation for anyone who joins mid-round. Absent only for a portfolio
+   * that predates this field; treat as cashBalance-at-creation.
+   */
+  roundBaselineCzk?: number;
+  roundBaselineAt?: number;
 }
 
 export interface InvestDemoHolding {
@@ -434,6 +444,28 @@ export interface InvestDemoTransaction {
   priceCzk: number;
   totalCzk: number;
   timestamp: number;
+}
+
+export interface InvestDemoContestStanding {
+  userId: string;
+  totalValueCzk: number;
+  /** Fractional return since the round's baseline — 0.08 = +8%. */
+  returnPct: number;
+  xpAwarded: number;
+}
+
+/**
+ * families/{familyId}/investDemoContestResults/{roundKey} (roundKey =
+ * YYYY-MM, family zone) — the settled outcome of one month's "kdo má
+ * nejlepší zhodnocení" demo-investing contest (functions/src/investDemo.ts's
+ * investDemoContestSettle, last day of the month 20:00). Server-written
+ * only, same trust tier as xpLedger — it's both the historical record and
+ * what actually decided the XP awards in `standings`.
+ */
+export interface InvestDemoContestResult {
+  id: string;
+  settledAt: number;
+  standings: InvestDemoContestStanding[];
 }
 
 export interface ChatMessage {

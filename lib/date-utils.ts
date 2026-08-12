@@ -51,6 +51,12 @@ export function dayOfMonthInFamilyZone(date: Date): number {
   return familyZoneParts(date).day;
 }
 
+/** YYYY-MM for the given instant, as a calendar month in Europe/Prague — keys the monthly demo-investing contest round (see functions/src/investDemo.ts). */
+export function monthKeyInFamilyZone(date: Date): string {
+  const { year, month } = familyZoneParts(date);
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 /** Last day of the given instant's month (28-31), in Europe/Prague. */
 export function lastDayOfMonthInFamilyZone(date: Date): number {
   const { year, month } = familyZoneParts(date);

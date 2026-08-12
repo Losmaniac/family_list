@@ -29,6 +29,8 @@ export {
   buyInvestDemoAsset,
   sellInvestDemoAsset,
   getInvestDemoQuotes,
+  investDemoContestSettle,
+  investDemoContestReset,
 } from "./investDemo";
 export {
   createTriviaDuel,

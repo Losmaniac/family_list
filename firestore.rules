@@ -276,6 +276,14 @@ service cloud.firestore {
         }
       }
 
+      // Monthly "kdo má nejlepší zhodnocení" demo-investing contest results
+      // — functions/src/investDemo.ts's investDemoContestSettle, same
+      // server-only trust tier as the portfolios themselves.
+      match /investDemoContestResults/{roundKey} {
+        allow read: if isFamilyMember(familyId);
+        allow write: if false;
+      }
+
       // Kvízový souboj — the public summary (participants, stakes, status,
       // final scores once settled) is readable by the family; every write
       // (create/accept/decline/cancel/answer/settle) goes through the
