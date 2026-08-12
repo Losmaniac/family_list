@@ -13,19 +13,24 @@
  * API key, just a header, so this stays within "no registration required".
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { FieldValue, getFirestore, type DocumentReference } from "firebase-admin/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { FieldValue, getFirestore, type DocumentReference, type Firestore } from "firebase-admin/firestore";
 import {
   DEFAULT_INVEST_DEMO_STARTING_BALANCE,
   nextAvgCost,
   parseChartQuote,
   parseFxRate,
   parseSearchResults,
+  rankContestParticipants,
   roundMoney,
   roundQuantity,
+  type ContestParticipant,
   type InvestDemoAssetType,
 } from "../../lib/invest-demo";
+import { dayOfMonthInFamilyZone, lastDayOfMonthInFamilyZone, monthKeyInFamilyZone } from "../../lib/date-utils";
+import { buildLedgerEntry } from "../../lib/xp-engine";
 import { requireAuth, requireFamilyMember } from "./practice";
-import type { Family, InvestDemoHolding, InvestDemoPortfolio } from "../../lib/types";
+import type { Family, InvestDemoContestResult, InvestDemoHolding, InvestDemoPortfolio } from "../../lib/types";
 
 const YAHOO_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
 
@@ -118,7 +123,17 @@ export const initInvestDemoPortfolio = onCall<InitRequest>(async (request) => {
     return { cashBalance: (snap.data() as InvestDemoPortfolio).cashBalance };
   }
   const cashBalance = family.investDemoStartingBalance ?? DEFAULT_INVEST_DEMO_STARTING_BALANCE;
-  await portfolioRef.set({ cashBalance, createdAt: Date.now() } satisfies InvestDemoPortfolio);
+  const now = Date.now();
+  // roundBaselineCzk starts equal to cashBalance — fair, since there are no
+  // holdings yet, and lets someone who joins mid-month still compete on an
+  // even footing from their own join date rather than waiting for the next
+  // reset (see investDemoContestReset below).
+  await portfolioRef.set({
+    cashBalance,
+    createdAt: now,
+    roundBaselineCzk: cashBalance,
+    roundBaselineAt: now,
+  } satisfies InvestDemoPortfolio);
   return { cashBalance };
 });
 
@@ -270,4 +285,106 @@ export const getInvestDemoQuotes = onCall<QuotesRequest>(async (request) => {
     })
   );
   return { quotes };
+});
+
+/** Cash + holdings at live prices, in CZK — best-effort per symbol (a symbol Yahoo can't currently price today just doesn't contribute, same as getInvestDemoQuotes above, rather than failing the whole contest for one bad quote). */
+async function computeTotalValueCzk(portfolio: InvestDemoPortfolio, holdings: InvestDemoHolding[]): Promise<number> {
+  const holdingValues = await Promise.all(
+    holdings.map(async (h) => {
+      try {
+        return (await fetchPriceCzk(h.symbol)) * h.quantity;
+      } catch {
+        return 0;
+      }
+    })
+  );
+  return roundMoney(portfolio.cashBalance + holdingValues.reduce((sum, v) => sum + v, 0));
+}
+
+async function allInvestDemoEnabledFamilies(db: Firestore) {
+  return db.collection("families").where("investDemoEnabled", "==", true).get();
+}
+
+/**
+ * Settles the monthly "kdo má nejlepší zhodnocení" contest — last day of
+ * every month, 20:00 Europe/Prague (a daily 20:00 schedule that no-ops on
+ * every day except the last, since standard cron can't express "last day
+ * of month" directly). Ranks every portfolio in the family by % return
+ * since its roundBaselineCzk (see investDemoContestReset below, and
+ * initInvestDemoPortfolio for a mid-round join's own fair baseline),
+ * awards CONTEST_XP_AWARDS to the top 3 through the standard ledger
+ * transaction, and records the full standings for history/display.
+ */
+export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", timeZone: "Europe/Prague" }, async () => {
+  const now = new Date();
+  if (dayOfMonthInFamilyZone(now) !== lastDayOfMonthInFamilyZone(now)) return;
+
+  const db = getFirestore();
+  const familiesSnapshot = await allInvestDemoEnabledFamilies(db);
+  const roundKey = monthKeyInFamilyZone(now);
+
+  for (const familyDoc of familiesSnapshot.docs) {
+    const familyRef = familyDoc.ref;
+    const portfoliosSnap = await familyRef.collection("investDemoPortfolios").get();
+    if (portfoliosSnap.empty) continue;
+
+    const participants: ContestParticipant[] = [];
+    for (const portfolioDoc of portfoliosSnap.docs) {
+      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
+      const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
+      const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
+      const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
+      participants.push({
+        userId: portfolioDoc.id,
+        totalValueCzk,
+        baselineCzk: portfolio.roundBaselineCzk ?? portfolio.cashBalance,
+      });
+    }
+
+    const standings = rankContestParticipants(participants);
+
+    await db.runTransaction(async (tx) => {
+      for (const standing of standings) {
+        if (standing.xpAwarded <= 0) continue;
+        tx.set(
+          familyRef.collection("xpLedger").doc(),
+          buildLedgerEntry({ userId: standing.userId, delta: standing.xpAwarded, reason: "invest_demo_contest" })
+        );
+        tx.update(familyRef.collection("members").doc(standing.userId), {
+          xpBalance: FieldValue.increment(standing.xpAwarded),
+        });
+      }
+      tx.set(familyRef.collection("investDemoContestResults").doc(roundKey), {
+        settledAt: Date.now(),
+        standings,
+      } satisfies Omit<InvestDemoContestResult, "id">);
+    });
+  }
+});
+
+/**
+ * Starts the next contest round — the day after the last day of the month
+ * (i.e. the 1st) at 09:00 Europe/Prague, snapshotting every portfolio's
+ * current total value as the new roundBaselineCzk. Holdings/cash are left
+ * completely untouched — only the contest's reference point moves, so next
+ * month's % return is measured fresh rather than compounding indefinitely
+ * from whenever each portfolio first started.
+ */
+export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZone: "Europe/Prague" }, async () => {
+  const now = new Date();
+  if (dayOfMonthInFamilyZone(now) !== 1) return;
+
+  const db = getFirestore();
+  const familiesSnapshot = await allInvestDemoEnabledFamilies(db);
+
+  for (const familyDoc of familiesSnapshot.docs) {
+    const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
+    for (const portfolioDoc of portfoliosSnap.docs) {
+      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
+      const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
+      const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
+      const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
+      await portfolioDoc.ref.update({ roundBaselineCzk: totalValueCzk, roundBaselineAt: Date.now() });
+    }
+  }
 });

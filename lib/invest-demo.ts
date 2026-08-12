@@ -111,6 +111,50 @@ export function formatCzk(amount: number): string {
   return `${amount.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })} Kč`;
 }
 
+/**
+ * Monthly demo-investing contest (see functions/src/investDemo.ts's
+ * investDemoContestSettle/investDemoContestReset) — 1st/2nd/3rd place by
+ * % return since the round's baseline value, index 0 = 1st place. Anyone
+ * placing outside the top 3 gets 0.
+ */
+export const CONTEST_XP_AWARDS = [100, 50, 25];
+
+export interface ContestParticipant {
+  userId: string;
+  /** Current total value (cash + holdings at live prices), in CZK. */
+  totalValueCzk: number;
+  /** Total value at the start of this round, in CZK — the % return is measured against this. */
+  baselineCzk: number;
+}
+
+export interface ContestStanding {
+  userId: string;
+  totalValueCzk: number;
+  /** Fractional return since baseline — 0.08 = +8%. */
+  returnPct: number;
+  /** CONTEST_XP_AWARDS[rank] for the top 3, 0 otherwise. */
+  xpAwarded: number;
+}
+
+/**
+ * Ranks participants by return since their own baseline (highest first) and
+ * assigns CONTEST_XP_AWARDS to the top 3. A zero/negative baseline (should
+ * never happen — a portfolio always starts with a positive cash balance —
+ * but paper-trading math shouldn't ever divide by zero) is treated as 0%
+ * return rather than crashing. Ties keep their relative input order (stable
+ * sort), same as every other leaderboard in this app.
+ */
+export function rankContestParticipants(participants: ContestParticipant[]): ContestStanding[] {
+  const withReturn = participants.map((p) => ({
+    userId: p.userId,
+    totalValueCzk: p.totalValueCzk,
+    returnPct: p.baselineCzk > 0 ? (p.totalValueCzk - p.baselineCzk) / p.baselineCzk : 0,
+  }));
+  return [...withReturn]
+    .sort((a, b) => b.returnPct - a.returnPct)
+    .map((standing, index) => ({ ...standing, xpAwarded: CONTEST_XP_AWARDS[index] ?? 0 }));
+}
+
 /** The asset's own quoted price, in its native currency (USD/EUR/…) — shown alongside the CZK conversion so the number matches what a real broker/ticker would show. */
 export function formatNativePrice(price: number, currency: string): string {
   return `${price.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 })} ${currency}`;

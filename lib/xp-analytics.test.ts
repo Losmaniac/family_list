@@ -36,6 +36,7 @@ describe("categoryForReason", () => {
       "radio_listening",
       "tv_watching",
       "chess_win",
+      "invest_demo_contest",
     ];
     for (const reason of known) {
       expect(categoryForReason(reason)).not.toBe("other");

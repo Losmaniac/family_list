@@ -11,6 +11,7 @@ import { logAction } from "@/lib/audit-log";
 import InvestmentsSection from "@/components/Investments";
 import FamilyInvestmentsOverview from "@/components/FamilyInvestmentsOverview";
 import InvestDemoPanel from "@/components/InvestDemoPanel";
+import InvestDemoLeaderboard from "@/components/InvestDemoLeaderboard";
 import { effectiveInvestmentTerms, findTermInList } from "@/lib/investments";
 import { formatXp } from "@/lib/xp-engine";
 import type { Investment, Member } from "@/lib/types";
@@ -153,6 +154,7 @@ export default function InvestmentsPage() {
       {family?.investDemoEnabled === true && familyId && (
         <div className="flex flex-col gap-3 border-t border-border pt-4">
           <h2 className="text-lg font-semibold">Demo investování</h2>
+          <InvestDemoLeaderboard familyId={familyId} />
           <InvestDemoPanel familyId={familyId} />
         </div>
       )}
