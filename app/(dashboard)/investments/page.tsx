@@ -83,6 +83,13 @@ export default function InvestmentsPage() {
 
   async function handleWithdrawEarly(investment: Investment) {
     if (!familyId) return;
+    const ok = await confirm({
+      title: "Vybrat investici předčasně?",
+      description: `Vrátí se ti jen vklad (${formatXp(investment.principal)} XP) — nabraný úrok propadá. Tuto akci nelze vrátit zpět.`,
+      confirmLabel: "Vybrat předčasně",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await updateDoc(doc(getDb(), "families", familyId, "investments", investment.id), {
         status: "withdrawal_requested",
