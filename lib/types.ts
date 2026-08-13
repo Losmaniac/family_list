@@ -127,6 +127,10 @@ export type NotificationTypeId =
   | "marketplace_offer"
   | "investment_matured"
   | "weekly_digest"
+  | "invest_demo_round_started"
+  | "invest_demo_contest_settled"
+  | "shopping_item_added"
+  | "shopping_item_checked"
   // Not exposed in the Settings notification-preferences list — it already
   // has its own dedicated eveningReminderEnabled toggle (checked before
   // notifyMembers is even called), kept separate to avoid two conflicting
@@ -617,6 +621,8 @@ export interface ShoppingItem {
   checked: boolean;
   /** Set when `checked` becomes true, cleared when unchecked — shown in the collapsed "Dokončené" section and absent for anything checked before this field existed. */
   completedAt?: number;
+  /** Who last checked it off, cleared when unchecked — drives the shopping_item_checked notification (functions/src/shoppingNotifications.ts) and absent for anything checked before this field existed. */
+  completedBy?: string;
   addedBy: string;
   timestamp: number;
 }

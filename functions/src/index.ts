@@ -33,6 +33,7 @@ export {
   investDemoContestReset,
   investDemoValuationRefresh,
 } from "./investDemo";
+export { onShoppingItemWritten } from "./shoppingNotifications";
 export {
   createTriviaDuel,
   respondToTriviaDuel,
