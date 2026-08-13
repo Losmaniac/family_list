@@ -133,6 +133,8 @@ export const initInvestDemoPortfolio = onCall<InitRequest>(async (request) => {
     createdAt: now,
     roundBaselineCzk: cashBalance,
     roundBaselineAt: now,
+    totalValueCzk: cashBalance,
+    valuedAt: now,
   } satisfies InvestDemoPortfolio);
   return { cashBalance };
 });
@@ -385,6 +387,32 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
       const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
       const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
       await portfolioDoc.ref.update({ roundBaselineCzk: totalValueCzk, roundBaselineAt: Date.now() });
+    }
+  }
+});
+
+/**
+ * Refreshes every portfolio's cached totalValueCzk four times a day
+ * (00:00/06:00/12:00/18:00 Europe/Prague) — the leaderboard
+ * (components/InvestDemoLeaderboard.tsx) reads this stored value directly
+ * instead of fetching live quotes itself on every page view, which used
+ * to mean every family member's device hitting Yahoo Finance independently
+ * whenever the page was open. Doesn't touch roundBaselineCzk (only
+ * investDemoContestReset moves that) or cash/holdings — purely a display
+ * refresh, so % return keeps measuring against the same reference point.
+ */
+export const investDemoValuationRefresh = onSchedule({ schedule: "0 0,6,12,18 * * *", timeZone: "Europe/Prague" }, async () => {
+  const db = getFirestore();
+  const familiesSnapshot = await allInvestDemoEnabledFamilies(db);
+
+  for (const familyDoc of familiesSnapshot.docs) {
+    const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
+    for (const portfolioDoc of portfoliosSnap.docs) {
+      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
+      const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
+      const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
+      const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
+      await portfolioDoc.ref.update({ totalValueCzk, valuedAt: Date.now() });
     }
   }
 });

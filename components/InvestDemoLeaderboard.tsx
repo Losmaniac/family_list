@@ -2,31 +2,30 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
 import { Trophy } from "lucide-react";
-import { getDb, getFirebaseFunctions } from "@/lib/firebase";
-import { CONTEST_XP_AWARDS, formatCzk, rankContestParticipants, roundMoney, type ContestParticipant } from "@/lib/invest-demo";
+import { getDb } from "@/lib/firebase";
+import { formatCzk, rankContestParticipants, type ContestParticipant } from "@/lib/invest-demo";
 import { formatXp } from "@/lib/xp-engine";
+import { formatDateTimeInFamilyZone } from "@/lib/date-utils";
 import Avatar from "@/components/Avatar";
-import type { InvestDemoContestResult, InvestDemoHolding, InvestDemoPortfolio, Member } from "@/lib/types";
+import type { InvestDemoContestResult, InvestDemoPortfolio, Member } from "@/lib/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 /**
  * "Kdo má nejlepší zhodnocení" — a family-wide ranking of every member's
- * demo-investing % return this month, plus the top-3 XP awards
- * (CONTEST_XP_AWARDS) once functions/src/investDemo.ts's
- * investDemoContestSettle actually decides it (last day of the month,
- * 20:00). Live standings here are a client-side preview using the same
- * getInvestDemoQuotes callable InvestDemoPanel uses for one's own
- * portfolio, just summed across every member — never authoritative, the
- * server always recomputes independently at settle time.
+ * demo-investing % return this month, plus what each rank is currently
+ * worth in XP (CONTEST_XP_AWARDS, via rankContestParticipants — the exact
+ * same function functions/src/investDemo.ts's investDemoContestSettle uses
+ * to actually decide the payout on the last day of the month). Standings
+ * here read each portfolio's totalValueCzk directly — a value
+ * investDemoValuationRefresh recomputes 4x/day (00:00/06:00/12:00/18:00),
+ * not fetched live on every page view — so this is always at most ~6h
+ * stale, never authoritative for the real payout either way.
  */
 export default function InvestDemoLeaderboard({ familyId }: { familyId: string }) {
   const [portfolios, setPortfolios] = useState<Record<string, InvestDemoPortfolio>>({});
-  const [holdingsByUid, setHoldingsByUid] = useState<Record<string, InvestDemoHolding[]>>({});
   const [members, setMembers] = useState<Record<string, Member>>({});
-  const [quotesBySymbol, setQuotesBySymbol] = useState<Record<string, number | null>>({});
   const [results, setResults] = useState<InvestDemoContestResult[]>([]);
 
   useEffect(() => {
@@ -52,79 +51,35 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
     });
   }, [familyId]);
 
-  // One holdings subscription per known portfolio uid — a family has few
-  // enough members that this stays cheap, and avoids relying on
-  // collectionGroup query semantics for something this small.
-  const portfolioUids = useMemo(() => Object.keys(portfolios).sort().join(","), [portfolios]);
-  useEffect(() => {
-    const uids = portfolioUids ? portfolioUids.split(",") : [];
-    const unsubs = uids.map((uid) =>
-      onSnapshot(collection(getDb(), "families", familyId, "investDemoPortfolios", uid, "holdings"), (snap) => {
-        setHoldingsByUid((prev) => ({ ...prev, [uid]: snap.docs.map((d) => d.data() as InvestDemoHolding) }));
-      })
-    );
-    return () => unsubs.forEach((unsub) => unsub());
-  }, [familyId, portfolioUids]);
-
-  const symbolsKey = useMemo(() => {
-    const set = new Set<string>();
-    for (const holdings of Object.values(holdingsByUid)) for (const h of holdings) set.add(h.symbol);
-    return [...set].sort().join(",");
-  }, [holdingsByUid]);
-
-  // Clear stale quotes the instant the symbol set actually changes (e.g.
-  // every holding got sold off) — done during render, React's documented
-  // pattern for "adjust state when a derived value changes", rather than a
-  // synchronous setState at the top of the effect below.
-  const [trackedSymbolsKey, setTrackedSymbolsKey] = useState(symbolsKey);
-  if (trackedSymbolsKey !== symbolsKey) {
-    setTrackedSymbolsKey(symbolsKey);
-    if (symbolsKey === "") setQuotesBySymbol({});
-  }
-
-  useEffect(() => {
-    if (!symbolsKey) return;
-    const symbols = symbolsKey.split(",");
-    let cancelled = false;
-    httpsCallable<{ familyId: string; symbols: string[] }, { quotes: { symbol: string; priceCzk: number | null }[] }>(
-      getFirebaseFunctions(),
-      "getInvestDemoQuotes"
-    )({ familyId, symbols })
-      .then((result) => {
-        if (cancelled) return;
-        const next: Record<string, number | null> = {};
-        for (const q of result.data.quotes) next[q.symbol] = q.priceCzk;
-        setQuotesBySymbol(next);
-      })
-      .catch(() => {
-        // Best-effort — a failed background price refresh just leaves the leaderboard on its last known values, no user-facing error needed.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [familyId, symbolsKey]);
-
   const standings = useMemo(() => {
-    const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => {
-      const holdings = holdingsByUid[uid] ?? [];
-      const holdingsValueCzk = holdings.reduce((sum, h) => sum + (quotesBySymbol[h.symbol] ?? 0) * h.quantity, 0);
-      return {
-        userId: uid,
-        totalValueCzk: roundMoney(portfolio.cashBalance + holdingsValueCzk),
-        baselineCzk: portfolio.roundBaselineCzk ?? portfolio.cashBalance,
-      };
-    });
+    const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => ({
+      userId: uid,
+      totalValueCzk: portfolio.totalValueCzk ?? portfolio.cashBalance,
+      baselineCzk: portfolio.roundBaselineCzk ?? portfolio.cashBalance,
+    }));
     return rankContestParticipants(participants);
-  }, [portfolios, holdingsByUid, quotesBySymbol]);
+  }, [portfolios]);
+
+  const latestValuedAt = useMemo(() => {
+    const timestamps = Object.values(portfolios)
+      .map((p) => p.valuedAt)
+      .filter((t): t is number => typeof t === "number");
+    return timestamps.length > 0 ? Math.max(...timestamps) : undefined;
+  }, [portfolios]);
 
   if (standings.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-medium text-zinc-500">
-          <Trophy size={16} /> Žebříček — aktuální kolo
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-1.5 text-sm font-medium text-zinc-500">
+            <Trophy size={16} /> Žebříček — aktuální kolo
+          </h3>
+          {latestValuedAt && (
+            <span className="text-xs text-zinc-400">Aktualizováno {formatDateTimeInFamilyZone(new Date(latestValuedAt))}</span>
+          )}
+        </div>
         <div className="flex flex-col gap-1.5">
           {standings.map((standing, i) => {
             const member = members[standing.userId];
@@ -134,6 +89,11 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
                   <span className="w-6 text-center text-lg">{MEDALS[i] ?? `${i + 1}.`}</span>
                   {member && <Avatar name={member.name} avatarUrl={member.avatarUrl} size="sm" />}
                   <span className="font-medium">{member?.name ?? standing.userId}</span>
+                  {standing.xpAwarded > 0 && (
+                    <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent">
+                      +{formatXp(standing.xpAwarded)} XP
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className={`text-sm font-semibold tabular-nums ${standing.returnPct >= 0 ? "text-success" : "text-danger"}`}>
@@ -147,8 +107,8 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
           })}
         </div>
         <p className="text-xs text-zinc-400">
-          Poslední den v měsíci se vyhlásí vítězové: 1. místo {formatXp(CONTEST_XP_AWARDS[0])} XP, 2. místo{" "}
-          {formatXp(CONTEST_XP_AWARDS[1])} XP, 3. místo {formatXp(CONTEST_XP_AWARDS[2])} XP.
+          Odměna vedle jména je, co by dané místo vyhrálo, kdyby kolo končilo právě teď — vyhlašuje a vyplácí se ale
+          až poslední den v měsíci ve 20:00.
         </p>
       </div>
 
