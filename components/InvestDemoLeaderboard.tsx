@@ -13,15 +13,18 @@ import type { InvestDemoContestResult, InvestDemoPortfolio, Member } from "@/lib
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 /**
- * "Kdo má nejlepší zhodnocení" — a family-wide ranking of every member's
- * demo-investing % return this month, plus what each rank is currently
- * worth in XP (CONTEST_XP_AWARDS, via rankContestParticipants — the exact
- * same function functions/src/investDemo.ts's investDemoContestSettle uses
- * to actually decide the payout on the last day of the month). Standings
- * here read each portfolio's totalValueCzk directly — a value
- * investDemoValuationRefresh recomputes 4x/day (00:00/06:00/12:00/18:00),
- * not fetched live on every page view — so this is always at most ~6h
- * stale, never authoritative for the real payout either way.
+ * "Kdo má nejvíc" — a family-wide ranking of every member's demo-investing
+ * account balance this month (cash + open positions at live prices), plus
+ * what each rank is currently worth in XP (CONTEST_XP_AWARDS, via
+ * rankContestParticipants — the exact same function
+ * functions/src/investDemo.ts's investDemoContestSettle uses to actually
+ * decide the payout on the last day of the month). Standings here read each
+ * portfolio's totalValueCzk directly — a value investDemoValuationRefresh
+ * recomputes 4x/day (00:00/06:00/12:00/18:00), not fetched live on every
+ * page view — so this is always at most ~6h stale, never authoritative for
+ * the real payout either way. On settlement, open positions are
+ * automatically sold to cash before ranking (see liquidatePortfolio), so
+ * the final number is always realized, not an estimate.
  */
 export default function InvestDemoLeaderboard({ familyId }: { familyId: string }) {
   const [portfolios, setPortfolios] = useState<Record<string, InvestDemoPortfolio>>({});
@@ -55,7 +58,6 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
     const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => ({
       userId: uid,
       totalValueCzk: portfolio.totalValueCzk ?? portfolio.cashBalance,
-      baselineCzk: portfolio.roundBaselineCzk ?? portfolio.cashBalance,
     }));
     return rankContestParticipants(participants);
   }, [portfolios]);
@@ -96,11 +98,7 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
                   )}
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-semibold tabular-nums ${standing.returnPct >= 0 ? "text-success" : "text-danger"}`}>
-                    {standing.returnPct >= 0 ? "+" : ""}
-                    {(standing.returnPct * 100).toFixed(1)} %
-                  </p>
-                  <p className="text-xs text-zinc-500">{formatCzk(standing.totalValueCzk)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatCzk(standing.totalValueCzk)}</p>
                 </div>
               </div>
             );
@@ -108,7 +106,8 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
         </div>
         <p className="text-xs text-zinc-400">
           Odměna vedle jména je, co by dané místo vyhrálo, kdyby kolo končilo právě teď — vyhlašuje a vyplácí se ale
-          až poslední den v měsíci ve 20:00.
+          až poslední den v měsíci ve 20:00, kdy se všechny otevřené pozice automaticky prodají za hotovost a
+          rozhoduje celkový zůstatek.
         </p>
       </div>
 
@@ -123,7 +122,7 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
                   .filter((standing) => standing.xpAwarded > 0)
                   .map((standing, i) => (
                     <p key={standing.userId} className="text-xs text-zinc-500">
-                      {MEDALS[i]} {members[standing.userId]?.name ?? standing.userId} · {(standing.returnPct * 100).toFixed(1)} % · +
+                      {MEDALS[i]} {members[standing.userId]?.name ?? standing.userId} · {formatCzk(standing.totalValueCzk)} · +
                       {formatXp(standing.xpAwarded)} XP
                     </p>
                   ))}
