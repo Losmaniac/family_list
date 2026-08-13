@@ -45,6 +45,10 @@ export const NOTIFICATION_TYPE_ORDER: ConfigurableNotificationTypeId[] = [
   "marketplace_offer",
   "investment_matured",
   "weekly_digest",
+  "invest_demo_round_started",
+  "invest_demo_contest_settled",
+  "shopping_item_added",
+  "shopping_item_checked",
 ];
 
 interface NotificationTypeInfo {
@@ -66,4 +70,8 @@ export const NOTIFICATION_TYPE_INFO: Record<ConfigurableNotificationTypeId, Noti
   marketplace_offer: { label: "Nabídka/poptávka na trhu služeb", audienceLabel: "Druhá strana obchodu", hasRecipientChoice: false, audienceFilter: "all" },
   investment_matured: { label: "Investice dozrála", audienceLabel: "Ten, komu investice patří", hasRecipientChoice: false, audienceFilter: "all" },
   weekly_digest: { label: "Týdenní AI souhrn", audienceLabel: "Všichni členové", hasRecipientChoice: true, audienceFilter: "all" },
+  invest_demo_round_started: { label: "Nové kolo demo investování", audienceLabel: "Kdo má demo portfolio", hasRecipientChoice: true, audienceFilter: "all" },
+  invest_demo_contest_settled: { label: "Vyhodnocení soutěže demo investování", audienceLabel: "Kdo má demo portfolio", hasRecipientChoice: true, audienceFilter: "all" },
+  shopping_item_added: { label: "Přidaná položka do nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
+  shopping_item_checked: { label: "Odškrtnutá položka z nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
 };

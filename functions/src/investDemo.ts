@@ -28,9 +28,10 @@ import {
   type InvestDemoAssetType,
 } from "../../lib/invest-demo";
 import { dayOfMonthInFamilyZone, lastDayOfMonthInFamilyZone, monthKeyInFamilyZone } from "../../lib/date-utils";
-import { buildLedgerEntry } from "../../lib/xp-engine";
+import { buildLedgerEntry, formatXp } from "../../lib/xp-engine";
+import { notifyMembers, type NotifyTarget } from "./notifyHelpers";
 import { requireAuth, requireFamilyMember } from "./practice";
-import type { Family, InvestDemoContestResult, InvestDemoHolding, InvestDemoPortfolio } from "../../lib/types";
+import type { Family, InvestDemoContestResult, InvestDemoHolding, InvestDemoPortfolio, Member } from "../../lib/types";
 
 const YAHOO_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
 
@@ -361,6 +362,20 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
         standings,
       } satisfies Omit<InvestDemoContestResult, "id">);
     });
+
+    const membersSnap = await familyRef.collection("members").get();
+    const membersById = new Map(membersSnap.docs.map((d) => [d.id, d.data() as Member]));
+    for (const [index, standing] of standings.entries()) {
+      const member = membersById.get(standing.userId);
+      if (!member) continue;
+      const target: NotifyTarget = { userId: standing.userId, fcmToken: member.fcmToken };
+      const pctText = `${standing.returnPct >= 0 ? "+" : ""}${(standing.returnPct * 100).toFixed(1)} %`;
+      const body =
+        standing.xpAwarded > 0
+          ? `🏆 Soutěž demo investování vyhodnocena — ${index + 1}. místo (${pctText}), +${formatXp(standing.xpAwarded)} XP!`
+          : `Soutěž demo investování vyhodnocena — tvůj výsledek: ${pctText}. Zkus to příští kolo znovu!`;
+      await notifyMembers(familyDoc.id, "invest_demo_contest_settled", [target], "Family Quest", body, db);
+    }
   }
 });
 
@@ -381,12 +396,33 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
 
   for (const familyDoc of familiesSnapshot.docs) {
     const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
+    if (portfoliosSnap.empty) continue;
+
     for (const portfolioDoc of portfoliosSnap.docs) {
       const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
       const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
       const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
       const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
       await portfolioDoc.ref.update({ roundBaselineCzk: totalValueCzk, roundBaselineAt: Date.now() });
+    }
+
+    const membersSnap = await familyDoc.ref.collection("members").get();
+    const membersById = new Map(membersSnap.docs.map((d) => [d.id, d.data() as Member]));
+    const targets: NotifyTarget[] = portfoliosSnap.docs
+      .map((d): NotifyTarget | null => {
+        const member = membersById.get(d.id);
+        return member ? { userId: d.id, fcmToken: member.fcmToken } : null;
+      })
+      .filter((t): t is NotifyTarget => t !== null);
+    if (targets.length > 0) {
+      await notifyMembers(
+        familyDoc.id,
+        "invest_demo_round_started",
+        targets,
+        "Family Quest",
+        "🚀 Začalo nové kolo demo investování — zhodnocení se teď počítá znovu od nuly.",
+        db
+      );
     }
   }
 });

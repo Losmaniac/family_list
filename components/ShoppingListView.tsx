@@ -87,12 +87,13 @@ export default function ShoppingListView() {
   }
 
   async function toggleChecked(item: ShoppingItem) {
-    if (!familyId) return;
+    if (!familyId || !user) return;
     const next = !item.checked;
     try {
       await updateDoc(doc(getDb(), "families", familyId, "shoppingItems", item.id), {
         checked: next,
         completedAt: next ? nowMs() : null,
+        completedBy: next ? user.uid : null,
       });
     } catch {
       toast.error("Nepodařilo se uložit změnu.");
