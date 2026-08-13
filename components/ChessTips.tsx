@@ -2,18 +2,28 @@
 
 import { useState } from "react";
 import { ChevronDown, GraduationCap } from "lucide-react";
-import { CHESS_TIPS } from "@/lib/chess-tips";
+import { CHESS_TIPS_ADVANCED, CHESS_TIPS_BASICS } from "@/lib/chess-tips";
+
+const LEVELS = [
+  { id: "basics", label: "Základy", sections: CHESS_TIPS_BASICS },
+  { id: "advanced", label: "Pokročilé", sections: CHESS_TIPS_ADVANCED },
+] as const;
 
 /**
  * "Jak na šachy" — a collapsed-by-default education panel above the board
- * (see components/ChessGame.tsx) with hand-written strategy basics: how to
- * think through a move, opening principles, piece values, basic tactics,
- * endgame ideas. Purely informational, no XP tied to it — collapsed by
- * default so it doesn't push the actual board below the fold for a member
- * who already knows this and just wants to play.
+ * (see components/ChessGame.tsx) with hand-written content in two tiers:
+ * Základy (how to think through a move, opening principles, piece values,
+ * the most common tactics/endgame ideas) and Pokročilé (skewer, deflection,
+ * decoy, back-rank mate, zugzwang, pawn structure, outposts, prophylaxis,
+ * ...). Purely informational, no XP tied to it — collapsed by default so
+ * it doesn't push the actual board below the fold for a member who
+ * already knows this and just wants to play.
  */
 export default function ChessTips() {
   const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState<(typeof LEVELS)[number]["id"]>("basics");
+
+  const sections = LEVELS.find((l) => l.id === level)?.sections ?? CHESS_TIPS_BASICS;
 
   return (
     <div className="rounded-xl border border-border">
@@ -30,7 +40,21 @@ export default function ChessTips() {
       </button>
       {open && (
         <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
-          {CHESS_TIPS.map((section) => (
+          <div className="flex gap-2">
+            {LEVELS.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => setLevel(l.id)}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  level === l.id ? "bg-accent text-accent-foreground" : "border border-border text-zinc-500"
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+          {sections.map((section) => (
             <div key={section.id} className="flex flex-col gap-1.5">
               <p className="text-sm font-semibold">{section.title}</p>
               <ul className="flex flex-col gap-1">
