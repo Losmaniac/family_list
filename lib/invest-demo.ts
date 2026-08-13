@@ -116,7 +116,10 @@ export function formatCzk(amount: number): string {
  * investDemoContestSettle/investDemoContestReset) — 1st/2nd/3rd place by
  * absolute account balance (cash + any open positions, which are
  * automatically liquidated to cash right before ranking), index 0 = 1st
- * place. Anyone placing outside the top 3 gets 0.
+ * place. Anyone placing outside the top 3 gets 0 — and even a top-3 finish
+ * pays 0 if that account didn't actually grow this round (see
+ * rankContestParticipants), so ranking #1 by sitting on a shrinking balance
+ * that just fell less than everyone else's doesn't win anything.
  */
 export const CONTEST_XP_AWARDS = [100, 50, 25];
 
@@ -124,24 +127,36 @@ export interface ContestParticipant {
   userId: string;
   /** Total account value (cash + holdings at live prices, or fully-liquidated cash after month-end settlement), in CZK. */
   totalValueCzk: number;
+  /** Account value at the start of this round — a rank only pays out if totalValueCzk grew past this. */
+  roundStartCzk: number;
 }
 
 export interface ContestStanding {
   userId: string;
   totalValueCzk: number;
-  /** CONTEST_XP_AWARDS[rank] for the top 3, 0 otherwise. */
+  /** CONTEST_XP_AWARDS[rank] for the top 3, 0 otherwise — also 0 for a top-3 finish that didn't grow past roundStartCzk. */
   xpAwarded: number;
 }
 
 /**
  * Ranks participants by absolute total value (highest first) and assigns
- * CONTEST_XP_AWARDS to the top 3. Ties keep their relative input order
- * (stable sort), same as every other leaderboard in this app.
+ * CONTEST_XP_AWARDS to the top 3 — except a participant whose totalValueCzk
+ * didn't end up strictly greater than their own roundStartCzk gets 0
+ * regardless of rank, since a round where every account lost money
+ * shouldn't still hand out a prize to whoever lost the least. Ranking
+ * itself (and everyone else's placement) is unaffected — a disqualified
+ * top finisher's slot simply isn't paid out, not reassigned. Ties keep
+ * their relative input order (stable sort), same as every other
+ * leaderboard in this app.
  */
 export function rankContestParticipants(participants: ContestParticipant[]): ContestStanding[] {
   return [...participants]
     .sort((a, b) => b.totalValueCzk - a.totalValueCzk)
-    .map((standing, index) => ({ ...standing, xpAwarded: CONTEST_XP_AWARDS[index] ?? 0 }));
+    .map((standing, index) => ({
+      userId: standing.userId,
+      totalValueCzk: standing.totalValueCzk,
+      xpAwarded: standing.totalValueCzk > standing.roundStartCzk ? (CONTEST_XP_AWARDS[index] ?? 0) : 0,
+    }));
 }
 
 /** The asset's own quoted price, in its native currency (USD/EUR/…) — shown alongside the CZK conversion so the number matches what a real broker/ticker would show. */

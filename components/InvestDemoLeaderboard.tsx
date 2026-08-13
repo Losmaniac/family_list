@@ -24,7 +24,9 @@ const MEDALS = ["🥇", "🥈", "🥉"];
  * page view — so this is always at most ~6h stale, never authoritative for
  * the real payout either way. On settlement, open positions are
  * automatically sold to cash before ranking (see liquidatePortfolio), so
- * the final number is always realized, not an estimate.
+ * the final number is always realized, not an estimate. A top-3 rank whose
+ * balance didn't actually grow past where it started the round still shows
+ * 0 XP here, matching the real payout rule.
  */
 export default function InvestDemoLeaderboard({ familyId }: { familyId: string }) {
   const [portfolios, setPortfolios] = useState<Record<string, InvestDemoPortfolio>>({});
@@ -58,6 +60,7 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
     const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => ({
       userId: uid,
       totalValueCzk: portfolio.totalValueCzk ?? portfolio.cashBalance,
+      roundStartCzk: portfolio.roundStartCzk ?? portfolio.cashBalance,
     }));
     return rankContestParticipants(participants);
   }, [portfolios]);
@@ -107,7 +110,8 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
         <p className="text-xs text-zinc-400">
           Odměna vedle jména je, co by dané místo vyhrálo, kdyby kolo končilo právě teď — vyhlašuje a vyplácí se ale
           až poslední den v měsíci ve 20:00, kdy se všechny otevřené pozice automaticky prodají za hotovost a
-          rozhoduje celkový zůstatek.
+          rozhoduje celkový zůstatek. Odměnu ale dostane jen ten, jehož zůstatek je vyšší než na začátku kola — i
+          první místo je bez odměny, pokud přes měsíc jen prodělalo méně než ostatní.
         </p>
       </div>
 

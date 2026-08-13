@@ -126,9 +126,14 @@ export const initInvestDemoPortfolio = onCall<InitRequest>(async (request) => {
   }
   const cashBalance = family.investDemoStartingBalance ?? DEFAULT_INVEST_DEMO_STARTING_BALANCE;
   const now = Date.now();
+  // roundStartCzk starts equal to cashBalance — fair, since there's nothing
+  // to have grown yet, and lets someone who joins mid-month still compete
+  // on an even footing from their own join date.
   await portfolioRef.set({
     cashBalance,
     createdAt: now,
+    roundStartCzk: cashBalance,
+    roundStartAt: now,
     totalValueCzk: cashBalance,
     valuedAt: now,
   } satisfies InvestDemoPortfolio);
@@ -361,7 +366,10 @@ async function liquidatePortfolio(db: Firestore, familyRef: DocumentReference, u
  * directly). Liquidates every portfolio to cash first (see
  * liquidatePortfolio), then ranks the family by that final absolute CZK
  * balance, awards CONTEST_XP_AWARDS to the top 3 through the standard
- * ledger transaction, and records the full standings for history/display.
+ * ledger transaction — except a top-3 finisher whose balance didn't end up
+ * above where it started the round gets nothing (see
+ * rankContestParticipants) — and records the full standings for
+ * history/display.
  */
 export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", timeZone: "Europe/Prague" }, async () => {
   const now = new Date();
@@ -378,8 +386,13 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
 
     const participants: ContestParticipant[] = [];
     for (const portfolioDoc of portfoliosSnap.docs) {
+      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
       const totalValueCzk = await liquidatePortfolio(db, familyRef, portfolioDoc.id);
-      participants.push({ userId: portfolioDoc.id, totalValueCzk });
+      participants.push({
+        userId: portfolioDoc.id,
+        totalValueCzk,
+        roundStartCzk: portfolio.roundStartCzk ?? portfolio.cashBalance,
+      });
     }
 
     const standings = rankContestParticipants(participants);
@@ -418,12 +431,14 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
 });
 
 /**
- * Announces the next contest round — the day after the last day of the
- * month (i.e. the 1st) at 09:00 Europe/Prague. Since the previous round's
- * settlement already liquidated every portfolio to cash (see
- * investDemoContestSettle/liquidatePortfolio), there's nothing left to
- * snapshot here — cash simply carries forward and the standings start
- * fresh the moment new trades are made. This is purely the notification.
+ * Starts the next contest round — the day after the last day of the month
+ * (i.e. the 1st) at 09:00 Europe/Prague. The previous round's settlement
+ * already liquidated every portfolio to cash (see
+ * investDemoContestSettle/liquidatePortfolio), so this just snapshots that
+ * post-liquidation cashBalance as the new round's roundStartCzk — the
+ * threshold a portfolio has to grow past to actually get paid next time,
+ * even if it ranks in the top 3 (see rankContestParticipants). No live
+ * pricing needed since every portfolio is already pure cash at this point.
  */
 export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZone: "Europe/Prague" }, async () => {
   const now = new Date();
@@ -435,6 +450,11 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
   for (const familyDoc of familiesSnapshot.docs) {
     const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
     if (portfoliosSnap.empty) continue;
+
+    for (const portfolioDoc of portfoliosSnap.docs) {
+      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
+      await portfolioDoc.ref.update({ roundStartCzk: portfolio.cashBalance, roundStartAt: Date.now() });
+    }
 
     const membersSnap = await familyDoc.ref.collection("members").get();
     const membersById = new Map(membersSnap.docs.map((d) => [d.id, d.data() as Member]));

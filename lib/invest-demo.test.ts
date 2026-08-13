@@ -150,20 +150,38 @@ describe("FEATURED_ASSETS", () => {
 describe("rankContestParticipants", () => {
   it("ranks by absolute total value descending", () => {
     const standings = rankContestParticipants([
-      { userId: "a", totalValueCzk: 11_000 },
-      { userId: "b", totalValueCzk: 105_000 },
-      { userId: "c", totalValueCzk: 9_000 },
+      { userId: "a", totalValueCzk: 11_000, roundStartCzk: 10_000 },
+      { userId: "b", totalValueCzk: 105_000, roundStartCzk: 100_000 },
+      { userId: "c", totalValueCzk: 9_000, roundStartCzk: 10_000 },
     ]);
     expect(standings.map((s) => s.userId)).toEqual(["b", "a", "c"]);
   });
 
   it("awards CONTEST_XP_AWARDS to the top 3 and 0 to everyone else", () => {
     const standings = rankContestParticipants([
-      { userId: "a", totalValueCzk: 140_000 },
-      { userId: "b", totalValueCzk: 130_000 },
-      { userId: "c", totalValueCzk: 120_000 },
-      { userId: "d", totalValueCzk: 110_000 },
+      { userId: "a", totalValueCzk: 140_000, roundStartCzk: 100_000 },
+      { userId: "b", totalValueCzk: 130_000, roundStartCzk: 100_000 },
+      { userId: "c", totalValueCzk: 120_000, roundStartCzk: 100_000 },
+      { userId: "d", totalValueCzk: 110_000, roundStartCzk: 100_000 },
     ]);
     expect(standings.map((s) => s.xpAwarded)).toEqual([...CONTEST_XP_AWARDS, 0]);
+  });
+
+  it("pays 0 to a top-3 finisher whose balance didn't grow past roundStartCzk, even in 1st place", () => {
+    const standings = rankContestParticipants([
+      { userId: "a", totalValueCzk: 90_000, roundStartCzk: 100_000 }, // ranks 2nd, but lost money
+      { userId: "b", totalValueCzk: 80_000, roundStartCzk: 100_000 }, // ranks 3rd, also lost money
+      { userId: "c", totalValueCzk: 105_000, roundStartCzk: 100_000 }, // ranks 1st and actually grew
+    ]);
+    expect(standings.map((s) => ({ userId: s.userId, xpAwarded: s.xpAwarded }))).toEqual([
+      { userId: "c", xpAwarded: CONTEST_XP_AWARDS[0] },
+      { userId: "a", xpAwarded: 0 },
+      { userId: "b", xpAwarded: 0 },
+    ]);
+  });
+
+  it("requires strictly greater than roundStartCzk — an unchanged balance doesn't count as growth", () => {
+    const standings = rankContestParticipants([{ userId: "a", totalValueCzk: 100_000, roundStartCzk: 100_000 }]);
+    expect(standings[0].xpAwarded).toBe(0);
   });
 });
