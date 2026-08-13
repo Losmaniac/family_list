@@ -12,7 +12,8 @@ export interface ChessTipSection {
   tips: string[];
 }
 
-export const CHESS_TIPS: ChessTipSection[] = [
+/** Základy — how to think through a move, opening principles, piece values, the most common tactics/endgame ideas. */
+export const CHESS_TIPS_BASICS: ChessTipSection[] = [
   {
     id: "thinking",
     title: "🧠 Jak přemýšlet nad tahem",
@@ -59,6 +60,38 @@ export const CHESS_TIPS: ChessTipSection[] = [
       "Když zůstane málo figur, je král silná bojová figura — zapoj ho do hry, už mu nic tolik nehrozí.",
       "Postrkuj své pěšce směrem k poslední řadě — když se tam dostanou, promění se v libovolnou figuru (nejčastěji dámu).",
       "Snaž se, aby tvůj král byl v koncovce blíž vlastním pěšcům než soupeřův král.",
+    ],
+  },
+];
+
+/**
+ * Pokročilé — pro hráče, co už zvládají základy a chtějí jít dál: méně
+ * časté ale silné taktické motivy a strategické koncepty, které se hodí
+ * hlavně od střední/koncové fáze partie.
+ */
+export const CHESS_TIPS_ADVANCED: ChessTipSection[] = [
+  {
+    id: "advanced-tactics",
+    title: "🗡️ Pokročilé taktiky",
+    tips: [
+      "Střelová řada (skewer) — opak vidličky: napadneš cennější figuru, ta musí uhnout a odkryje méně cennou figuru přesně za sebou.",
+      "Odvedení pozornosti (deflection) — donutíš soupeřovu figuru opustit důležité pole (třeba obranu jiné figury nebo pole u krále) tím, že na ni zaútočíš.",
+      "Vnadidlo (decoy) — vlákáš soupeřovu figuru (často krále) na konkrétní pole obětí, aby na ni pak zafungovala jiná taktika.",
+      "X-ray útok — tvoje figura \"vidí\" přes soupeřovu figuru na cíl za ní, i když tam sama přímo nedosáhne — funguje to i na obranu.",
+      "Mat na poslední řadě (back-rank mate) — když má král před sebou jen vlastní pěšce a žádné únikové pole, stačí dostat věž nebo dámu na jeho řadu.",
+      "Zugzwang — situace (hlavně v koncovkách), kdy je pro soupeře nevýhodné zahrát cokoliv, ale pravidla ho nutí táhnout.",
+    ],
+  },
+  {
+    id: "advanced-strategy",
+    title: "🏰 Pokročilá strategie",
+    tips: [
+      "Pěšcová struktura — izolovaný, zdvojený nebo zaostalý pěšec je dlouhodobá slabina, na kterou soupeř může tlačit celou partii.",
+      "Silný bod (outpost) — pole (často u soupeřovy poloviny), které soupeř nemůže napadnout pěšcem — ideální místo pro jezdce.",
+      "Otevřený sloupec pro věž — postav věž na sloupec bez pěšců (tvých ani soupeřových), odtud má nejvíc dosahu a síly.",
+      "Pár střelců — dva střelci dohromady pokrývají obě barvy polí a v otevřenější pozici bývají silnější než střelec s jezdcem.",
+      "Profylaxe — než zaútočíš, zeptej se sám sebe, co chce zahrát soupeř, a tomu tahem předejdi.",
+      "Bezpečí krále vs. aktivita — v zahájení a středehře krále schovej a chraň, ale v koncovce ho naopak aktivně zapoj do boje.",
     ],
   },
 ];
