@@ -417,6 +417,19 @@ export interface InvestDemoPortfolio {
   cashBalance: number;
   createdAt: number;
   /**
+   * Account value at the start of the current monthly contest round — see
+   * functions/src/investDemo.ts's investDemoContestReset, which snapshots
+   * this (as the post-liquidation cashBalance, since every portfolio is
+   * fully cash by then) for every portfolio right after settlement, and
+   * initInvestDemoPortfolio, which sets it at creation for anyone who joins
+   * mid-round. Used only to gate contest payout — see
+   * rankContestParticipants in lib/invest-demo.ts — not for ranking itself.
+   * Absent only for a portfolio that predates this field; treat as
+   * cashBalance.
+   */
+  roundStartCzk?: number;
+  roundStartAt?: number;
+  /**
    * Cash + holdings at live prices, in CZK — refreshed 4x/day by
    * functions/src/investDemo.ts's investDemoValuationRefresh (00:00/06:00/
    * 12:00/18:00 Europe/Prague), plus set at creation. The leaderboard
