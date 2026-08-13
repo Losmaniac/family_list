@@ -11,6 +11,7 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { CHESS_WIN_XP, type ChessDifficulty } from "@/lib/chess-ai";
 import { formatXp } from "@/lib/xp-engine";
+import ChessTips from "@/components/ChessTips";
 import type { ChessGame as ChessGameDoc } from "@/lib/types";
 
 function describeError(err: unknown, fallback: string): string {
@@ -240,6 +241,8 @@ export default function ChessGame() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ChessTips />
+
       <div className="flex flex-wrap gap-2">
         {DIFFICULTIES.map((d) => (
           <button
