@@ -417,16 +417,6 @@ export interface InvestDemoPortfolio {
   cashBalance: number;
   createdAt: number;
   /**
-   * Total portfolio value (cash + holdings at live prices) at the start of
-   * the current monthly contest round — see functions/src/investDemo.ts's
-   * investDemoContestReset, which snapshots this for every portfolio on the
-   * 1st of each month, and initInvestDemoPortfolio, which sets it at
-   * creation for anyone who joins mid-round. Absent only for a portfolio
-   * that predates this field; treat as cashBalance-at-creation.
-   */
-  roundBaselineCzk?: number;
-  roundBaselineAt?: number;
-  /**
    * Cash + holdings at live prices, in CZK — refreshed 4x/day by
    * functions/src/investDemo.ts's investDemoValuationRefresh (00:00/06:00/
    * 12:00/18:00 Europe/Prague), plus set at creation. The leaderboard
@@ -463,8 +453,6 @@ export interface InvestDemoTransaction {
 export interface InvestDemoContestStanding {
   userId: string;
   totalValueCzk: number;
-  /** Fractional return since the round's baseline — 0.08 = +8%. */
-  returnPct: number;
   xpAwarded: number;
 }
 

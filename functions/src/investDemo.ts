@@ -17,6 +17,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { FieldValue, getFirestore, type DocumentReference, type Firestore } from "firebase-admin/firestore";
 import {
   DEFAULT_INVEST_DEMO_STARTING_BALANCE,
+  formatCzk,
   nextAvgCost,
   parseChartQuote,
   parseFxRate,
@@ -125,15 +126,9 @@ export const initInvestDemoPortfolio = onCall<InitRequest>(async (request) => {
   }
   const cashBalance = family.investDemoStartingBalance ?? DEFAULT_INVEST_DEMO_STARTING_BALANCE;
   const now = Date.now();
-  // roundBaselineCzk starts equal to cashBalance — fair, since there are no
-  // holdings yet, and lets someone who joins mid-month still compete on an
-  // even footing from their own join date rather than waiting for the next
-  // reset (see investDemoContestReset below).
   await portfolioRef.set({
     cashBalance,
     createdAt: now,
-    roundBaselineCzk: cashBalance,
-    roundBaselineAt: now,
     totalValueCzk: cashBalance,
     valuedAt: now,
   } satisfies InvestDemoPortfolio);
@@ -309,14 +304,64 @@ async function allInvestDemoEnabledFamilies(db: Firestore) {
 }
 
 /**
- * Settles the monthly "kdo má nejlepší zhodnocení" contest — last day of
- * every month, 20:00 Europe/Prague (a daily 20:00 schedule that no-ops on
- * every day except the last, since standard cron can't express "last day
- * of month" directly). Ranks every portfolio in the family by % return
- * since its roundBaselineCzk (see investDemoContestReset below, and
- * initInvestDemoPortfolio for a mid-round join's own fair baseline),
- * awards CONTEST_XP_AWARDS to the top 3 through the standard ledger
- * transaction, and records the full standings for history/display.
+ * Liquidates every holding in a portfolio to cash — used right before the
+ * monthly contest is ranked, so standings compare a single realized CZK
+ * balance instead of a live-priced "what if I sold now" estimate that could
+ * shift between ranking and payout. A symbol Yahoo can't currently price is
+ * left untouched (stays in the portfolio for next month) rather than
+ * blocking the whole settlement, same best-effort convention as
+ * computeTotalValueCzk. Returns the portfolio's final cash balance in CZK.
+ */
+async function liquidatePortfolio(db: Firestore, familyRef: DocumentReference, uid: string): Promise<number> {
+  const portfolioRef = familyRef.collection("investDemoPortfolios").doc(uid);
+  const holdingsSnap = await portfolioRef.collection("holdings").get();
+  const priced = await Promise.all(
+    holdingsSnap.docs.map(async (d) => {
+      const holding = d.data() as InvestDemoHolding;
+      try {
+        const priceCzk = await fetchPriceCzk(holding.symbol);
+        return { ref: d.ref, holding, priceCzk };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return db.runTransaction(async (tx) => {
+    const portfolioSnap = await tx.get(portfolioRef);
+    const portfolio = portfolioSnap.data() as InvestDemoPortfolio;
+    let cashBalance = portfolio.cashBalance;
+
+    for (const p of priced) {
+      if (!p) continue;
+      const totalCzk = roundMoney(p.priceCzk * p.holding.quantity);
+      cashBalance = roundMoney(cashBalance + totalCzk);
+      tx.delete(p.ref);
+      tx.set(portfolioRef.collection("transactions").doc(), {
+        symbol: p.holding.symbol,
+        name: p.holding.name,
+        assetType: p.holding.assetType,
+        side: "sell",
+        quantity: p.holding.quantity,
+        priceCzk: p.priceCzk,
+        totalCzk,
+        timestamp: Date.now(),
+      });
+    }
+
+    tx.update(portfolioRef, { cashBalance, totalValueCzk: cashBalance, valuedAt: Date.now() });
+    return cashBalance;
+  });
+}
+
+/**
+ * Settles the monthly "kdo má nejvíc" contest — last day of every month,
+ * 20:00 Europe/Prague (a daily 20:00 schedule that no-ops on every day
+ * except the last, since standard cron can't express "last day of month"
+ * directly). Liquidates every portfolio to cash first (see
+ * liquidatePortfolio), then ranks the family by that final absolute CZK
+ * balance, awards CONTEST_XP_AWARDS to the top 3 through the standard
+ * ledger transaction, and records the full standings for history/display.
  */
 export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", timeZone: "Europe/Prague" }, async () => {
   const now = new Date();
@@ -333,15 +378,8 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
 
     const participants: ContestParticipant[] = [];
     for (const portfolioDoc of portfoliosSnap.docs) {
-      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
-      const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
-      const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
-      const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
-      participants.push({
-        userId: portfolioDoc.id,
-        totalValueCzk,
-        baselineCzk: portfolio.roundBaselineCzk ?? portfolio.cashBalance,
-      });
+      const totalValueCzk = await liquidatePortfolio(db, familyRef, portfolioDoc.id);
+      participants.push({ userId: portfolioDoc.id, totalValueCzk });
     }
 
     const standings = rankContestParticipants(participants);
@@ -369,23 +407,23 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
       const member = membersById.get(standing.userId);
       if (!member) continue;
       const target: NotifyTarget = { userId: standing.userId, fcmToken: member.fcmToken };
-      const pctText = `${standing.returnPct >= 0 ? "+" : ""}${(standing.returnPct * 100).toFixed(1)} %`;
+      const balanceText = formatCzk(standing.totalValueCzk);
       const body =
         standing.xpAwarded > 0
-          ? `🏆 Soutěž demo investování vyhodnocena — ${index + 1}. místo (${pctText}), +${formatXp(standing.xpAwarded)} XP!`
-          : `Soutěž demo investování vyhodnocena — tvůj výsledek: ${pctText}. Zkus to příští kolo znovu!`;
+          ? `🏆 Soutěž demo investování vyhodnocena — ${index + 1}. místo (${balanceText}), +${formatXp(standing.xpAwarded)} XP!`
+          : `Soutěž demo investování vyhodnocena — tvůj zůstatek: ${balanceText}. Zkus to příští kolo znovu!`;
       await notifyMembers(familyDoc.id, "invest_demo_contest_settled", [target], "Family Quest", body, db);
     }
   }
 });
 
 /**
- * Starts the next contest round — the day after the last day of the month
- * (i.e. the 1st) at 09:00 Europe/Prague, snapshotting every portfolio's
- * current total value as the new roundBaselineCzk. Holdings/cash are left
- * completely untouched — only the contest's reference point moves, so next
- * month's % return is measured fresh rather than compounding indefinitely
- * from whenever each portfolio first started.
+ * Announces the next contest round — the day after the last day of the
+ * month (i.e. the 1st) at 09:00 Europe/Prague. Since the previous round's
+ * settlement already liquidated every portfolio to cash (see
+ * investDemoContestSettle/liquidatePortfolio), there's nothing left to
+ * snapshot here — cash simply carries forward and the standings start
+ * fresh the moment new trades are made. This is purely the notification.
  */
 export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZone: "Europe/Prague" }, async () => {
   const now = new Date();
@@ -397,14 +435,6 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
   for (const familyDoc of familiesSnapshot.docs) {
     const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
     if (portfoliosSnap.empty) continue;
-
-    for (const portfolioDoc of portfoliosSnap.docs) {
-      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
-      const holdingsSnap = await portfolioDoc.ref.collection("holdings").get();
-      const holdings = holdingsSnap.docs.map((d) => d.data() as InvestDemoHolding);
-      const totalValueCzk = await computeTotalValueCzk(portfolio, holdings);
-      await portfolioDoc.ref.update({ roundBaselineCzk: totalValueCzk, roundBaselineAt: Date.now() });
-    }
 
     const membersSnap = await familyDoc.ref.collection("members").get();
     const membersById = new Map(membersSnap.docs.map((d) => [d.id, d.data() as Member]));
@@ -420,7 +450,7 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
         "invest_demo_round_started",
         targets,
         "Family Quest",
-        "🚀 Začalo nové kolo demo investování — zhodnocení se teď počítá znovu od nuly.",
+        "🚀 Začalo nové kolo demo investování — minulý měsíc se otevřené pozice automaticky uzavřely na hotovost, teď se soutěží znovu od nuly.",
         db
       );
     }
@@ -433,9 +463,8 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
  * (components/InvestDemoLeaderboard.tsx) reads this stored value directly
  * instead of fetching live quotes itself on every page view, which used
  * to mean every family member's device hitting Yahoo Finance independently
- * whenever the page was open. Doesn't touch roundBaselineCzk (only
- * investDemoContestReset moves that) or cash/holdings — purely a display
- * refresh, so % return keeps measuring against the same reference point.
+ * whenever the page was open. Doesn't touch cash/holdings — purely a
+ * display refresh.
  */
 export const investDemoValuationRefresh = onSchedule({ schedule: "0 0,6,12,18 * * *", timeZone: "Europe/Prague" }, async () => {
   const db = getFirestore();
