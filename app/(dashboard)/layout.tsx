@@ -36,6 +36,7 @@ import {
   Settings,
   ShoppingBag,
   TrendingUp,
+  Truck,
   Tv,
   Users,
   type LucideIcon,
@@ -85,6 +86,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/journals", labelKey: "nav.journals", icon: BookOpen, parentOnly: false },
   { href: "/media", labelKey: "nav.media", icon: Tv, parentOnly: false },
   { href: "/weather", labelKey: "nav.weather", icon: CloudSun, parentOnly: false },
+  { href: "/adam", labelKey: "nav.adam", icon: Truck, parentOnly: false },
 ];
 
 function navOrderStorageKey(uid: string): string {

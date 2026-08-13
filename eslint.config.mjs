@@ -13,6 +13,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "functions/lib/**",
+    // A separate, independently-built static HTML/CSS/JS project (see
+    // app/(dashboard)/adam/page.tsx) embedded via iframe, not part of
+    // this app's TypeScript/React source — not written against this
+    // project's lint rules.
+    "public/adam-garage/**",
   ]),
 ]);
 

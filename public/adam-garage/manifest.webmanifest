@@ -1,0 +1,15 @@
+{
+  "name": "Velká garáž – stroje pro nejmenší",
+  "short_name": "Velká garáž",
+  "description": "Traktor, bagr, buldozer, americký truck, kombajn, domíchávač a rolba. Klepni na stroj a hraj si.",
+  "lang": "cs",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0e7ec9",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
