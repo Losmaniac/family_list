@@ -31,6 +31,7 @@ export {
   getInvestDemoQuotes,
   investDemoContestSettle,
   investDemoContestReset,
+  investDemoValuationRefresh,
 } from "./investDemo";
 export {
   createTriviaDuel,

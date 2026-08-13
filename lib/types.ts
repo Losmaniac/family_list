@@ -422,6 +422,16 @@ export interface InvestDemoPortfolio {
    */
   roundBaselineCzk?: number;
   roundBaselineAt?: number;
+  /**
+   * Cash + holdings at live prices, in CZK — refreshed 4x/day by
+   * functions/src/investDemo.ts's investDemoValuationRefresh (00:00/06:00/
+   * 12:00/18:00 Europe/Prague), plus set at creation. The leaderboard
+   * (components/InvestDemoLeaderboard.tsx) reads this directly rather than
+   * fetching live quotes itself on every view. Absent only for a portfolio
+   * that predates this field; treat as cashBalance.
+   */
+  totalValueCzk?: number;
+  valuedAt?: number;
 }
 
 export interface InvestDemoHolding {
