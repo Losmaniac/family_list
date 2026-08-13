@@ -57,11 +57,19 @@ export default function InvestDemoLeaderboard({ familyId }: { familyId: string }
   }, [familyId]);
 
   const standings = useMemo(() => {
-    const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => ({
-      userId: uid,
-      totalValueCzk: portfolio.totalValueCzk ?? portfolio.cashBalance,
-      roundStartCzk: portfolio.roundStartCzk ?? portfolio.cashBalance,
-    }));
+    const participants: ContestParticipant[] = Object.entries(portfolios).map(([uid, portfolio]) => {
+      const totalValueCzk = portfolio.totalValueCzk ?? portfolio.cashBalance;
+      return {
+        userId: uid,
+        totalValueCzk,
+        // See the matching comment in functions/src/investDemo.ts's
+        // investDemoContestSettle — falling back to cashBalance here would
+        // wrongly look like growth for anyone holding a losing position,
+        // since cash shrinks the moment it moves into a holding regardless
+        // of that holding's performance.
+        roundStartCzk: portfolio.roundStartCzk ?? totalValueCzk,
+      };
+    });
     return rankContestParticipants(participants);
   }, [portfolios]);
 

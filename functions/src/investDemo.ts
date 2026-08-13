@@ -391,7 +391,15 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
       participants.push({
         userId: portfolioDoc.id,
         totalValueCzk,
-        roundStartCzk: portfolio.roundStartCzk ?? portfolio.cashBalance,
+        // A portfolio that predates roundStartCzk (hasn't been through a
+        // reset yet) has no real "start of round" snapshot to compare
+        // against — falling back to its *current* cashBalance would be
+        // wrong here (cash shrinks the moment money moves into a holding,
+        // regardless of whether that holding is up or down), so it would
+        // wrongly look like growth for anyone holding a losing position.
+        // Falling back to totalValueCzk itself means "no growth" (can't be
+        // strictly greater than itself), never a false payout.
+        roundStartCzk: portfolio.roundStartCzk ?? totalValueCzk,
       });
     }
 
