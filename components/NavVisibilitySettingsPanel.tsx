@@ -23,6 +23,7 @@ const TOGGLABLE_NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/journals", label: "Deníky" },
   { href: "/media", label: "Média" },
   { href: "/weather", label: "Počasí" },
+  { href: "/adam", label: "Adam" },
 ];
 
 export default function NavVisibilitySettingsPanel({
