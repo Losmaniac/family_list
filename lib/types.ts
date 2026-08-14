@@ -512,11 +512,25 @@ export interface InvestDemoContestResult {
   standings: InvestDemoContestStanding[];
 }
 
+export type ChatAttachmentType = "image" | "video" | "audio" | "file";
+
+/** Uploaded to Firebase Storage under families/{familyId}/chatAttachments/{uid}/{fileId} before the message doc is written — see firestore.rules' messages match. */
+export interface ChatAttachment {
+  type: ChatAttachmentType;
+  url: string;
+  /** Original filename — shown for `type: "file"` since there's no inline preview for it. */
+  name?: string;
+  /** Voice-message playback length in seconds, `type: "audio"` only. */
+  durationSeconds?: number;
+}
+
 export interface ChatMessage {
   id: string;
   userId: string;
+  /** May be empty when the message is attachment-only (a photo with no caption, etc.). */
   text: string;
   timestamp: number;
+  attachment?: ChatAttachment;
 }
 
 /**

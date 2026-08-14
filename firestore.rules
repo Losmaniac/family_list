@@ -708,12 +708,28 @@ service cloud.firestore {
       // message doc; there's no per-message delete/edit exposed anywhere.
       match /messages/{messageId} {
         allow read: if isFamilyMember(familyId);
+        // A message needs text OR an attachment, not necessarily both (a
+        // photo with no caption is still a valid message) — text alone
+        // must stay non-empty when there's no attachment, same 2000-char
+        // cap either way. attachment.url isn't checked against Storage
+        // itself (no way to from a rule), just shaped and non-empty —
+        // the upload path (families/{familyId}/chatAttachments/{uid}/...,
+        // see storage.rules) already restricts who could have produced a
+        // URL under this family's own attachment path in the first place.
         allow create: if isFamilyMember(familyId) &&
           request.resource.data.userId == request.auth.uid &&
-          request.resource.data.keys().hasOnly(['userId', 'text', 'timestamp']) &&
+          request.resource.data.keys().hasOnly(['userId', 'text', 'timestamp', 'attachment']) &&
           request.resource.data.text is string &&
-          request.resource.data.text.size() > 0 &&
-          request.resource.data.text.size() <= 2000;
+          request.resource.data.text.size() <= 2000 &&
+          (request.resource.data.text.size() > 0 || 'attachment' in request.resource.data) &&
+          (
+            !('attachment' in request.resource.data) ||
+            (
+              request.resource.data.attachment.type in ['image', 'video', 'audio', 'file'] &&
+              request.resource.data.attachment.url is string &&
+              request.resource.data.attachment.url.size() > 0
+            )
+          );
         allow update: if false;
         allow delete: if isParent(familyId);
       }
