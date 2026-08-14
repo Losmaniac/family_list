@@ -16,6 +16,7 @@ const TOGGLABLE_NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/chat", label: "Chat" },
   { href: "/shop", label: "Obchod" },
   { href: "/investments", label: "Investice" },
+  { href: "/money", label: "Peníze" },
   { href: "/practice", label: "Vzdělání" },
   { href: "/calendar", label: "Kalendář" },
   { href: "/schedule", label: "Rozvrh" },

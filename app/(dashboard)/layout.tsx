@@ -39,6 +39,7 @@ import {
   Truck,
   Tv,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -78,6 +79,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/chat", labelKey: "nav.chat", icon: MessageCircle, parentOnly: false },
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag, parentOnly: false },
   { href: "/investments", labelKey: "nav.investments", icon: TrendingUp, parentOnly: false },
+  { href: "/money", labelKey: "nav.money", icon: Wallet, parentOnly: false },
   { href: "/photos", labelKey: "nav.photos", icon: Camera, parentOnly: true },
   { href: "/practice", labelKey: "nav.practice", icon: GraduationCap, parentOnly: false },
   { href: "/calendar", labelKey: "nav.calendar", icon: CalendarDays, parentOnly: false },
