@@ -21,6 +21,7 @@ import GamesArcade from "@/components/GamesArcade";
 import TriviaDuelPanel from "@/components/TriviaDuelPanel";
 import SpanishFlashcards from "@/components/SpanishFlashcards";
 import AiQuizPanel from "@/components/AiQuizPanel";
+import AiTutorPanel from "@/components/AiTutorPanel";
 import type { PracticeProgress } from "@/lib/types";
 
 type Subject = "math" | "czech" | "prirodoveda" | "vlastiveda" | "finance" | "ai" | "digisafety" | "dictionary" | "atlas";
@@ -322,7 +323,9 @@ export default function PracticePage() {
             ? "Vyzvi člena rodiny na kvíz o vlastní vklad XP — mimo denní limit z ostatních předmětů."
             : subject === "aiquiz"
               ? "AI ti na vybrané téma vygeneruje úplně novou otázku a získáš +1 XP za správnou odpověď — otázky se na rozdíl od ostatních předmětů nikdy neopakují ani nedojdou."
-              : subject === "chess"
+              : subject === "aitutor"
+                ? "Popovídej si s AI o čemkoliv tě zajímá — vyber si téma, náročnost a styl (vysvětlení, procvičování otázkami, nebo pomoc s úkolem). Bez XP, je to studijní pomůcka, ne cvičení."
+                : subject === "chess"
                 ? "Skutečná hra šachu proti počítači na třech obtížnostech — za výhru získáš XP, každou obtížnost ale jen jednou denně."
                 : subject === "food" || subject === "wiki" || subject === "worldbank" || subject === "games"
                   ? "Bez XP — jen k nahlédnutí a hledání."
@@ -335,7 +338,8 @@ export default function PracticePage() {
         subject !== "worldbank" &&
         subject !== "chess" &&
         subject !== "games" &&
-        subject !== "trivia" && (
+        subject !== "trivia" &&
+        subject !== "aitutor" && (
         <p className="text-xs text-zinc-500">
           Dnes lze z Vzdělání ještě získat {formatXp(capInfo.headroom)}/{formatXp(capInfo.dailyCap)} XP.
         </p>
@@ -382,6 +386,7 @@ export default function PracticePage() {
       {subject === "games" && <GamesArcade familyId={familyId ?? undefined} />}
       {subject === "trivia" && familyId && <TriviaDuelPanel familyId={familyId} />}
       {subject === "aiquiz" && <AiQuizPanel />}
+      {subject === "aitutor" && <AiTutorPanel />}
 
       {GENERATE_SUBJECTS.includes(subject as Subject) && (
         <>
