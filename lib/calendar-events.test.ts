@@ -79,4 +79,20 @@ describe("eventOccursOnDate", () => {
     const evt = makeEvent("2026-08-10");
     expect(eventOccursOnDate(evt, "2026-08-11")).toBe(false);
   });
+
+  it("recurs weekly on specific weekdays when daysOfWeek is set", () => {
+    // 2026-08-10 is a Monday. daysOfWeek [0, 2, 4] = Po/St/Pá.
+    const evt: CalendarEvent = { ...makeEvent("2026-08-10", "weekly"), daysOfWeek: [0, 2, 4] };
+    expect(eventOccursOnDate(evt, "2026-08-12")).toBe(true); // Wed
+    expect(eventOccursOnDate(evt, "2026-08-14")).toBe(true); // Fri
+    expect(eventOccursOnDate(evt, "2026-08-13")).toBe(false); // Thu
+    expect(eventOccursOnDate(evt, "2026-08-17")).toBe(true); // next Mon
+    expect(eventOccursOnDate(evt, "2026-08-19")).toBe(true); // next Wed
+  });
+
+  it("an empty daysOfWeek falls back to the traditional single-weekday behavior", () => {
+    const evt: CalendarEvent = { ...makeEvent("2026-08-10", "weekly"), daysOfWeek: [] };
+    expect(eventOccursOnDate(evt, "2026-08-17")).toBe(true);
+    expect(eventOccursOnDate(evt, "2026-08-18")).toBe(false);
+  });
 });

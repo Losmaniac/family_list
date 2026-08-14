@@ -567,6 +567,8 @@ export interface CalendarEvent {
   title: string;
   /** Date (YYYY-MM-DD, family zone) the event falls on. */
   date: string;
+  /** Optional clock time (HH:MM, 24h, family zone) — absent means an all-day reminder. */
+  time?: string;
   category: CalendarEventCategory;
   /** Whose day this shows up on. */
   memberId: string;
@@ -574,6 +576,13 @@ export interface CalendarEvent {
   timestamp: number;
   /** Repeat rule from `date` onward; absent = one-off ('none'). */
   recurrence?: CalendarRecurrence;
+  /**
+   * Only meaningful when recurrence is 'weekly' — which weekdays it recurs
+   * on, Monday-indexed (0=Po..6=Ne, matching WEEKDAYS in the calendar page).
+   * Absent/empty means the traditional single-weekday behavior: whatever
+   * weekday `date` itself falls on.
+   */
+  daysOfWeek?: number[];
   /** Last date (YYYY-MM-DD, inclusive) a recurring event still applies; absent = repeats forever. Ignored when recurrence is 'none'. */
   recurrenceUntil?: string;
   /**
@@ -585,25 +594,35 @@ export interface CalendarEvent {
   endDate?: string;
 }
 
+/** One period's cell in a ClassSchedule — a subject name plus an optional teacher name. */
+export interface ScheduleCell {
+  subject: string;
+  teacher?: string;
+}
+
 /**
  * families/{familyId}/schedules/{memberId} — one member's weekly class
  * timetable. `days[0]` is Monday .. `days[4]` is Friday; each is an ordered
- * list of subject names for periods 1..N (an empty string means no lesson
- * that period). Doc ID is the member's own uid, so there's naturally at
- * most one schedule per member. A parent can always see (and edit) every
- * child's; a non-parent always sees/edits their own, and — only if a
- * parent has turned on family.scheduleVisibleToAll — everyone else's too.
+ * list of cells for periods 1..N (an empty subject means no lesson that
+ * period; see SCHEDULE_PERIOD_TIMES in lib/schedule.ts for each period's
+ * fixed start/end time, shown but not stored per schedule). Doc ID is the
+ * member's own uid, so there's naturally at most one schedule per member. A
+ * parent can always see (and edit) every child's; a non-parent always
+ * sees/edits their own, and — only if a parent has turned on
+ * family.scheduleVisibleToAll — everyone else's too.
  */
 export interface ClassSchedule {
   memberId: string;
   /**
    * Keyed by day index as a string ("0".."4") rather than a plain
-   * string[][] — Firestore rejects an array whose elements are themselves
-   * arrays ("nested arrays are not supported"), so this is the on-disk
-   * shape. See lib/schedule.ts for the string[][] <-> map conversion used
-   * at the UI boundary.
+   * ScheduleCell[][] — Firestore rejects an array whose elements are
+   * themselves arrays ("nested arrays are not supported"), so this is the
+   * on-disk shape. See lib/schedule.ts for the ScheduleCell[][] <-> map
+   * conversion used at the UI boundary. A cell may still be a bare string
+   * on a schedule saved before teacher names existed — normalizeScheduleDays
+   * upgrades it to { subject: thatString } on read.
    */
-  days: Record<string, string[]>;
+  days: Record<string, (ScheduleCell | string)[]>;
   updatedAt: number;
 }
 

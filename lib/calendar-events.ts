@@ -48,6 +48,11 @@ export function eventOccursOnDate(event: CalendarEvent, dateKey: string): boolea
 
   switch (recurrence) {
     case "weekly":
+      if (event.daysOfWeek && event.daysOfWeek.length > 0) {
+        // getUTCDay() is 0=Sun..6=Sat — convert to the app's Monday-first indexing (0=Po..6=Ne).
+        const targetWeekday = (new Date(targetUtc).getUTCDay() + 6) % 7;
+        return event.daysOfWeek.includes(targetWeekday);
+      }
       return diffDays % 7 === 0;
     case "monthly":
       return ed === td;
