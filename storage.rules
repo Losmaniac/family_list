@@ -44,5 +44,18 @@ service firebase.storage {
         request.resource.contentType.matches('image/.*');
       allow delete: if isParent(familyId);
     }
+
+    // Chat attachments: families/{familyId}/chatAttachments/{uid}/{fileId} —
+    // photos, videos, voice messages, and other files sent in the family
+    // chat. The uid segment of the path is the "only the sender can upload
+    // here" check (same shape as adHocTaskPhotos above, since a chat
+    // message doc also doesn't exist yet at upload time). A larger size
+    // cap than photos since this covers video/voice too, not just images.
+    match /families/{familyId}/chatAttachments/{uid}/{fileId} {
+      allow read: if isFamilyMember(familyId);
+      allow write: if isFamilyMember(familyId) && uid == request.auth.uid &&
+        request.resource.size < 25 * 1024 * 1024;
+      allow delete: if isParent(familyId);
+    }
   }
 }
