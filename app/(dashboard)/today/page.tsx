@@ -19,6 +19,7 @@ import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import AdHocTasksButton from "@/components/AdHocTasksButton";
 import MyPenaltyTasks from "@/components/MyPenaltyTasks";
+import LongTermGoalsPanel from "@/components/LongTermGoalsPanel";
 import PendingXpAdjustments from "@/components/PendingXpAdjustments";
 import PendingJournalDeletions from "@/components/PendingJournalDeletions";
 import PendingAdHocApprovals from "@/components/PendingAdHocApprovals";
@@ -357,6 +358,8 @@ export default function TodayPage() {
       />
 
       {familyId && <MyPenaltyTasks familyId={familyId} />}
+
+      {familyId && <LongTermGoalsPanel variant="mine" />}
 
       {familyId && member?.role === "parent" && <PendingXpAdjustments familyId={familyId} />}
 

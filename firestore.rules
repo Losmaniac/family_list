@@ -104,6 +104,23 @@ service cloud.firestore {
         allow write: if isParent(familyId);
       }
 
+      // Long-running goals (lib/types.ts's LongTermGoal) — spans days/weeks/
+      // months, deliberately outside the daily task engine (never "missed",
+      // never affects streaks). Only a parent manages one; every member can
+      // read (so the assigned member sees their own progress).
+      match /longTermGoals/{goalId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+          request.resource.data.assignedTo is string &&
+          request.resource.data.status == 'active';
+        allow update: if isParent(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['title', 'description', 'targetXp', 'deadline', 'status', 'achievedAt']);
+        allow delete: if isParent(familyId);
+      }
+
       match /dailyTasks/{taskId} {
         allow read: if isFamilyMember(familyId);
         // A parent can move a task to any status (approve to 'done', return

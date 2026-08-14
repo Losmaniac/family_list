@@ -227,6 +227,35 @@ export interface XpLedgerEntry {
   note?: string;
 }
 
+export type LongTermGoalStatus = "active" | "achieved" | "abandoned";
+
+/**
+ * families/{familyId}/longTermGoals/{id} — a long-running aspiration that
+ * spans days/weeks/months rather than something completed in a single day
+ * (e.g. "dostat se na gymnázium" tracked loosely against total XP).
+ * Deliberately separate from taskTemplates/dailyTasks: it's never "missed",
+ * never factors into streaks or a day's completion status, and awards no
+ * XP of its own — targetXp (if set) is only a milestone to compare against
+ * the member's own xpBalance for a progress bar, nothing is deducted or
+ * granted when it's reached. Only a parent can create/edit/delete one;
+ * every family member can read (so the assigned member sees their own
+ * progress).
+ */
+export interface LongTermGoal {
+  id: string;
+  title: string;
+  description?: string;
+  assignedTo: string;
+  createdBy: string;
+  createdAt: number;
+  /** Optional milestone — progress is read live from the member's current xpBalance, never snapshotted or tracked separately here. */
+  targetXp?: number;
+  /** Optional target date (YYYY-MM-DD) shown as a plain reminder — nothing happens automatically when it passes. */
+  deadline?: string;
+  status: LongTermGoalStatus;
+  achievedAt?: number;
+}
+
 /**
  * requested -> approved (a *different* parent approves — one parent can't
  * unilaterally move XP — after which the ledger write happens) | rejected.
