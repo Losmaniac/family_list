@@ -15,6 +15,7 @@ import { formatXp } from "@/lib/xp-engine";
 import Avatar from "@/components/Avatar";
 import WeekSchedule from "@/components/WeekSchedule";
 import PenaltyTaskPanel from "@/components/PenaltyTaskPanel";
+import LongTermGoalsPanel from "@/components/LongTermGoalsPanel";
 import type { Member, Recurrence, TaskCategory, TaskTemplate } from "@/lib/types";
 
 const WEEKDAYS = ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"];
@@ -480,6 +481,10 @@ export default function AssignPage() {
           <PenaltyTaskPanel familyId={familyId} members={members} />
         </section>
       )}
+
+      <section>
+        <LongTermGoalsPanel variant="manage" />
+      </section>
     </div>
   );
 }
