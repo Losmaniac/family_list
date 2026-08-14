@@ -941,3 +941,42 @@ export interface ChessProgress {
   id: string;
   lastWinDateByDifficulty?: Partial<Record<ChessDifficulty, string>>;
 }
+
+/**
+ * families/{familyId}/childProfiles/{id} — a lightweight profile for a
+ * child who isn't (yet, or ever) a registered app user, e.g. a toddler
+ * sibling. Exists only so a real-money account (see MoneyAccountEntry) has
+ * someone to belong to — no auth, no XP, no tasks; a parent is the only one
+ * who can ever see or manage it, since the child has no login to view it
+ * with themselves.
+ */
+export interface ChildProfile {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  createdBy: string;
+  createdAt: number;
+}
+
+export type MoneyEntryType = "income" | "expense";
+
+/**
+ * families/{familyId}/moneyAccounts/{ownerId}/entries/{id} — a real (not
+ * XP) money ledger a parent keeps for a child's own money, `ownerId` being
+ * either an existing member's uid (a registered child) or a ChildProfile id
+ * (an unregistered one). Only ever written by a parent — this is the
+ * child's own money, but they're not the one operating the account, same
+ * as a real bank account a parent manages on a minor's behalf. The balance
+ * is always the sum of every entry (income positive, expense negative),
+ * never stored/cached separately, so it can never drift out of sync — see
+ * lib/money.ts's sumMoneyEntries.
+ */
+export interface MoneyAccountEntry {
+  id: string;
+  type: MoneyEntryType;
+  /** Always positive — sign is implied by `type`. */
+  amount: number;
+  description: string;
+  createdBy: string;
+  timestamp: number;
+}

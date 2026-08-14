@@ -121,6 +121,40 @@ service cloud.firestore {
         allow delete: if isParent(familyId);
       }
 
+      // A lightweight profile for a child who has no app login of their own
+      // (lib/types.ts's ChildProfile) — exists only so a real-money account
+      // has an owner. Parent-only both ways: the child can't sign in to
+      // read it themselves, and no non-parent member needs to see another
+      // child's profile.
+      match /childProfiles/{childId} {
+        allow read: if isParent(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.name is string && request.resource.data.name.size() > 0;
+        allow update: if isParent(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarUrl']);
+        allow delete: if isParent(familyId);
+      }
+
+      // Real (not XP) money a parent tracks on a child's behalf
+      // (lib/types.ts's MoneyAccountEntry) — accountId is either a
+      // registered member's own uid or a childProfiles/{id} for an
+      // unregistered child. Only a parent ever writes an entry (this is
+      // the child's own money, but the parent operates the account, same
+      // as a real bank account held on a minor's behalf) — a registered
+      // child can read only their own account; a parent can read every
+      // child's.
+      match /moneyAccounts/{accountId}/entries/{entryId} {
+        allow read: if isFamilyMember(familyId) && (isParent(familyId) || accountId == request.auth.uid);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.type in ['income', 'expense'] &&
+          request.resource.data.amount is number && request.resource.data.amount > 0 &&
+          request.resource.data.description is string;
+        allow update: if false;
+        allow delete: if isParent(familyId);
+      }
+
       match /dailyTasks/{taskId} {
         allow read: if isFamilyMember(familyId);
         // A parent can move a task to any status (approve to 'done', return

@@ -56,13 +56,21 @@ export default function NotificationBadge({ familyId }: { familyId: string }) {
   return (
     <>
       {unreadCount > 0 && (
+        // The visual dot is small (matches the design), but a ~20px hit area
+        // is well under iOS's ~44px minimum tappable target — taps meant for
+        // it were landing on the avatar Link underneath instead, silently
+        // navigating to the profile page rather than opening this popover.
+        // The button itself is the full 44px target, with the small dot
+        // centered inside via absolute positioning of its own.
         <button
           type="button"
           onClick={handleOpen}
           aria-label={`${unreadCount} nepřečtených notifikací`}
-          className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white"
+          className="absolute -right-3 -top-3 z-10 flex h-11 w-11 items-center justify-center"
         >
-          {unreadCount > 9 ? "9+" : unreadCount}
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         </button>
       )}
       {open &&
