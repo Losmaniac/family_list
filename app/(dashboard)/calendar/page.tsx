@@ -28,9 +28,11 @@ function emptyForm(dateKey: string, defaultMemberIds: string[]) {
   return {
     title: "",
     date: dateKey,
+    time: "",
     endDate: "",
     category: "other" as CalendarEventCategory,
     recurrence: "none" as CalendarRecurrence,
+    daysOfWeek: [] as number[],
     recurrenceUntil: "",
     memberIds: defaultMemberIds,
   };
@@ -102,6 +104,15 @@ export default function CalendarPage() {
     }));
   }
 
+  function toggleFormDay(dayIndex: number) {
+    setForm((prev) => ({
+      ...prev,
+      daysOfWeek: prev.daysOfWeek.includes(dayIndex)
+        ? prev.daysOfWeek.filter((d) => d !== dayIndex)
+        : [...prev.daysOfWeek, dayIndex].sort((a, b) => a - b),
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!familyId || !user || !form.date || !form.title.trim()) return;
@@ -118,8 +129,10 @@ export default function CalendarPage() {
         batch.set(doc(collection(getDb(), "families", familyId, "calendarEvents")), {
           title: form.title.trim(),
           date: form.date,
+          ...(form.time ? { time: form.time } : {}),
           category: form.category,
           recurrence: form.recurrence,
+          ...(form.recurrence === "weekly" && form.daysOfWeek.length > 0 ? { daysOfWeek: form.daysOfWeek } : {}),
           ...(form.recurrence !== "none" && form.recurrenceUntil ? { recurrenceUntil: form.recurrenceUntil } : {}),
           ...(form.recurrence === "none" && form.endDate && form.endDate > form.date ? { endDate: form.endDate } : {}),
           memberId,
@@ -269,7 +282,10 @@ export default function CalendarPage() {
                       <span className="shrink-0 text-xl">{calendarEventCategoryInfo(evt.category).icon}</span>
                       {evtMember && <Avatar name={evtMember.name} avatarUrl={evtMember.avatarUrl} size="sm" />}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{evt.title}</p>
+                        <p className="truncate font-medium">
+                          {evt.title}
+                          {evt.time && <span className="ml-1.5 font-normal text-zinc-500">{evt.time}</span>}
+                        </p>
                         {evt.endDate && evt.endDate !== evt.date && (
                           <p className="truncate text-xs text-zinc-500">
                             {formatDayMonth(evt.date)}–{formatDayMonth(evt.endDate)}
@@ -312,22 +328,33 @@ export default function CalendarPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                   className="rounded-lg border border-border bg-surface px-4 py-2"
                 />
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-zinc-500">{form.recurrence === "none" ? "Od" : "Datum"}</p>
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        date: e.target.value,
-                        // Keep "do" from landing before "od" when the start moves past it.
-                        endDate: prev.endDate && prev.endDate < e.target.value ? "" : prev.endDate,
-                      }))
-                    }
-                    className="rounded-lg border border-border bg-surface px-4 py-2"
-                  />
+                <div className="flex gap-2">
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    <p className="text-xs text-zinc-500">{form.recurrence === "none" ? "Od" : "Datum"}</p>
+                    <input
+                      type="date"
+                      required
+                      value={form.date}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          date: e.target.value,
+                          // Keep "do" from landing before "od" when the start moves past it.
+                          endDate: prev.endDate && prev.endDate < e.target.value ? "" : prev.endDate,
+                        }))
+                      }
+                      className="rounded-lg border border-border bg-surface px-4 py-2"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-xs text-zinc-500">Čas (nepovinné)</p>
+                    <input
+                      type="time"
+                      value={form.time}
+                      onChange={(e) => setForm((prev) => ({ ...prev, time: e.target.value }))}
+                      className="rounded-lg border border-border bg-surface px-4 py-2"
+                    />
+                  </div>
                 </div>
                 {form.recurrence === "none" && (
                   <div className="flex flex-col gap-1.5">
@@ -366,6 +393,7 @@ export default function CalendarPage() {
                           setForm((prev) => ({
                             ...prev,
                             recurrence: rec.value,
+                            daysOfWeek: rec.value === "weekly" ? prev.daysOfWeek : [],
                             recurrenceUntil: rec.value === "none" ? "" : prev.recurrenceUntil,
                             endDate: rec.value === "none" ? prev.endDate : "",
                           }))
@@ -378,6 +406,25 @@ export default function CalendarPage() {
                       </button>
                     ))}
                   </div>
+                  {form.recurrence === "weekly" && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs text-zinc-500">Konkrétní dny (nepovinné — prázdné = jen den z data výše)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {WEEKDAYS.map((label, dayIndex) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => toggleFormDay(dayIndex)}
+                            className={`rounded-full px-3 py-1.5 text-sm ${
+                              form.daysOfWeek.includes(dayIndex) ? "bg-accent text-accent-foreground" : "border border-border"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {form.recurrence !== "none" && (
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs text-zinc-500">Opakovat do (nepovinné — prázdné = navždy)</p>

@@ -6,9 +6,15 @@ import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
-import { SCHEDULE_DAY_LABELS, SCHEDULE_MAX_PERIODS, daysToFirestoreMap, normalizeScheduleDays } from "@/lib/schedule";
+import {
+  SCHEDULE_DAY_LABELS,
+  SCHEDULE_MAX_PERIODS,
+  SCHEDULE_PERIOD_TIMES,
+  daysToFirestoreMap,
+  normalizeScheduleDays,
+} from "@/lib/schedule";
 import Avatar from "@/components/Avatar";
-import type { ClassSchedule, Member } from "@/lib/types";
+import type { ClassSchedule, Member, ScheduleCell } from "@/lib/types";
 
 export default function SchedulePage() {
   const { user } = useAuth();
@@ -44,11 +50,11 @@ export default function SchedulePage() {
   const days = normalizeScheduleDays(schedules[selected ?? ""]?.days);
 
   const handleCellChange = useCallback(
-    async (memberId: string, dayIndex: number, periodIndex: number, value: string) => {
+    async (memberId: string, dayIndex: number, periodIndex: number, cell: ScheduleCell) => {
       if (!familyId) return;
       const currentDays = normalizeScheduleDays(schedules[memberId]?.days);
       const nextDays = currentDays.map((periods, di) =>
-        di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? value : p)) : periods
+        di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? cell : p)) : periods
       );
       try {
         await setDoc(doc(getDb(), "families", familyId, "schedules", memberId), {
@@ -61,6 +67,24 @@ export default function SchedulePage() {
     },
     [familyId, schedules, toast]
   );
+
+  function updateLocalCell(dayIndex: number, periodIndex: number, patch: Partial<ScheduleCell>) {
+    if (!selected) return;
+    setSchedules((prev) => {
+      const current = normalizeScheduleDays(prev[selected]?.days);
+      const nextDays = current.map((periods, di) =>
+        di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? { ...p, ...patch } : p)) : periods
+      );
+      return {
+        ...prev,
+        [selected]: {
+          memberId: selected,
+          days: daysToFirestoreMap(nextDays),
+          updatedAt: prev[selected]?.updatedAt ?? 0,
+        },
+      };
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,7 +118,7 @@ export default function SchedulePage() {
       {selected && (
         <div
           className="grid w-full gap-px overflow-hidden rounded-xl border border-border bg-border"
-          style={{ gridTemplateColumns: `22px repeat(${SCHEDULE_DAY_LABELS.length}, 1fr)` }}
+          style={{ gridTemplateColumns: `44px repeat(${SCHEDULE_DAY_LABELS.length}, 1fr)` }}
         >
           <div className="bg-surface" />
           {SCHEDULE_DAY_LABELS.map((label) => (
@@ -105,40 +129,44 @@ export default function SchedulePage() {
 
           {Array.from({ length: SCHEDULE_MAX_PERIODS }, (_, periodIndex) => (
             <div key={periodIndex} className="contents">
-              <div className="flex items-center justify-center bg-surface text-[10px] font-semibold text-zinc-400">
-                {periodIndex + 1}.
+              <div className="flex flex-col items-center justify-center gap-0.5 bg-surface px-0.5 py-1.5 text-center">
+                <span className="text-[10px] font-semibold text-zinc-400">{periodIndex + 1}.</span>
+                <span className="text-[8px] leading-tight text-zinc-400">{SCHEDULE_PERIOD_TIMES[periodIndex]}</span>
               </div>
-              {SCHEDULE_DAY_LABELS.map((_, dayIndex) => (
-                <input
-                  key={dayIndex}
-                  type="text"
-                  disabled={!canEditSelected}
-                  value={days[dayIndex][periodIndex]}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSchedules((prev) => {
-                      const current = normalizeScheduleDays(prev[selected]?.days);
-                      const nextDays = current.map((periods, di) =>
-                        di === dayIndex ? periods.map((p, pi) => (pi === periodIndex ? value : p)) : periods
-                      );
-                      return {
-                        ...prev,
-                        [selected]: {
-                          memberId: selected,
-                          days: daysToFirestoreMap(nextDays),
-                          updatedAt: prev[selected]?.updatedAt ?? 0,
-                        },
-                      };
-                    });
-                  }}
-                  onBlur={(e) => {
-                    if (!selected || !canEditSelected) return;
-                    handleCellChange(selected, dayIndex, periodIndex, e.target.value);
-                  }}
-                  placeholder="—"
-                  className="min-w-0 bg-surface px-0.5 py-1.5 text-center text-[11px] disabled:text-zinc-400"
-                />
-              ))}
+              {SCHEDULE_DAY_LABELS.map((_, dayIndex) => {
+                const cell = days[dayIndex][periodIndex];
+                return (
+                  <div key={dayIndex} className="flex min-w-0 flex-col gap-0.5 bg-surface px-0.5 py-1">
+                    <input
+                      type="text"
+                      disabled={!canEditSelected}
+                      value={cell.subject}
+                      onChange={(e) => updateLocalCell(dayIndex, periodIndex, { subject: e.target.value })}
+                      onBlur={(e) => {
+                        if (!selected || !canEditSelected) return;
+                        handleCellChange(selected, dayIndex, periodIndex, { ...cell, subject: e.target.value });
+                      }}
+                      placeholder="—"
+                      className="min-w-0 bg-transparent text-center text-[11px] disabled:text-zinc-400"
+                    />
+                    <input
+                      type="text"
+                      disabled={!canEditSelected}
+                      value={cell.teacher ?? ""}
+                      onChange={(e) => updateLocalCell(dayIndex, periodIndex, { teacher: e.target.value || undefined })}
+                      onBlur={(e) => {
+                        if (!selected || !canEditSelected) return;
+                        handleCellChange(selected, dayIndex, periodIndex, {
+                          ...cell,
+                          teacher: e.target.value || undefined,
+                        });
+                      }}
+                      placeholder="učitel"
+                      className="min-w-0 bg-transparent text-center text-[9px] text-zinc-400 disabled:text-zinc-400"
+                    />
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
