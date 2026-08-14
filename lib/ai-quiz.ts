@@ -40,7 +40,7 @@ export function difficultyLabelForStreak(streak: number): string {
  * is naturally strong in Czech) otherwise produce Czech with declension/
  * conjugation mistakes, since it's a small fraction of their training data.
  */
-const CZECH_QUALITY_INSTRUCTION =
+export const CZECH_QUALITY_INSTRUCTION =
   'Jsi český asistent. Tvým úkolem je odpovídat výhradně v plynulé, spisovné a gramaticky absolutně správné češtině. Zkontroluj si skloňování a časování slov předtím, než vypíšeš odpověď.';
 
 /** How many recently-asked questions per topic are remembered and fed back into the prompt as a do-not-repeat list — see recentQuestions in functions/src/aiQuiz.ts. */

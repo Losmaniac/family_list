@@ -99,6 +99,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // "AI učitel" conversation log (functions/src/aiTutor.ts's
+      // askAiTutor) — personal to the member it belongs to; a parent can
+      // still read it for oversight, same as moneyAccounts. Admin-SDK-only
+      // writes: the Cloud Function writes both the question and reply
+      // together once the AI call actually succeeds.
+      match /aiTutorMessages/{uid}/messages/{messageId} {
+        allow read: if isFamilyMember(familyId) && (uid == request.auth.uid || isParent(familyId));
+        allow write: if false;
+      }
+
       match /taskTemplates/{templateId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

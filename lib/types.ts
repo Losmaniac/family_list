@@ -994,3 +994,21 @@ export interface MoneyAccountEntry {
   createdBy: string;
   timestamp: number;
 }
+
+/**
+ * families/{familyId}/aiTutorMessages/{uid}/messages/{id} — one member's
+ * "AI učitel" conversation log (see functions/src/aiTutor.ts's askAiTutor,
+ * lib/ai-tutor.ts for the prompt logic). Personal, not shared with
+ * siblings — a parent can still read a child's for oversight, same as
+ * money accounts. Admin-SDK-only writes: the Cloud Function writes both
+ * the user's question and the assistant's reply together, since the
+ * reply's text only exists after the AI call succeeds.
+ */
+export interface AiTutorMessage {
+  id: string;
+  /** Groups messages into a conversation thread client-side (filtered in JS, not queried) — switching subject starts a fresh thread rather than mixing context. */
+  subject: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: number;
+}
