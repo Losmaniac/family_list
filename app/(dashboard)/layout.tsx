@@ -23,6 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   BarChart3,
   BookOpen,
+  Bot,
   Camera,
   CalendarCheck,
   CalendarDays,
@@ -77,6 +78,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/assign", labelKey: "nav.assign", icon: ListChecks, parentOnly: true },
   { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3, parentOnly: true },
   { href: "/chat", labelKey: "nav.chat", icon: MessageCircle, parentOnly: false },
+  { href: "/ai", labelKey: "nav.ai", icon: Bot, parentOnly: false },
   { href: "/shop", labelKey: "nav.shop", icon: ShoppingBag, parentOnly: false },
   { href: "/investments", labelKey: "nav.investments", icon: TrendingUp, parentOnly: false },
   { href: "/money", labelKey: "nav.money", icon: Wallet, parentOnly: false },

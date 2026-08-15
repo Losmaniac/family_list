@@ -109,6 +109,16 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // "AI" general assistant conversation log (functions/src/
+      // aiAssistant.ts's askAiAssistant) — strictly private, unlike
+      // aiTutorMessages above: no parent-oversight exception, only the
+      // member it belongs to can ever read their own conversations.
+      // Admin-SDK-only writes, same reasoning as aiTutorMessages.
+      match /aiAssistantMessages/{uid}/messages/{messageId} {
+        allow read: if isFamilyMember(familyId) && uid == request.auth.uid;
+        allow write: if false;
+      }
+
       match /taskTemplates/{templateId} {
         allow read: if isFamilyMember(familyId);
         allow write: if isParent(familyId);

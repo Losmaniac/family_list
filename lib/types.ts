@@ -1016,3 +1016,23 @@ export interface AiTutorMessage {
   depth?: AiTutorDepth;
   mode?: AiTutorMode;
 }
+
+/**
+ * families/{familyId}/aiAssistantMessages/{uid}/messages/{id} — one
+ * member's "AI" (general ChatGPT-style assistant, see functions/src/
+ * aiAssistant.ts's askAiAssistant) message log, strictly private: unlike
+ * AI učitel's money-account-style parent oversight, a parent has no read
+ * access here either — this is the member's own conversation, full stop.
+ * `conversationId` groups messages into separate threads (client-generated
+ * per "+ Nová konverzace", not a Firestore doc id of its own) the same way
+ * AiTutorMessage.subject groups a tutoring thread, just without a
+ * user-chosen label — see lib/ai-assistant.ts's
+ * summarizeAiAssistantConversations for how a thread's title is derived.
+ */
+export interface AiAssistantMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: number;
+}
