@@ -34,6 +34,7 @@ export {
   investDemoValuationRefresh,
 } from "./investDemo";
 export { onShoppingItemWritten } from "./shoppingNotifications";
+export { onChatMessageCreated } from "./chatNotifications";
 export {
   createTriviaDuel,
   respondToTriviaDuel,

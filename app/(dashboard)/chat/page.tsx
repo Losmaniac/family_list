@@ -10,8 +10,14 @@ import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { dateKeyInFamilyZone, formatTimeInFamilyZone } from "@/lib/date-utils";
 import { compressImage } from "@/lib/image-compress";
+import { MAX_CHAT_ATTACHMENT_BYTES, formatFileSizeMb } from "@/lib/chat";
 import Avatar from "@/components/Avatar";
 import type { ChatAttachment, ChatAttachmentType, ChatMessage, Member } from "@/lib/types";
+
+function describeError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : undefined;
+  return message ? `${fallback} (${message})` : fallback;
+}
 
 const dayDividerFormatter = new Intl.DateTimeFormat("cs-CZ", {
   timeZone: "Europe/Prague",
@@ -121,6 +127,10 @@ export default function ChatPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || !familyId || !user) return;
+    if (file.size > MAX_CHAT_ATTACHMENT_BYTES) {
+      toast.error(`Soubor je moc velký (${formatFileSizeMb(file.size)}) — limit je ${formatFileSizeMb(MAX_CHAT_ATTACHMENT_BYTES)}.`);
+      return;
+    }
     setUploading(true);
     setUploadProgress(0);
     try {
@@ -131,8 +141,8 @@ export default function ChatPage() {
       const attachment: ChatAttachment = { type, url, ...(type === "file" ? { name: file.name } : {}) };
       await sendMessage(text.trim(), attachment);
       setText("");
-    } catch {
-      toast.error("Přílohu se nepodařilo odeslat.");
+    } catch (err) {
+      toast.error(describeError(err, "Přílohu se nepodařilo odeslat."));
     } finally {
       setUploading(false);
     }
@@ -180,8 +190,8 @@ export default function ChatPage() {
       const url = await uploadAttachment(blob, blob.type);
       const attachment: ChatAttachment = { type: "audio", url, durationSeconds };
       await sendMessage("", attachment);
-    } catch {
-      toast.error("Hlasovou zprávu se nepodařilo odeslat.");
+    } catch (err) {
+      toast.error(describeError(err, "Hlasovou zprávu se nepodařilo odeslat."));
     } finally {
       setUploading(false);
     }

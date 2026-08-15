@@ -132,6 +132,7 @@ export type NotificationTypeId =
   | "invest_demo_contest_settled"
   | "shopping_item_added"
   | "shopping_item_checked"
+  | "chat_message"
   // Not exposed in the Settings notification-preferences list — it already
   // has its own dedicated eveningReminderEnabled toggle (checked before
   // notifyMembers is even called), kept separate to avoid two conflicting

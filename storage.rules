@@ -49,12 +49,17 @@ service firebase.storage {
     // photos, videos, voice messages, and other files sent in the family
     // chat. The uid segment of the path is the "only the sender can upload
     // here" check (same shape as adHocTaskPhotos above, since a chat
-    // message doc also doesn't exist yet at upload time). A larger size
-    // cap than photos since this covers video/voice too, not just images.
+    // message doc also doesn't exist yet at upload time). A generous size
+    // cap since this covers uncompressed video, not just images — keep in
+    // sync with MAX_CHAT_ATTACHMENT_BYTES in lib/chat.ts, which the client
+    // checks before even starting an upload, so a too-large file fails
+    // immediately instead of only after a full (possibly slow) upload —
+    // this rule is still the actual enforcement, the client check is only
+    // a courtesy.
     match /families/{familyId}/chatAttachments/{uid}/{fileId} {
       allow read: if isFamilyMember(familyId);
       allow write: if isFamilyMember(familyId) && uid == request.auth.uid &&
-        request.resource.size < 25 * 1024 * 1024;
+        request.resource.size < 150 * 1024 * 1024;
       allow delete: if isParent(familyId);
     }
   }
