@@ -12,6 +12,7 @@ import {
   AI_TUTOR_DEPTHS,
   AI_TUTOR_MODES,
   MAX_AI_TUTOR_HISTORY,
+  buildAiTutorKickoffMessage,
   normalizeAiTutorSubject,
   type AiTutorDepth,
   type AiTutorHistoryMessage,
@@ -45,6 +46,7 @@ export default function AiTutorPanel() {
   const [question, setQuestion] = useState("");
   const [sending, setSending] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [awaitingKickoff, setAwaitingKickoff] = useState(false);
 
   const configured = family?.geminiApiKeyConfigured === true || family?.openRouterApiKeyConfigured === true;
 
@@ -64,11 +66,38 @@ export default function AiTutorPanel() {
     [allMessages, subject]
   );
 
+  async function askQuestion(
+    subjectForCall: string,
+    asked: string,
+    history: AiTutorHistoryMessage[],
+    options: { showPending: boolean } = { showPending: true }
+  ) {
+    if (!familyId || sending) return;
+    setSending(true);
+    if (options.showPending) setPendingQuestion(asked);
+    else setAwaitingKickoff(true);
+    try {
+      const call = httpsCallable<
+        { familyId: string; subject: string; depth: AiTutorDepth; mode: AiTutorMode; question: string; history: AiTutorHistoryMessage[] },
+        { answer: string }
+      >(getFirebaseFunctions(), "askAiTutor");
+      await call({ familyId, subject: subjectForCall, depth, mode, question: asked, history });
+    } catch (err) {
+      toast.error(describeError(err, "Zprávu se nepodařilo odeslat."));
+      if (options.showPending) setQuestion(asked);
+    } finally {
+      setSending(false);
+      setPendingQuestion(null);
+      setAwaitingKickoff(false);
+    }
+  }
+
   function startConversation(e: React.FormEvent) {
     e.preventDefault();
     const normalized = normalizeAiTutorSubject(subjectInput);
     if (!normalized) return;
     setSubject(normalized);
+    void askQuestion(normalized, buildAiTutorKickoffMessage(normalized, mode), [], { showPending: false });
   }
 
   async function handleAsk(e: React.FormEvent) {
@@ -78,23 +107,8 @@ export default function AiTutorPanel() {
     const history: AiTutorHistoryMessage[] = threadMessages
       .slice(-MAX_AI_TUTOR_HISTORY)
       .map((m) => ({ role: m.role, text: m.text }));
-
-    setSending(true);
-    setPendingQuestion(asked);
     setQuestion("");
-    try {
-      const call = httpsCallable<
-        { familyId: string; subject: string; depth: AiTutorDepth; mode: AiTutorMode; question: string; history: AiTutorHistoryMessage[] },
-        { answer: string }
-      >(getFirebaseFunctions(), "askAiTutor");
-      await call({ familyId, subject, depth, mode, question: asked, history });
-    } catch (err) {
-      toast.error(describeError(err, "Zprávu se nepodařilo odeslat."));
-      setQuestion(asked);
-    } finally {
-      setSending(false);
-      setPendingQuestion(null);
-    }
+    await askQuestion(subject, asked, history);
   }
 
   if (!configured) {
@@ -186,8 +200,13 @@ export default function AiTutorPanel() {
       </div>
 
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain rounded-xl border border-border p-3">
-        {threadMessages.length === 0 && !pendingQuestion && (
-          <p className="text-sm text-zinc-500">Napiš první otázku k tématu „{subject}“.</p>
+        {threadMessages.length === 0 && !pendingQuestion && !awaitingKickoff && (
+          <p className="text-sm text-zinc-500">Zatím žádné zprávy.</p>
+        )}
+        {awaitingKickoff && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl bg-surface-muted px-3 py-2 text-sm text-zinc-400">Lektor připravuje vysvětlení…</div>
+          </div>
         )}
         {threadMessages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
