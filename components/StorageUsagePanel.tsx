@@ -7,6 +7,11 @@ import { getFirebaseStorage } from "@/lib/firebase";
 import { useToast } from "@/lib/toast-context";
 import { FIREBASE_STORAGE_FREE_TIER_GB, formatBytes, storageUsagePercent } from "@/lib/storage-usage";
 
+function describeError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : undefined;
+  return message ? `${fallback} (${message})` : fallback;
+}
+
 const CATEGORIES = [
   { label: "Fotky úkolů", path: "taskPhotos" },
   { label: "Ad-hoc fotky", path: "adHocTaskPhotos" },
@@ -54,8 +59,8 @@ export default function StorageUsagePanel({ familyId }: { familyId: string }) {
         })
       );
       setResults(next);
-    } catch {
-      toast.error("Využití úložiště se nepodařilo zjistit.");
+    } catch (err) {
+      toast.error(describeError(err, "Využití úložiště se nepodařilo zjistit."));
     } finally {
       setLoading(false);
     }

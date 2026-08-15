@@ -62,5 +62,30 @@ service firebase.storage {
         request.resource.size < 150 * 1024 * 1024;
       allow delete: if isParent(familyId);
     }
+
+    // `list` (listAll/list — used by PhotoSettingsPanel's "Vymazat všechny
+    // fotky" and Settings' Úložiště usage panel) is checked against the
+    // exact path being listed, separate from `get`/`write` on individual
+    // files above — `allow read` on a .../{fileId} pattern does NOT also
+    // grant list on the parent folder, since that folder path has one
+    // fewer path segment than the pattern matches. Each folder above (and,
+    // for the two nested-by-uid ones, each per-uid subfolder too, since
+    // listAll only descends one level per call) needs its own explicit
+    // `allow list` at that exact path.
+    match /families/{familyId}/taskPhotos {
+      allow list: if isFamilyMember(familyId);
+    }
+    match /families/{familyId}/adHocTaskPhotos {
+      allow list: if isFamilyMember(familyId);
+    }
+    match /families/{familyId}/adHocTaskPhotos/{uid} {
+      allow list: if isFamilyMember(familyId);
+    }
+    match /families/{familyId}/chatAttachments {
+      allow list: if isFamilyMember(familyId);
+    }
+    match /families/{familyId}/chatAttachments/{uid} {
+      allow list: if isFamilyMember(familyId);
+    }
   }
 }
