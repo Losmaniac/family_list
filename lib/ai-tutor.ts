@@ -90,3 +90,16 @@ export function parseAiTutorResponse(raw: string): string | null {
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
+
+/**
+ * The conversation's opening turn — sent automatically the moment a
+ * subject is picked, so the user gets a general explanation straight away
+ * instead of having to type a first question themselves. Phrased as if the
+ * user asked it (still stored as a normal "user" message) so the thread
+ * reads naturally on replay, just auto-sent rather than typed.
+ */
+export function buildAiTutorKickoffMessage(subject: string, mode: AiTutorMode): string {
+  if (mode === "quiz") return `Začni se mnou procvičovat téma "${subject}" — polož mi první otázku.`;
+  if (mode === "homework") return `Obecně mi vysvětli téma "${subject}", ať do něj mám vhled, než se pustím do úkolu.`;
+  return `Vysvětli mi téma "${subject}".`;
+}

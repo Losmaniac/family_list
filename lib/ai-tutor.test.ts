@@ -4,6 +4,7 @@ import {
   AI_TUTOR_MODES,
   aiTutorDepthLabel,
   aiTutorModeLabel,
+  buildAiTutorKickoffMessage,
   buildAiTutorPrompt,
   normalizeAiTutorSubject,
   parseAiTutorResponse,
@@ -73,6 +74,20 @@ describe("buildAiTutorPrompt", () => {
   it("omits the conversation-history section when there's no history", () => {
     const prompt = buildAiTutorPrompt("chemie", "basics", "explain", [], "Co je oxidace?");
     expect(prompt).not.toContain("Dosavadní konverzace");
+  });
+});
+
+describe("buildAiTutorKickoffMessage", () => {
+  it("asks for a general explanation in explain mode", () => {
+    expect(buildAiTutorKickoffMessage("fotosyntéza", "explain")).toBe('Vysvětli mi téma "fotosyntéza".');
+  });
+
+  it("asks for the first question in quiz mode", () => {
+    expect(buildAiTutorKickoffMessage("historie", "quiz")).toMatch(/polož mi první otázku/);
+  });
+
+  it("asks for a general grounding in homework mode", () => {
+    expect(buildAiTutorKickoffMessage("kvadratické rovnice", "homework")).toMatch(/^Obecně mi vysvětli téma/);
   });
 });
 
