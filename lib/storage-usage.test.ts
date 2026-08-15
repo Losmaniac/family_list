@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIREBASE_STORAGE_FREE_TIER_GB, formatBytes, storageUsagePercent } from "./storage-usage";
+import { FIREBASE_STORAGE_FREE_TIER_GB, formatBytes, storageUsagePercent, summarizeUploadsToday } from "./storage-usage";
 
 describe("formatBytes", () => {
   it("formats bytes under 1 KB as bytes", () => {
@@ -30,5 +30,30 @@ describe("storageUsagePercent", () => {
 
   it("returns 0 for no usage", () => {
     expect(storageUsagePercent(0)).toBe(0);
+  });
+});
+
+describe("summarizeUploadsToday", () => {
+  const now = new Date("2026-03-15T12:00:00Z"); // noon UTC = safely mid-day in Europe/Prague too
+
+  it("counts only files created on the same family-zone day as now", () => {
+    const stats = summarizeUploadsToday(
+      [
+        { bytes: 100, timeCreated: "2026-03-15T08:00:00Z" }, // today
+        { bytes: 200, timeCreated: "2026-03-15T22:30:00Z" }, // still today in Prague (UTC+1, CET in March)
+        { bytes: 300, timeCreated: "2026-03-14T10:00:00Z" }, // yesterday
+      ],
+      now
+    );
+    expect(stats).toEqual({ count: 2, bytes: 300 });
+  });
+
+  it("returns zero counts for no files", () => {
+    expect(summarizeUploadsToday([], now)).toEqual({ count: 0, bytes: 0 });
+  });
+
+  it("returns zero counts when nothing was uploaded today", () => {
+    const stats = summarizeUploadsToday([{ bytes: 100, timeCreated: "2026-01-01T10:00:00Z" }], now);
+    expect(stats).toEqual({ count: 0, bytes: 0 });
   });
 });
