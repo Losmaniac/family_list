@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addDoc, collection, limitToLast, onSnapshot, orderBy, query } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref as storageRef, uploadBytesResumable } from "firebase/storage";
 import { FileText, Mic, Paperclip, Send, Square } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -42,6 +42,7 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -101,12 +102,19 @@ export default function ChatPage() {
     }
   }
 
-  async function uploadAttachment(blob: Blob, contentType: string): Promise<string> {
-    if (!familyId || !user) throw new Error("not ready");
+  function uploadAttachment(blob: Blob, contentType: string): Promise<string> {
+    if (!familyId || !user) return Promise.reject(new Error("not ready"));
     const fileId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const ref = storageRef(getFirebaseStorage(), `families/${familyId}/chatAttachments/${user.uid}/${fileId}`);
-    await uploadBytes(ref, blob, { contentType });
-    return getDownloadURL(ref);
+    const task = uploadBytesResumable(ref, blob, { contentType });
+    return new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snapshot) => setUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)),
+        reject,
+        () => getDownloadURL(task.snapshot.ref).then(resolve, reject)
+      );
+    });
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -114,6 +122,7 @@ export default function ChatPage() {
     e.target.value = "";
     if (!file || !familyId || !user) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
       const type = attachmentTypeForFile(file);
       const toUpload = type === "image" ? await compressImage(file) : file;
@@ -165,6 +174,7 @@ export default function ChatPage() {
 
     if (durationSeconds < 1) return; // accidental tap, nothing worth sending
     setUploading(true);
+    setUploadProgress(0);
     try {
       const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || "audio/webm" });
       const url = await uploadAttachment(blob, blob.type);
@@ -257,6 +267,14 @@ export default function ChatPage() {
         onChange={handleFileSelected}
         className="hidden"
       />
+      {uploading && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+          <div
+            className="h-full rounded-full bg-accent transition-all"
+            style={{ width: `${uploadProgress}%` }}
+          />
+        </div>
+      )}
       <form onSubmit={handleSend} className="flex items-center gap-2">
         <button
           type="button"
@@ -272,7 +290,9 @@ export default function ChatPage() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={recording}
-          placeholder={uploading ? "Nahrávám…" : recording ? `Nahrávám hlas… ${formatDuration(recordSeconds)}` : "Napiš zprávu…"}
+          placeholder={
+            uploading ? `Nahrávám… ${uploadProgress} %` : recording ? `Nahrávám hlas… ${formatDuration(recordSeconds)}` : "Napiš zprávu…"
+          }
           className="flex-1 rounded-full border border-border bg-surface px-4 py-2 disabled:opacity-60"
         />
         <button
