@@ -37,6 +37,7 @@ import AdHocTaskSettingsPanel from "@/components/AdHocTaskSettingsPanel";
 import MediaBillingSettingsPanel from "@/components/MediaBillingSettingsPanel";
 import NavVisibilitySettingsPanel from "@/components/NavVisibilitySettingsPanel";
 import PhotoSettingsPanel from "@/components/PhotoSettingsPanel";
+import StorageUsagePanel from "@/components/StorageUsagePanel";
 import ShopAdminPanel from "@/components/ShopAdminPanel";
 import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
@@ -595,6 +596,12 @@ export default function SettingsPage() {
             photoCompressionQuality={family?.photoCompressionQuality}
             photoMaxDimension={family?.photoMaxDimension}
           />
+        </SettingsSection>
+      )}
+
+      {member.role === "parent" && familyId && (
+        <SettingsSection id="uloziste" title="Úložiště">
+          <StorageUsagePanel familyId={familyId} />
         </SettingsSection>
       )}
 
