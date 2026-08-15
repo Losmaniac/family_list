@@ -3,6 +3,7 @@ import type { TvChannel } from "./iptv-org";
 import type { InvestDemoAssetType } from "./invest-demo";
 import type { TriviaDuelStatus } from "./trivia-duel";
 import type { ChessDifficulty } from "./chess-ai";
+import type { AiTutorDepth, AiTutorMode } from "./ai-tutor";
 
 /**
  * users/{userId} — top-level lookup so the client can resolve which family a
@@ -1011,4 +1012,7 @@ export interface AiTutorMessage {
   role: "user" | "assistant";
   text: string;
   timestamp: number;
+  /** The depth/mode this exchange was asked under — lets the history list resume a past thread with its original settings rather than whatever's currently selected. Absent on a message written before this field existed. */
+  depth?: AiTutorDepth;
+  mode?: AiTutorMode;
 }

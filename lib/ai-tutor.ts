@@ -103,3 +103,37 @@ export function buildAiTutorKickoffMessage(subject: string, mode: AiTutorMode): 
   if (mode === "homework") return `Obecně mi vysvětli téma "${subject}", ať do něj mám vhled, než se pustím do úkolu.`;
   return `Vysvětli mi téma "${subject}".`;
 }
+
+export interface AiTutorThreadSummary {
+  subject: string;
+  lastMessageText: string;
+  lastMessageAt: number;
+  depth: AiTutorDepth;
+  mode: AiTutorMode;
+}
+
+/**
+ * Groups a member's flat aiTutorMessages log (any subject, any order) into
+ * one summary per distinct subject — the most recent message decides the
+ * preview text and, since depth/mode are recorded per message, which
+ * settings "pokračovat" resumes with. Sorted most-recently-active first.
+ * A message from before depth/mode existed falls back to each list's first
+ * (default) option, same as the server does for a missing snapshot elsewhere.
+ */
+export function summarizeAiTutorThreads(
+  messages: { subject: string; text: string; timestamp: number; depth?: AiTutorDepth; mode?: AiTutorMode }[]
+): AiTutorThreadSummary[] {
+  const bySubject = new Map<string, AiTutorThreadSummary>();
+  for (const m of messages) {
+    const existing = bySubject.get(m.subject);
+    if (existing && existing.lastMessageAt >= m.timestamp) continue;
+    bySubject.set(m.subject, {
+      subject: m.subject,
+      lastMessageText: m.text,
+      lastMessageAt: m.timestamp,
+      depth: m.depth ?? AI_TUTOR_DEPTHS[0].value,
+      mode: m.mode ?? AI_TUTOR_MODES[0].value,
+    });
+  }
+  return [...bySubject.values()].sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+}

@@ -8,6 +8,7 @@ import {
   buildAiTutorPrompt,
   normalizeAiTutorSubject,
   parseAiTutorResponse,
+  summarizeAiTutorThreads,
 } from "./ai-tutor";
 
 describe("normalizeAiTutorSubject", () => {
@@ -88,6 +89,38 @@ describe("buildAiTutorKickoffMessage", () => {
 
   it("asks for a general grounding in homework mode", () => {
     expect(buildAiTutorKickoffMessage("kvadratické rovnice", "homework")).toMatch(/^Obecně mi vysvětli téma/);
+  });
+});
+
+describe("summarizeAiTutorThreads", () => {
+  it("groups messages by subject and picks the most recent one as the summary", () => {
+    const threads = summarizeAiTutorThreads([
+      { subject: "fotosyntéza", text: "Vysvětli mi téma \"fotosyntéza\".", timestamp: 100, depth: "basics", mode: "explain" },
+      { subject: "fotosyntéza", text: "Fotosyntéza je proces...", timestamp: 101, depth: "basics", mode: "explain" },
+      { subject: "historie", text: "Začni se mnou procvičovat...", timestamp: 200, depth: "advanced", mode: "quiz" },
+    ]);
+    expect(threads).toHaveLength(2);
+    const photo = threads.find((t) => t.subject === "fotosyntéza");
+    expect(photo?.lastMessageText).toBe("Fotosyntéza je proces...");
+    expect(photo?.lastMessageAt).toBe(101);
+  });
+
+  it("sorts threads most-recently-active first", () => {
+    const threads = summarizeAiTutorThreads([
+      { subject: "starší", text: "a", timestamp: 100 },
+      { subject: "novější", text: "b", timestamp: 500 },
+    ]);
+    expect(threads.map((t) => t.subject)).toEqual(["novější", "starší"]);
+  });
+
+  it("falls back to the first depth/mode option when a message predates those fields", () => {
+    const threads = summarizeAiTutorThreads([{ subject: "staré téma", text: "a", timestamp: 1 }]);
+    expect(threads[0].depth).toBe(AI_TUTOR_DEPTHS[0].value);
+    expect(threads[0].mode).toBe(AI_TUTOR_MODES[0].value);
+  });
+
+  it("returns an empty list for no messages", () => {
+    expect(summarizeAiTutorThreads([])).toEqual([]);
   });
 });
 

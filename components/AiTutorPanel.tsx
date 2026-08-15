@@ -12,12 +12,17 @@ import {
   AI_TUTOR_DEPTHS,
   AI_TUTOR_MODES,
   MAX_AI_TUTOR_HISTORY,
+  aiTutorDepthLabel,
+  aiTutorModeLabel,
   buildAiTutorKickoffMessage,
   normalizeAiTutorSubject,
+  summarizeAiTutorThreads,
   type AiTutorDepth,
   type AiTutorHistoryMessage,
   type AiTutorMode,
+  type AiTutorThreadSummary,
 } from "@/lib/ai-tutor";
+import { formatDateTimeInFamilyZone } from "@/lib/date-utils";
 import type { AiTutorMessage } from "@/lib/types";
 
 function describeError(err: unknown, fallback: string): string {
@@ -65,6 +70,14 @@ export default function AiTutorPanel() {
     () => (subject ? allMessages.filter((m) => m.subject === subject) : []),
     [allMessages, subject]
   );
+
+  const pastThreads = useMemo(() => summarizeAiTutorThreads(allMessages), [allMessages]);
+
+  function resumeThread(thread: AiTutorThreadSummary) {
+    setDepth(thread.depth);
+    setMode(thread.mode);
+    setSubject(thread.subject);
+  }
 
   async function askQuestion(
     subjectForCall: string,
@@ -122,62 +135,87 @@ export default function AiTutorPanel() {
 
   if (!subject) {
     return (
-      <form onSubmit={startConversation} className="flex flex-col gap-4">
-        <p className="text-sm text-zinc-500">
-          Zeptej se na cokoliv — od školní látky po téma, které tě prostě zajímá.
-        </p>
-        <input
-          type="text"
-          required
-          autoFocus
-          placeholder="Na jaké téma? (např. fotosyntéza, druhá světová válka, úroková sazba…)"
-          value={subjectInput}
-          onChange={(e) => setSubjectInput(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-4 py-2"
-        />
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-zinc-500">Náročnost</p>
-          <div className="flex flex-wrap gap-2">
-            {AI_TUTOR_DEPTHS.map((d) => (
-              <button
-                key={d.value}
-                type="button"
-                onClick={() => setDepth(d.value)}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  depth === d.value ? "bg-accent text-accent-foreground" : "border border-border"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
+      <div className="flex flex-col gap-6">
+        {pastThreads.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-zinc-500">Pokračovat v tématu</p>
+            <div className="flex flex-col gap-1.5">
+              {pastThreads.map((t) => (
+                <button
+                  key={t.subject}
+                  type="button"
+                  onClick={() => resumeThread(t)}
+                  className="flex flex-col items-start gap-0.5 rounded-xl border border-border px-3 py-2 text-left"
+                >
+                  <span className="font-medium">{t.subject}</span>
+                  <span className="w-full truncate text-xs text-zinc-500">{t.lastMessageText}</span>
+                  <span className="text-[10px] text-zinc-400">
+                    {aiTutorDepthLabel(t.depth)} · {aiTutorModeLabel(t.mode)} · {formatDateTimeInFamilyZone(new Date(t.lastMessageAt))}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-zinc-500">Styl</p>
-          <div className="flex flex-wrap gap-2">
-            {AI_TUTOR_MODES.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => setMode(m.value)}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  mode === m.value ? "bg-accent text-accent-foreground" : "border border-border"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
+        )}
+        <form onSubmit={startConversation} className="flex flex-col gap-4">
+          <p className="text-sm text-zinc-500">
+            {pastThreads.length > 0
+              ? "Nebo se zeptej na něco nového."
+              : "Zeptej se na cokoliv — od školní látky po téma, které tě prostě zajímá."}
+          </p>
+          <input
+            type="text"
+            required
+            autoFocus
+            placeholder="Na jaké téma? (např. fotosyntéza, druhá světová válka, úroková sazba…)"
+            value={subjectInput}
+            onChange={(e) => setSubjectInput(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-4 py-2"
+          />
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-zinc-500">Náročnost</p>
+            <div className="flex flex-wrap gap-2">
+              {AI_TUTOR_DEPTHS.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => setDepth(d.value)}
+                  className={`rounded-full px-3 py-1.5 text-sm ${
+                    depth === d.value ? "bg-accent text-accent-foreground" : "border border-border"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-zinc-400">{AI_TUTOR_MODES.find((m) => m.value === mode)?.description}</p>
-        </div>
-        <button
-          type="submit"
-          disabled={!subjectInput.trim()}
-          className="self-start rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-        >
-          Začít
-        </button>
-      </form>
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-zinc-500">Styl</p>
+            <div className="flex flex-wrap gap-2">
+              {AI_TUTOR_MODES.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMode(m.value)}
+                  className={`rounded-full px-3 py-1.5 text-sm ${
+                    mode === m.value ? "bg-accent text-accent-foreground" : "border border-border"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-zinc-400">{AI_TUTOR_MODES.find((m) => m.value === mode)?.description}</p>
+          </div>
+          <button
+            type="submit"
+            disabled={!subjectInput.trim()}
+            className="self-start rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            Začít
+          </button>
+        </form>
+      </div>
     );
   }
 

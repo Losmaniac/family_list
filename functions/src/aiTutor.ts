@@ -98,12 +98,16 @@ export const askAiTutor = onCall<AskRequest>(async (request) => {
     role: "user",
     text: trimmedQuestion,
     timestamp: now,
+    depth,
+    mode,
   } satisfies Omit<AiTutorMessage, "id">);
   batch.set(messagesRef.doc(), {
     subject,
     role: "assistant",
     text: answer,
     timestamp: now + 1,
+    depth,
+    mode,
   } satisfies Omit<AiTutorMessage, "id">);
   await batch.commit();
 
