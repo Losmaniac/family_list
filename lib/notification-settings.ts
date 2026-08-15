@@ -49,6 +49,7 @@ export const NOTIFICATION_TYPE_ORDER: ConfigurableNotificationTypeId[] = [
   "invest_demo_contest_settled",
   "shopping_item_added",
   "shopping_item_checked",
+  "chat_message",
 ];
 
 interface NotificationTypeInfo {
@@ -74,4 +75,5 @@ export const NOTIFICATION_TYPE_INFO: Record<ConfigurableNotificationTypeId, Noti
   invest_demo_contest_settled: { label: "Vyhodnocení soutěže demo investování", audienceLabel: "Kdo má demo portfolio", hasRecipientChoice: true, audienceFilter: "all" },
   shopping_item_added: { label: "Přidaná položka do nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
   shopping_item_checked: { label: "Odškrtnutá položka z nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
+  chat_message: { label: "Nová zpráva v rodinném chatu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
 };
