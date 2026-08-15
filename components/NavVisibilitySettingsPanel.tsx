@@ -14,6 +14,7 @@ const TOGGLABLE_NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/today", label: "Dnes" },
   { href: "/family", label: "Rodina" },
   { href: "/chat", label: "Chat" },
+  { href: "/ai", label: "AI" },
   { href: "/shop", label: "Obchod" },
   { href: "/investments", label: "Investice" },
   { href: "/money", label: "Peníze" },

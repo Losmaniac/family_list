@@ -43,6 +43,7 @@ export {
 } from "./triviaDuel";
 export { setGeminiApiKey, setOpenRouterConfig, generateAiQuizQuestion, submitAiQuizAnswer } from "./aiQuiz";
 export { askAiTutor } from "./aiTutor";
+export { askAiAssistant } from "./aiAssistant";
 export { weeklyDigestGenerator } from "./weeklyDigest";
 export { penaltyTaskSweep } from "./penaltyTasks";
 export {
