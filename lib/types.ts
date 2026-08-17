@@ -45,6 +45,20 @@ export interface Family {
   levelTitles?: string[];
   /** Custom XP thresholds for levels 1-10 (index 0/level 1 is always 0, never overridable); absent/short = the built-in curve fills the rest. Levels beyond 10 keep growing at the same flat step regardless. */
   levelThresholds?: number[];
+  /** Level from which a member no longer needs to attach a proof photo to photoRequired tasks/ad-hoc types; absent = feature off, photo always required as before. */
+  photoExemptFromLevel?: number;
+  /**
+   * Denormalized xpForLevel(photoExemptFromLevel, levelThresholds) at the
+   * moment photoExemptFromLevel was last saved — Firestore security rules
+   * can't reimplement the (per-family-customizable) level curve, so this
+   * plain number lets the dailyTasks rule do a cheap `xpBalance >= this`
+   * comparison instead. Re-saved together with photoExemptFromLevel, so it
+   * only goes stale if levelThresholds changes afterward without
+   * re-saving this setting — the ad-hoc-tasks Cloud Function doesn't need
+   * this, it computes the real level server-side instead. -1/absent means
+   * the feature is off (real XP balances are never negative).
+   */
+  photoExemptFromXp?: number;
   /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
   taskRequestsEnabled?: boolean;
   /** Max number of still-pending/returned tasks at which a member can already ask for another one, before the list is fully empty; absent = no limit (always allowed, as soon as taskRequestsEnabled). */

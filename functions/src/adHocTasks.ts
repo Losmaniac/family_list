@@ -16,10 +16,10 @@
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { buildLedgerEntry } from "../../lib/xp-engine";
+import { buildLedgerEntry, levelForXp } from "../../lib/xp-engine";
 import { adHocCooldownInfo, formatCooldownRemaining } from "../../lib/adhoc-tasks";
 import { requireAuth, requireFamilyMember } from "./practice";
-import type { AdHocTaskType } from "../../lib/types";
+import type { AdHocTaskType, Family, Member } from "../../lib/types";
 
 interface CompleteRequest {
   familyId: string;
@@ -46,10 +46,22 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     .limit(1);
 
   const { awarded, pending } = await db.runTransaction(async (tx) => {
-    const [typeSnap, lastSnap] = await Promise.all([tx.get(typeRef), tx.get(lastCompletionQuery)]);
+    const [typeSnap, lastSnap, familySnap, memberSnap] = await Promise.all([
+      tx.get(typeRef),
+      tx.get(lastCompletionQuery),
+      tx.get(familyRef),
+      tx.get(memberRef),
+    ]);
     const type = typeSnap.data() as AdHocTaskType | undefined;
     if (!type || !type.active) throw new HttpsError("failed-precondition", "Tento úkol už není dostupný.");
-    if (type.photoRequired && !photoUrl) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
+    if (type.photoRequired && !photoUrl) {
+      const family = familySnap.data() as Family | undefined;
+      const member = memberSnap.data() as Member | undefined;
+      const exemptFromLevel = family?.photoExemptFromLevel;
+      const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
+      const isExempt = exemptFromLevel !== undefined && memberLevel >= exemptFromLevel;
+      if (!isExempt) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
+    }
 
     const lastCompletedAt = lastSnap.empty ? undefined : (lastSnap.docs[0].data().timestamp as number);
     const cooldown = adHocCooldownInfo(type.cooldownMinutes, lastCompletedAt);
