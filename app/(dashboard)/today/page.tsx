@@ -14,7 +14,7 @@ import { useLocale } from "@/lib/locale-context";
 import { dateKeyInFamilyZone } from "@/lib/date-utils";
 import { logAction } from "@/lib/audit-log";
 import { compressImage } from "@/lib/image-compress";
-import { formatXp } from "@/lib/xp-engine";
+import { formatXp, levelForXp } from "@/lib/xp-engine";
 import TaskCard from "@/components/TaskCard";
 import Avatar from "@/components/Avatar";
 import AdHocTasksButton from "@/components/AdHocTasksButton";
@@ -119,7 +119,9 @@ export default function TodayPage() {
     const template = templates[task.templateId];
 
     const movingTowardCompletion = member?.role === "parent" ? task.status !== "done" : task.status !== "submitted";
-    if (template?.photoRequired && movingTowardCompletion) {
+    const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
+    const photoExempt = family?.photoExemptFromLevel !== undefined && memberLevel >= family.photoExemptFromLevel;
+    if (template?.photoRequired && movingTowardCompletion && !photoExempt) {
       setPhotoTask(task);
       photoInputRef.current?.click();
       return;

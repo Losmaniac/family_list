@@ -4,7 +4,7 @@ import { useState } from "react";
 import { deleteField, doc, updateDoc } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useToast } from "@/lib/toast-context";
-import { DEFAULT_LEVEL_THRESHOLDS, DEFAULT_LEVEL_TITLES } from "@/lib/xp-engine";
+import { DEFAULT_LEVEL_THRESHOLDS, DEFAULT_LEVEL_TITLES, xpForLevel } from "@/lib/xp-engine";
 
 export default function GameSettingsPanel({
   familyId,
@@ -12,12 +12,14 @@ export default function GameSettingsPanel({
   levelThresholds,
   taskRequestsEnabled,
   taskRequestMaxRemaining,
+  photoExemptFromLevel,
 }: {
   familyId: string;
   levelTitles?: string[];
   levelThresholds?: number[];
   taskRequestsEnabled?: boolean;
   taskRequestMaxRemaining?: number;
+  photoExemptFromLevel?: number;
 }) {
   const toast = useToast();
   const [savingRequestsToggle, setSavingRequestsToggle] = useState(false);
@@ -97,6 +99,40 @@ export default function GameSettingsPanel({
       toast.error("Nepodařilo se obnovit výchozí názvy.");
     } finally {
       setSavingTitles(false);
+    }
+  }
+
+  const [photoExemptInput, setPhotoExemptInput] = useState(
+    photoExemptFromLevel !== undefined ? String(photoExemptFromLevel) : ""
+  );
+  const [savingPhotoExempt, setSavingPhotoExempt] = useState(false);
+
+  async function handleSavePhotoExempt() {
+    const trimmed = photoExemptInput.trim();
+    setSavingPhotoExempt(true);
+    try {
+      if (trimmed === "") {
+        await updateDoc(doc(getDb(), "families", familyId), {
+          photoExemptFromLevel: deleteField(),
+          photoExemptFromXp: deleteField(),
+        });
+        toast.success("Foto se opět vyžaduje na všech úrovních.");
+      } else {
+        const level = Number(trimmed);
+        if (!Number.isInteger(level) || level < 1) {
+          toast.error("Zadej celé číslo 1 nebo víc.");
+          return;
+        }
+        await updateDoc(doc(getDb(), "families", familyId), {
+          photoExemptFromLevel: level,
+          photoExemptFromXp: xpForLevel(level, levelThresholds),
+        });
+        toast.success("Osvobození od fotek uloženo.");
+      }
+    } catch {
+      toast.error("Nepodařilo se uložit osvobození od fotek.");
+    } finally {
+      setSavingPhotoExempt(false);
     }
   }
 
@@ -256,6 +292,31 @@ export default function GameSettingsPanel({
             className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
           >
             Obnovit výchozí
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-zinc-500">
+          Od jakého levelu už člen nemusí přikládat foto ke splněným úkolům, které foto jinak vyžadují. Nech prázdné
+          pro vždy vyžadovat foto.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            placeholder="vždy vyžadovat"
+            value={photoExemptInput}
+            onChange={(e) => setPhotoExemptInput(e.target.value)}
+            className="w-32 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            onClick={handleSavePhotoExempt}
+            disabled={savingPhotoExempt}
+            className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            Uložit
           </button>
         </div>
       </div>

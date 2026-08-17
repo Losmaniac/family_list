@@ -32,11 +32,26 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/families/$(familyId)).data.get('scheduleVisibleToAll', false) == true;
     }
 
+    // Denormalized xpForLevel(family.photoExemptFromLevel, ...) — see
+    // lib/types.ts's Family.photoExemptFromXp doc comment for why rules use
+    // this instead of reimplementing the (per-family-customizable) level
+    // curve here. -1/absent means the feature is off.
+    function photoExemptFromXp(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId)).data.get('photoExemptFromXp', -1);
+    }
+    function memberXpBalance(familyId, uid) {
+      return get(/databases/$(database)/documents/families/$(familyId)/members/$(uid)).data.get('xpBalance', 0);
+    }
+
     // If the task's template requires a photo, the resulting document must
     // already carry one — enforced server-side so a photo-required task
     // can't be marked complete via a raw API call that skips the upload.
-    function photoRequirementMet(familyId, templateId, data) {
-      return !templatePhotoRequired(familyId, templateId) || (data.photoUrl is string && data.photoUrl.size() > 0);
+    // A member past the family's configured photoExemptFromLevel is let
+    // through without a photo too.
+    function photoRequirementMet(familyId, templateId, assignedTo, data) {
+      return !templatePhotoRequired(familyId, templateId) ||
+        (data.photoUrl is string && data.photoUrl.size() > 0) ||
+        (photoExemptFromXp(familyId) >= 0 && memberXpBalance(familyId, assignedTo) >= photoExemptFromXp(familyId));
     }
 
     // A proposal responding to someone else's TaskRequest must target an
@@ -194,12 +209,12 @@ service cloud.firestore {
               (!(resource.data.assignedTo == request.auth.uid &&
                   resource.data.status != 'done' &&
                   request.resource.data.status == 'done') ||
-                photoRequirementMet(familyId, resource.data.templateId, request.resource.data))) ||
+                photoRequirementMet(familyId, resource.data.templateId, resource.data.assignedTo, request.resource.data))) ||
             (resource.data.assignedTo == request.auth.uid &&
              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'photoUrl']) &&
              request.resource.data.status in ['submitted', 'pending'] &&
              (request.resource.data.status != 'submitted' ||
-               photoRequirementMet(familyId, resource.data.templateId, request.resource.data)))
+               photoRequirementMet(familyId, resource.data.templateId, resource.data.assignedTo, request.resource.data)))
           );
         allow create, delete: if isParent(familyId);
       }

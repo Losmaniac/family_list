@@ -405,6 +405,7 @@ export default function SettingsPage() {
             levelThresholds={family?.levelThresholds}
             taskRequestsEnabled={family?.taskRequestsEnabled}
             taskRequestMaxRemaining={family?.taskRequestMaxRemaining}
+            photoExemptFromLevel={family?.photoExemptFromLevel}
           />
         </SettingsSection>
       )}
