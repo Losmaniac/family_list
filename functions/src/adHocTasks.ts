@@ -8,11 +8,15 @@
  * xpLedger) to render its countdown, never decides for itself whether
  * enough time has passed.
  *
- * A type with photoRequired doesn't award XP here at all — the photo is
- * evidence a parent still needs to actually look at, so the completion is
- * written 'pending' with no XP, and functions/src/onAdHocCompletionDecided.ts
- * awards it once a parent approves (see PendingAdHocApprovals.tsx). A type
- * with no photo requirement stays self-service and instant, same as before.
+ * A type with photoRequired doesn't award XP here at all when the photo
+ * gate is actually active — the photo is evidence a parent still needs to
+ * actually look at, so the completion is written 'pending' with no XP, and
+ * functions/src/onAdHocCompletionDecided.ts awards it once a parent
+ * approves (see PendingAdHocApprovals.tsx). The gate never applies to a
+ * parent completing their own task (photo is optional, never required),
+ * and doesn't apply to a child past family.photoExemptFromLevel either —
+ * both stay self-service and instant, same as a type with no photo
+ * requirement at all.
  */
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
@@ -54,14 +58,20 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     ]);
     const type = typeSnap.data() as AdHocTaskType | undefined;
     if (!type || !type.active) throw new HttpsError("failed-precondition", "Tento úkol už není dostupný.");
-    if (type.photoRequired && !photoUrl) {
-      const family = familySnap.data() as Family | undefined;
-      const member = memberSnap.data() as Member | undefined;
-      const exemptFromLevel = family?.photoExemptFromLevel;
-      const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
-      const isExempt = exemptFromLevel !== undefined && memberLevel >= exemptFromLevel;
-      if (!isExempt) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
-    }
+
+    const family = familySnap.data() as Family | undefined;
+    const member = memberSnap.data() as Member | undefined;
+
+    // A parent is never gated on the photo — Settings' photoExemptFromLevel
+    // is a level a *child* can grow into, but a parent doesn't need proof
+    // at all. Either way, skipping the photo also skips the pending-
+    // approval flow below: there's nothing left for another parent to
+    // review, so it's treated exactly like a non-photoRequired type.
+    const exemptFromLevel = family?.photoExemptFromLevel;
+    const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
+    const isExemptChild = exemptFromLevel !== undefined && memberLevel >= exemptFromLevel;
+    const photoGateActive = type.photoRequired && member?.role !== "parent" && !isExemptChild;
+    if (photoGateActive && !photoUrl) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
 
     const lastCompletedAt = lastSnap.empty ? undefined : (lastSnap.docs[0].data().timestamp as number);
     const cooldown = adHocCooldownInfo(type.cooldownMinutes, lastCompletedAt);
@@ -72,7 +82,7 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
       );
     }
 
-    if (type.photoRequired) {
+    if (photoGateActive) {
       tx.set(familyRef.collection("adHocCompletions").doc(), {
         typeId,
         completedBy: uid,

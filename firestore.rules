@@ -197,19 +197,17 @@ service cloud.firestore {
         // may only submit their own task for approval or pull it back to
         // pending — never award themselves 'done' directly; that always
         // requires a parent action, which is what actually triggers XP.
-        // Either path, if the template requires a photo, it must already be
-        // on the resulting doc before the task can move toward completion —
-        // submitted for a child, done for a parent self-completing their own
-        // task directly (approving someone else's already-submitted task
+        // If the template requires a photo, it must already be on the
+        // resulting doc before a child's own task can move toward
+        // completion (approving someone else's already-submitted task
         // doesn't need this check again: the photo requirement was already
-        // enforced at submission time, and this update won't touch photoUrl).
+        // enforced at submission time, and this update won't touch
+        // photoUrl). A parent is never gated on the photo at all — it's
+        // optional for them either way (see GameSettingsPanel/today page,
+        // which just ask whether they want to attach one).
         allow update: if isFamilyMember(familyId) &&
           (
-            (isParent(familyId) &&
-              (!(resource.data.assignedTo == request.auth.uid &&
-                  resource.data.status != 'done' &&
-                  request.resource.data.status == 'done') ||
-                photoRequirementMet(familyId, resource.data.templateId, resource.data.assignedTo, request.resource.data))) ||
+            isParent(familyId) ||
             (resource.data.assignedTo == request.auth.uid &&
              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'photoUrl']) &&
              request.resource.data.status in ['submitted', 'pending'] &&

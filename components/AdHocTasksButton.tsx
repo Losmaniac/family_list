@@ -10,8 +10,9 @@ import { getDb, getFirebaseFunctions, getFirebaseStorage } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
+import { useDialog } from "@/lib/dialog-context";
 import { compressImage } from "@/lib/image-compress";
-import { formatXp } from "@/lib/xp-engine";
+import { formatXp, levelForXp } from "@/lib/xp-engine";
 import { adHocCooldownInfo, formatCooldownRemaining, latestCompletionByType } from "@/lib/adhoc-tasks";
 import type { AdHocTaskCompletion, AdHocTaskType } from "@/lib/types";
 
@@ -38,8 +39,9 @@ function buildAdHocPhotoPath(familyId: string, uid: string, typeId: string): str
  */
 export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   const { user } = useAuth();
-  const { family } = useFamily();
+  const { family, member } = useFamily();
   const toast = useToast();
+  const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
   const [types, setTypes] = useState<AdHocTaskType[]>([]);
   const [completions, setCompletions] = useState<AdHocTaskCompletion[]>([]);
@@ -91,8 +93,31 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
     }
   }
 
-  function handleComplete(type: AdHocTaskType) {
+  async function handleComplete(type: AdHocTaskType) {
     if (type.photoRequired) {
+      // A parent is never gated on the photo — ask each time instead of
+      // forcing the camera (mirrors /today's own-task flow). A child past
+      // family.photoExemptFromLevel skips it silently, same as the server
+      // treats it (see completeAdHocTask).
+      if (member?.role === "parent") {
+        const wantsPhoto = await confirm({
+          title: "Přiložit fotku?",
+          description: "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
+          confirmLabel: "Ano, přiložit",
+          cancelLabel: "Ne, bez fotky",
+        });
+        if (!wantsPhoto) {
+          submitCompletion(type);
+          return;
+        }
+      } else {
+        const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
+        const photoExempt = family?.photoExemptFromLevel !== undefined && memberLevel >= family.photoExemptFromLevel;
+        if (photoExempt) {
+          submitCompletion(type);
+          return;
+        }
+      }
       photoTypeRef.current = type;
       photoInputRef.current?.click();
       return;
