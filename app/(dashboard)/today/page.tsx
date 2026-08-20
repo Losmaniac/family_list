@@ -112,19 +112,36 @@ export default function TodayPage() {
   // reaches 'done', which is what actually awards XP (see onTaskCompleted).
   // A photo-required template needs the photo on the way *toward*
   // completion regardless of role — pulling a submission back (child) or
-  // un-toggling a self-approved task (parent) never needs one.
+  // un-toggling a self-approved task (parent) never needs one. A parent is
+  // never actually gated on the photo (mirrors firestore.rules) — they're
+  // just asked each time whether they want to attach one anyway.
   async function handleOwnToggle(task: DailyTask) {
     if (!familyId || pendingTaskIds.has(task.id)) return;
     const ref = doc(getDb(), "families", familyId, "dailyTasks", task.id);
     const template = templates[task.templateId];
 
-    const movingTowardCompletion = member?.role === "parent" ? task.status !== "done" : task.status !== "submitted";
+    const isParent = member?.role === "parent";
+    const movingTowardCompletion = isParent ? task.status !== "done" : task.status !== "submitted";
     const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
     const photoExempt = family?.photoExemptFromLevel !== undefined && memberLevel >= family.photoExemptFromLevel;
-    if (template?.photoRequired && movingTowardCompletion && !photoExempt) {
-      setPhotoTask(task);
-      photoInputRef.current?.click();
-      return;
+    if (template?.photoRequired && movingTowardCompletion) {
+      if (isParent) {
+        const wantsPhoto = await confirm({
+          title: "Přiložit fotku?",
+          description: "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
+          confirmLabel: "Ano, přiložit",
+          cancelLabel: "Ne, bez fotky",
+        });
+        if (wantsPhoto) {
+          setPhotoTask(task);
+          photoInputRef.current?.click();
+          return;
+        }
+      } else if (!photoExempt) {
+        setPhotoTask(task);
+        photoInputRef.current?.click();
+        return;
+      }
     }
 
     setPendingTaskIds((prev) => new Set(prev).add(task.id));
