@@ -9,6 +9,11 @@
 
 export const SVATKY_API_URL = "https://svatkyapi.cz/api/day";
 
+/** Same response shape as SVATKY_API_URL, but for an arbitrary date (e.g. tomorrow) instead of today. */
+export function buildSvatkyApiUrlForDate(dateKey: string): string {
+  return `https://svatkyapi.cz/api/day/${dateKey}`;
+}
+
 export interface DayInfo {
   /** "9. srpna 2026" — day + genitive month + year, built from the API's numeric/genitive fields. */
   formattedDate: string;
