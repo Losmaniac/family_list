@@ -1,8 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
-import { Gift, Lightbulb, List as ListIcon, Luggage, Phone, Plus, ShoppingCart, Trash2, Wrench } from "lucide-react";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+} from "firebase/firestore";
+import {
+  ChefHat,
+  Gift,
+  Lightbulb,
+  List as ListIcon,
+  Luggage,
+  Phone,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -11,6 +28,7 @@ import { useDialog } from "@/lib/dialog-context";
 import { LIST_PRESETS } from "@/lib/lists";
 import ShoppingListView from "@/components/ShoppingListView";
 import GenericListView from "@/components/GenericListView";
+import MealPlannerView from "@/components/MealPlannerView";
 import type { FamilyList, ListKind } from "@/lib/types";
 
 const KIND_ICONS: Record<ListKind, typeof Gift> = {
@@ -22,8 +40,8 @@ const KIND_ICONS: Record<ListKind, typeof Gift> = {
   custom: ListIcon,
 };
 
-/** "shopping" is a UI-only sentinel — the shopping list itself lives in the separate, unchanged shoppingItems collection, not in `lists`. */
-type Selection = "shopping" | string;
+/** "shopping"/"meals" are UI-only sentinels — the shopping list and meal planner each live in their own separate collections, not in `lists`. */
+type Selection = "shopping" | "meals" | string;
 
 export default function ListsPage() {
   const { user } = useAuth();
@@ -42,10 +60,15 @@ export default function ListsPage() {
 
   useEffect(() => {
     if (!familyId) return;
-    return onSnapshot(collection(getDb(), "families", familyId, "lists"), (snapshot) => {
-      setLists(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as FamilyList));
-      setListsLoaded(true);
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "lists"),
+      (snapshot) => {
+        setLists(
+          snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as FamilyList),
+        );
+        setListsLoaded(true);
+      },
+    );
   }, [familyId]);
 
   // One-time seed of the built-in presets (wishlist, nápady na zlepšení,
@@ -57,7 +80,9 @@ export default function ListsPage() {
   useEffect(() => {
     if (!familyId || !user || !isParent || !listsLoaded) return;
     const existingKinds = new Set(lists.map((l) => l.kind));
-    const missing = LIST_PRESETS.filter((preset) => !existingKinds.has(preset.kind));
+    const missing = LIST_PRESETS.filter(
+      (preset) => !existingKinds.has(preset.kind),
+    );
     if (missing.length === 0) return;
     for (const preset of missing) {
       addDoc(collection(getDb(), "families", familyId, "lists"), {
@@ -113,13 +138,18 @@ export default function ListsPage() {
     }
   }
 
-  const selectedList = selected === "shopping" ? null : lists.find((l) => l.id === selected);
+  const selectedList =
+    selected === "shopping" || selected === "meals"
+      ? null
+      : lists.find((l) => l.id === selected);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold">Seznamy</h1>
-        <p className="text-sm text-zinc-500">Nákupní seznam, přání, nápady a další — sdílené s celou rodinou.</p>
+        <p className="text-sm text-zinc-500">
+          Nákupní seznam, přání, nápady a další — sdílené s celou rodinou.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -127,10 +157,23 @@ export default function ListsPage() {
           type="button"
           onClick={() => setSelected("shopping")}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
-            selected === "shopping" ? "bg-accent text-accent-foreground" : "border border-border text-zinc-500"
+            selected === "shopping"
+              ? "bg-accent text-accent-foreground"
+              : "border border-border text-zinc-500"
           }`}
         >
           <ShoppingCart size={14} /> Nákupní seznam
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelected("meals")}
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
+            selected === "meals"
+              ? "bg-accent text-accent-foreground"
+              : "border border-border text-zinc-500"
+          }`}
+        >
+          <ChefHat size={14} /> Jídelníček
         </button>
         {lists.map((list) => {
           const Icon = KIND_ICONS[list.kind];
@@ -140,7 +183,9 @@ export default function ListsPage() {
               type="button"
               onClick={() => setSelected(list.id)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
-                selected === list.id ? "bg-accent text-accent-foreground" : "border border-border text-zinc-500"
+                selected === list.id
+                  ? "bg-accent text-accent-foreground"
+                  : "border border-border text-zinc-500"
               }`}
             >
               <Icon size={14} /> {list.title}
@@ -160,7 +205,10 @@ export default function ListsPage() {
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleAddList} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+        <form
+          onSubmit={handleAddList}
+          className="flex flex-col gap-3 rounded-xl border border-border p-4"
+        >
           <input
             type="text"
             required
@@ -171,18 +219,24 @@ export default function ListsPage() {
             className="rounded-lg border border-border bg-surface px-4 py-2"
           />
           <div className="flex flex-wrap gap-2">
-            {(["custom", ...LIST_PRESETS.map((p) => p.kind)] as ListKind[]).map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => setNewKind(kind)}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  newKind === kind ? "bg-accent text-accent-foreground" : "border border-border"
-                }`}
-              >
-                {kind === "custom" ? "Vlastní" : LIST_PRESETS.find((p) => p.kind === kind)?.title}
-              </button>
-            ))}
+            {(["custom", ...LIST_PRESETS.map((p) => p.kind)] as ListKind[]).map(
+              (kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setNewKind(kind)}
+                  className={`rounded-full px-3 py-1.5 text-sm ${
+                    newKind === kind
+                      ? "bg-accent text-accent-foreground"
+                      : "border border-border"
+                  }`}
+                >
+                  {kind === "custom"
+                    ? "Vlastní"
+                    : LIST_PRESETS.find((p) => p.kind === kind)?.title}
+                </button>
+              ),
+            )}
           </div>
           <div className="flex gap-2">
             <button
@@ -215,8 +269,14 @@ export default function ListsPage() {
 
       {selected === "shopping" ? (
         <ShoppingListView />
+      ) : selected === "meals" && familyId ? (
+        <MealPlannerView familyId={familyId} isParent={isParent} />
       ) : selectedList && familyId ? (
-        <GenericListView key={selectedList.id} familyId={familyId} list={selectedList} />
+        <GenericListView
+          key={selectedList.id}
+          familyId={familyId}
+          list={selectedList}
+        />
       ) : null}
     </div>
   );

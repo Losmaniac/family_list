@@ -1124,3 +1124,35 @@ export interface VaultConfig {
   createdBy: string;
   createdAt: number;
 }
+
+/**
+ * families/{familyId}/recipes/{id} — a parent-managed recipe for the
+ * "Jídelníček" (meal planning) tab on /lists: just a title and a flat list
+ * of ingredient lines (free text, e.g. "Mouka 500 g") — the same plain-name
+ * shape a shoppingItem already uses, deliberately not decomposed into
+ * amount/unit fields, so turning a recipe into shopping-list items (see
+ * lib/meal-plan.ts's aggregateIngredients) needs no unit conversion.
+ * Family-readable (everyone can see what's for dinner), parent-managed.
+ */
+export interface Recipe {
+  id: string;
+  title: string;
+  ingredients: string[];
+  createdBy: string;
+  createdAt: number;
+}
+
+/**
+ * families/{familyId}/mealPlan/{weekKey} — which recipes a parent picked to
+ * cook for one week, `weekKey` being that week's Monday as a YYYY-MM-DD key
+ * (see lib/date-utils.ts's dateKeyInFamilyZone(startOfWeek(...))). One
+ * shared doc per week, not per-member — the whole family eats the same
+ * meals. Family-readable, parent-writable, same trust split as Recipe.
+ */
+export interface MealPlan {
+  id: string;
+  recipeIds: string[];
+  createdBy: string;
+  createdAt: number;
+  updatedAt?: number;
+}
