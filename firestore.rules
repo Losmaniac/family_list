@@ -190,6 +190,24 @@ service cloud.firestore {
         allow delete: if isParent(familyId);
       }
 
+      // Household budget (lib/types.ts's BudgetEntry) — real (not XP) money
+      // for the family's own finances, distinct from moneyAccounts above
+      // (which tracks a *child's* money on their behalf). Parent-only end
+      // to end: no member/child oversight exception here, since this is
+      // never a child's own money to begin with. Flat collection (like
+      // xpLedger) rather than per-owner subcollections, since there's only
+      // ever one shared household budget per family.
+      match /budgetEntries/{entryId} {
+        allow read: if isParent(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.type in ['income', 'expense'] &&
+          request.resource.data.amount is number && request.resource.data.amount > 0 &&
+          request.resource.data.description is string && request.resource.data.description.size() > 0;
+        allow update: if false;
+        allow delete: if isParent(familyId);
+      }
+
       match /dailyTasks/{taskId} {
         allow read: if isFamilyMember(familyId);
         // A parent can move a task to any status (approve to 'done', return

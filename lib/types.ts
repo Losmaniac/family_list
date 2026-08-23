@@ -1012,6 +1012,28 @@ export interface MoneyAccountEntry {
 }
 
 /**
+ * families/{familyId}/budgetEntries/{id} — the family's own real-money
+ * household budget (rent, groceries, bills, …), distinct from
+ * MoneyAccountEntry above (which is a *child's* own money that a parent
+ * happens to operate). Parent-only, no child visibility at all — flat
+ * collection since there's only one shared budget per family, not one per
+ * owner. Balance is derived the same way as a money account: sum of every
+ * entry, income positive/expense negative (see lib/money.ts's
+ * sumMoneyEntries, structurally compatible with this shape too).
+ */
+export interface BudgetEntry {
+  id: string;
+  type: MoneyEntryType;
+  /** Always positive — sign is implied by `type`. */
+  amount: number;
+  /** Free-form, e.g. "Bydlení"/"Jídlo" — see lib/money.ts's BUDGET_CATEGORIES for the suggested starter set. */
+  category?: string;
+  description: string;
+  createdBy: string;
+  timestamp: number;
+}
+
+/**
  * families/{familyId}/aiTutorMessages/{uid}/messages/{id} — one member's
  * "AI učitel" conversation log (see functions/src/aiTutor.ts's askAiTutor,
  * lib/ai-tutor.ts for the prompt logic). Personal, not shared with
