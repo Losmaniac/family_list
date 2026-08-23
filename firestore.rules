@@ -197,6 +197,31 @@ service cloud.firestore {
         allow delete: if isParent(familyId);
       }
 
+      // "Jídelníček" (lib/types.ts's Recipe/MealPlan) — a parent-managed
+      // recipe box plus one shared plan per week, feeding
+      // lib/meal-plan.ts's aggregateIngredients on the way to the shopping
+      // list. Family-readable (everyone can see what's for dinner),
+      // parent-writable, same split as taskTemplates.
+      match /recipes/{recipeId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 &&
+          request.resource.data.ingredients is list;
+        allow update: if isParent(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'ingredients']);
+        allow delete: if isParent(familyId);
+      }
+      match /mealPlan/{weekKey} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.recipeIds is list;
+        allow update: if isParent(familyId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recipeIds', 'updatedAt']);
+        allow delete: if isParent(familyId);
+      }
+
       // Real (not XP) money a parent tracks on a child's behalf
       // (lib/types.ts's MoneyAccountEntry) — accountId is either a
       // registered member's own uid or a childProfiles/{id} for an
