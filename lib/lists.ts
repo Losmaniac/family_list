@@ -19,10 +19,17 @@ export const LIST_KIND_LABELS: Record<ListKind, string> = {
   wishlist: "Přání",
   ideas: "Nápady na zlepšení",
   howto: "Návody pro chod domu",
+  packing: "Cestovní/balicí seznam",
+  emergency: "Nouzové kontakty",
   custom: "Vlastní seznam",
 };
 
 export const WISHLIST_CATEGORIES = ["Narozeniny", "Svátek", "Vánoce"];
+
+export const PACKING_CATEGORIES = ["Oblečení", "Hygiena", "Elektronika", "Dokumenty", "Ostatní"];
+
+/** Emergency contacts use the item's `name` for who/what and its `note` for the phone number — same generic list-item shape, just a specific reading of it. */
+export const EMERGENCY_CATEGORIES = ["Rodina", "Lékaři", "Škola", "Ostatní"];
 
 /**
  * Built-in list presets a parent can one-tap-create from the "+ Přidat
@@ -34,6 +41,8 @@ export const LIST_PRESETS: { kind: ListKind; title: string; categories?: string[
   { kind: "wishlist", title: LIST_KIND_LABELS.wishlist, categories: WISHLIST_CATEGORIES },
   { kind: "ideas", title: LIST_KIND_LABELS.ideas },
   { kind: "howto", title: LIST_KIND_LABELS.howto },
+  { kind: "packing", title: LIST_KIND_LABELS.packing, categories: PACKING_CATEGORIES },
+  { kind: "emergency", title: LIST_KIND_LABELS.emergency, categories: EMERGENCY_CATEGORIES },
 ];
 
 /** Groups items by their `category`, in the given category order; anything with no matching category falls into a trailing "Ostatní" bucket. Returns a single unlabeled group when the list has no categories at all. */
