@@ -32,6 +32,17 @@ service firebase.storage {
       allow delete: if isParent(familyId);
     }
 
+    // Vault documents: families/{familyId}/vaultDocuments/{fileId} — scans/
+    // photos of important documents (rodný list, pojistka, …). Parent-only
+    // both ways, unlike every other file path here — the "Trezor" is a
+    // parent-curated store, not something a child uploads to or browses.
+    // A generous size cap since this covers scanned PDFs, not just photos.
+    match /families/{familyId}/vaultDocuments/{fileId} {
+      allow read: if isParent(familyId);
+      allow write: if isParent(familyId) && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if isParent(familyId);
+    }
+
     // Ad-hoc task proof photos: families/{familyId}/adHocTaskPhotos/{uid}/{fileId}
     // — there's no pre-existing per-task Firestore doc to check assignment
     // against like taskPhotos above (an ad-hoc completion doc is only ever

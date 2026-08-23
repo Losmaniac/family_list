@@ -171,6 +171,32 @@ service cloud.firestore {
         allow delete: if isParent(familyId);
       }
 
+      // "Trezor" — the digital family vault (lib/types.ts's VaultConfig/
+      // VaultItem). Parent-only end to end, no exceptions: a `credential`
+      // item's cipherText/iv are useless without the passphrase-derived key
+      // (which never reaches Firestore or these rules at all), but a
+      // `document` item's file URL/name are plain data, so the read gate
+      // here is the only thing protecting those.
+      match /vaultConfig/{docId} {
+        allow read: if isParent(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.salt is string &&
+          request.resource.data.verifierCipherText is string &&
+          request.resource.data.verifierIv is string;
+        allow update: if false;
+        allow delete: if isParent(familyId);
+      }
+      match /vaultItems/{itemId} {
+        allow read: if isParent(familyId);
+        allow create: if isParent(familyId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.type in ['document', 'credential'] &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0;
+        allow update: if false;
+        allow delete: if isParent(familyId);
+      }
+
       // Real (not XP) money a parent tracks on a child's behalf
       // (lib/types.ts's MoneyAccountEntry) — accountId is either a
       // registered member's own uid or a childProfiles/{id} for an
