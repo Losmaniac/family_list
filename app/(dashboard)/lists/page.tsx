@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
-import { Gift, Lightbulb, List as ListIcon, Plus, ShoppingCart, Trash2, Wrench } from "lucide-react";
+import { Gift, Lightbulb, List as ListIcon, Luggage, Phone, Plus, ShoppingCart, Trash2, Wrench } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -17,6 +17,8 @@ const KIND_ICONS: Record<ListKind, typeof Gift> = {
   wishlist: Gift,
   ideas: Lightbulb,
   howto: Wrench,
+  packing: Luggage,
+  emergency: Phone,
   custom: ListIcon,
 };
 

@@ -98,7 +98,14 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
         />
         <div className="min-w-0 flex-1">
           <p className={checked ? "truncate text-zinc-400 line-through" : "truncate"}>{item.name}</p>
-          {item.note && <p className="mt-0.5 whitespace-pre-wrap text-sm text-zinc-500">{item.note}</p>}
+          {item.note &&
+            (list.kind === "emergency" ? (
+              <a href={`tel:${item.note.replace(/\s+/g, "")}`} className="mt-0.5 block text-sm text-accent">
+                {item.note}
+              </a>
+            ) : (
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-zinc-500">{item.note}</p>
+            ))}
           {checked && formatCompletedAt(item.completedAt) && (
             <p className="mt-0.5 text-xs text-zinc-400">{formatCompletedAt(item.completedAt)}</p>
           )}
@@ -139,7 +146,7 @@ export default function GenericListView({ familyId, list }: { familyId: string; 
             className="rounded-lg border border-border bg-surface px-4 py-2"
           />
           <textarea
-            placeholder="Poznámka (nepovinné)"
+            placeholder={list.kind === "emergency" ? "Telefon (nepovinné)" : "Poznámka (nepovinné)"}
             value={form.note}
             onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
             rows={2}

@@ -706,7 +706,7 @@ export interface ShoppingItem {
   timestamp: number;
 }
 
-export type ListKind = "wishlist" | "ideas" | "howto" | "custom";
+export type ListKind = "wishlist" | "ideas" | "howto" | "packing" | "emergency" | "custom";
 
 /**
  * families/{familyId}/lists/{id} — a list living on the "Seznamy" card
