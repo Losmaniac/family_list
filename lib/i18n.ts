@@ -35,6 +35,7 @@ const cs = {
   "nav.media": "Média",
   "nav.weather": "Počasí",
   "nav.adam": "Adam",
+  "nav.vault": "Trezor",
   "nav.settings": "Nastavení",
 
   // Společné
@@ -86,6 +87,7 @@ const en: Record<TranslationKey, string> = {
   "nav.media": "Media",
   "nav.weather": "Weather",
   "nav.adam": "Adam",
+  "nav.vault": "Vault",
   "nav.settings": "Settings",
 
   "common.save": "Save",

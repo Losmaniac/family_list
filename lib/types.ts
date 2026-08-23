@@ -1073,3 +1073,54 @@ export interface AiAssistantMessage {
   text: string;
   timestamp: number;
 }
+
+export type VaultItemType = "document" | "credential";
+
+/**
+ * families/{familyId}/vaultItems/{id} — the "Trezor" (digital family vault):
+ * important documents (rodný list, pojistka, očkovací průkaz — a file in
+ * Storage) and login credentials, parent-only end to end (firestore.rules
+ * has no member/child exception at all, unlike every other collection in
+ * this app). A `document` item's file is stored as-is in Storage (same
+ * access-control-by-rules model as taskPhotos, just parent-gated) — a
+ * `credential` item's sensitive fields never reach Firestore in the clear:
+ * `cipherText`/`iv` are AES-GCM output from lib/vault-crypto.ts, encrypted
+ * client-side with a key derived from a family vault passphrase that is
+ * itself never stored anywhere (see VaultConfig). Losing that passphrase
+ * makes every credential item permanently unreadable — there is no
+ * recovery path by design, since a recoverable secret isn't actually
+ * secret.
+ */
+export interface VaultItem {
+  id: string;
+  type: VaultItemType;
+  title: string;
+  /** `document` only — the uploaded file. */
+  fileUrl?: string;
+  fileName?: string;
+  /** `credential` only — base64 AES-GCM ciphertext of a JSON {username, password, note} payload. */
+  cipherText?: string;
+  /** `credential` only — base64 initialization vector for this item's ciphertext, fresh per item. */
+  iv?: string;
+  createdBy: string;
+  createdAt: number;
+}
+
+/**
+ * families/{familyId}/vaultConfig/meta — a single doc holding what's needed
+ * to derive the vault's AES-GCM key from a passphrase (PBKDF2 `salt`) and
+ * to verify a re-entered passphrase is correct (`verifierCipherText`/
+ * `verifierIv`, the encryption of a known constant — see
+ * lib/vault-crypto.ts's VAULT_VERIFIER_PLAINTEXT) without ever storing the
+ * passphrase itself. Created once when a parent first sets up the vault;
+ * "Resetovat trezor" deletes this doc and every `credential`-type
+ * VaultItem together (see the /vault page), since neither is readable
+ * without the passphrase that produced them anyway.
+ */
+export interface VaultConfig {
+  salt: string;
+  verifierCipherText: string;
+  verifierIv: string;
+  createdBy: string;
+  createdAt: number;
+}

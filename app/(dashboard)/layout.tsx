@@ -32,6 +32,7 @@ import {
   CloudSun,
   GraduationCap,
   ListChecks,
+  Lock,
   MessageCircle,
   Moon,
   Settings,
@@ -91,6 +92,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/media", labelKey: "nav.media", icon: Tv, parentOnly: false },
   { href: "/weather", labelKey: "nav.weather", icon: CloudSun, parentOnly: false },
   { href: "/adam", labelKey: "nav.adam", icon: Truck, parentOnly: false },
+  { href: "/vault", labelKey: "nav.vault", icon: Lock, parentOnly: true },
 ];
 
 function navOrderStorageKey(uid: string): string {
