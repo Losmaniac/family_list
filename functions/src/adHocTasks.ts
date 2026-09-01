@@ -21,7 +21,10 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { buildLedgerEntry, levelForXp } from "../../lib/xp-engine";
-import { adHocCooldownInfo, formatCooldownRemaining } from "../../lib/adhoc-tasks";
+import {
+  adHocCooldownInfo,
+  formatCooldownRemaining,
+} from "../../lib/adhoc-tasks";
 import { requireAuth, requireFamilyMember } from "./practice";
 import type { AdHocTaskType, Family, Member } from "../../lib/types";
 
@@ -36,7 +39,11 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
   const uid = request.auth?.uid;
   requireAuth(uid);
   const { familyId, typeId, photoUrl } = request.data;
-  if (!familyId || !typeId) throw new HttpsError("invalid-argument", "familyId and typeId are required.");
+  if (!familyId || !typeId)
+    throw new HttpsError(
+      "invalid-argument",
+      "familyId and typeId are required.",
+    );
   await requireFamilyMember(familyId, uid);
 
   const db = getFirestore();
@@ -57,7 +64,11 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
       tx.get(memberRef),
     ]);
     const type = typeSnap.data() as AdHocTaskType | undefined;
-    if (!type || !type.active) throw new HttpsError("failed-precondition", "Tento úkol už není dostupný.");
+    if (!type || !type.active)
+      throw new HttpsError(
+        "failed-precondition",
+        "Tento úkol už není dostupný.",
+      );
 
     const family = familySnap.data() as Family | undefined;
     const member = memberSnap.data() as Member | undefined;
@@ -67,18 +78,32 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     // at all. Either way, skipping the photo also skips the pending-
     // approval flow below: there's nothing left for another parent to
     // review, so it's treated exactly like a non-photoRequired type.
+    // photoRequirementsEnabled is the family-wide kill switch (Settings →
+    // Fotky) — false overrides every type's own photoRequired flag.
+    const photosEnabled = family?.photoRequirementsEnabled !== false;
     const exemptFromLevel = family?.photoExemptFromLevel;
-    const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
-    const isExemptChild = exemptFromLevel !== undefined && memberLevel >= exemptFromLevel;
-    const photoGateActive = type.photoRequired && member?.role !== "parent" && !isExemptChild;
-    if (photoGateActive && !photoUrl) throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
+    const memberLevel = levelForXp(
+      member?.xpBalance ?? 0,
+      family?.levelThresholds,
+    );
+    const isExemptChild =
+      exemptFromLevel !== undefined && memberLevel >= exemptFromLevel;
+    const photoGateActive =
+      photosEnabled &&
+      type.photoRequired &&
+      member?.role !== "parent" &&
+      !isExemptChild;
+    if (photoGateActive && !photoUrl)
+      throw new HttpsError("invalid-argument", "Tento úkol vyžaduje foto.");
 
-    const lastCompletedAt = lastSnap.empty ? undefined : (lastSnap.docs[0].data().timestamp as number);
+    const lastCompletedAt = lastSnap.empty
+      ? undefined
+      : (lastSnap.docs[0].data().timestamp as number);
     const cooldown = adHocCooldownInfo(type.cooldownMinutes, lastCompletedAt);
     if (cooldown.onCooldown) {
       throw new HttpsError(
         "failed-precondition",
-        `Ještě chvíli počkej — zbývá ${formatCooldownRemaining(cooldown.remainingMs)}.`
+        `Ještě chvíli počkej — zbývá ${formatCooldownRemaining(cooldown.remainingMs)}.`,
       );
     }
 
@@ -104,7 +129,12 @@ export const completeAdHocTask = onCall<CompleteRequest>(async (request) => {
     });
     tx.set(
       familyRef.collection("xpLedger").doc(),
-      buildLedgerEntry({ userId: uid, delta: type.xpValue, reason: "adhoc_task", relatedTaskId: typeId })
+      buildLedgerEntry({
+        userId: uid,
+        delta: type.xpValue,
+        reason: "adhoc_task",
+        relatedTaskId: typeId,
+      }),
     );
     tx.update(memberRef, { xpBalance: FieldValue.increment(type.xpValue) });
     return { awarded: type.xpValue, pending: false };

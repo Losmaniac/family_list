@@ -24,8 +24,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/families/$(familyId)/rewards/$(rewardId)).data.approvalRequired;
     }
 
+    // A family-wide kill switch (Settings → Fotky) — when explicitly false,
+    // no template's photoRequired flag counts at all, regardless of what
+    // it's set to.
+    function photoRequirementsEnabled(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId)).data.get('photoRequirementsEnabled', true) != false;
+    }
+
     function templatePhotoRequired(familyId, templateId) {
-      return get(/databases/$(database)/documents/families/$(familyId)/taskTemplates/$(templateId)).data.get('photoRequired', false) == true;
+      return photoRequirementsEnabled(familyId) &&
+        get(/databases/$(database)/documents/families/$(familyId)/taskTemplates/$(templateId)).data.get('photoRequired', false) == true;
     }
 
     function scheduleVisibleToAll(familyId) {
