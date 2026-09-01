@@ -442,10 +442,12 @@ export const investDemoContestSettle = onSchedule({ schedule: "0 20 * * *", time
  * Starts the next contest round — the day after the last day of the month
  * (i.e. the 1st) at 09:00 Europe/Prague. The previous round's settlement
  * already liquidated every portfolio to cash (see
- * investDemoContestSettle/liquidatePortfolio), so this just snapshots that
- * post-liquidation cashBalance as the new round's roundStartCzk — the
- * threshold a portfolio has to grow past to actually get paid next time,
- * even if it ranks in the top 3 (see rankContestParticipants). No live
+ * investDemoContestSettle/liquidatePortfolio); this resets every
+ * portfolio's actual cashBalance back to the family's configured starting
+ * balance (family.investDemoStartingBalance, same default a brand-new
+ * portfolio gets from initInvestDemoPortfolio) rather than carrying
+ * winnings/losses forward — every round starts everyone level, same as a
+ * fresh contest. roundStartCzk mirrors that same reset value. No live
  * pricing needed since every portfolio is already pure cash at this point.
  */
 export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZone: "Europe/Prague" }, async () => {
@@ -459,9 +461,17 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
     const portfoliosSnap = await familyDoc.ref.collection("investDemoPortfolios").get();
     if (portfoliosSnap.empty) continue;
 
+    const family = familyDoc.data() as Family;
+    const startingBalance = family.investDemoStartingBalance ?? DEFAULT_INVEST_DEMO_STARTING_BALANCE;
+    const resetAt = Date.now();
     for (const portfolioDoc of portfoliosSnap.docs) {
-      const portfolio = portfolioDoc.data() as InvestDemoPortfolio;
-      await portfolioDoc.ref.update({ roundStartCzk: portfolio.cashBalance, roundStartAt: Date.now() });
+      await portfolioDoc.ref.update({
+        cashBalance: startingBalance,
+        totalValueCzk: startingBalance,
+        valuedAt: resetAt,
+        roundStartCzk: startingBalance,
+        roundStartAt: resetAt,
+      });
     }
 
     const membersSnap = await familyDoc.ref.collection("members").get();
@@ -478,7 +488,7 @@ export const investDemoContestReset = onSchedule({ schedule: "0 9 * * *", timeZo
         "invest_demo_round_started",
         targets,
         "Family Quest",
-        "🚀 Začalo nové kolo demo investování — minulý měsíc se otevřené pozice automaticky uzavřely na hotovost, teď se soutěží znovu od nuly.",
+        `🚀 Začalo nové kolo demo investování — zůstatek se vrátil na startovních ${formatCzk(startingBalance)}, soutěží se znovu od stejné startovní čáry.`,
         db
       );
     }
