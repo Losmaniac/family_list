@@ -2,8 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { collection, doc, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 import { PartyPopper, Sparkles, Star, X } from "lucide-react";
 import { getDb, getFirebaseStorage } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -38,6 +50,7 @@ function todayKey(): string {
 export default function TodayPage() {
   const { user } = useAuth();
   const { familyId, member, family } = useFamily();
+  const photosEnabled = family?.photoRequirementsEnabled !== false;
   const toast = useToast();
   const { promptText, confirm } = useDialog();
   const { t } = useLocale();
@@ -58,10 +71,12 @@ export default function TodayPage() {
     const tasksQuery = query(
       collection(getDb(), "families", familyId, "dailyTasks"),
       where("assignedTo", "==", user.uid),
-      where("date", "==", todayKey())
+      where("date", "==", todayKey()),
     );
     const unsubscribe = onSnapshot(tasksQuery, (snapshot) => {
-      setTasks(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask));
+      setTasks(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask),
+      );
       setLoading(false);
     });
     return unsubscribe;
@@ -71,40 +86,61 @@ export default function TodayPage() {
     if (!familyId || member?.role !== "parent") return;
     const approvalQuery = query(
       collection(getDb(), "families", familyId, "dailyTasks"),
-      where("status", "==", "submitted")
+      where("status", "==", "submitted"),
     );
     return onSnapshot(approvalQuery, (snapshot) => {
-      setPendingApproval(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask));
+      setPendingApproval(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyTask),
+      );
     });
   }, [familyId, member?.role]);
 
   useEffect(() => {
     if (!familyId) return;
-    return onSnapshot(collection(getDb(), "families", familyId, "taskTemplates"), (snapshot) => {
-      const next: Record<string, TaskTemplate> = {};
-      for (const templateDoc of snapshot.docs) {
-        next[templateDoc.id] = { id: templateDoc.id, ...templateDoc.data() } as TaskTemplate;
-      }
-      setTemplates(next);
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "taskTemplates"),
+      (snapshot) => {
+        const next: Record<string, TaskTemplate> = {};
+        for (const templateDoc of snapshot.docs) {
+          next[templateDoc.id] = {
+            id: templateDoc.id,
+            ...templateDoc.data(),
+          } as TaskTemplate;
+        }
+        setTemplates(next);
+      },
+    );
   }, [familyId]);
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
-    return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
-      const next: Record<string, Member> = {};
-      for (const memberDoc of snapshot.docs) {
-        next[memberDoc.id] = { id: memberDoc.id, ...memberDoc.data() } as Member;
-      }
-      setMembers(next);
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "members"),
+      (snapshot) => {
+        const next: Record<string, Member> = {};
+        for (const memberDoc of snapshot.docs) {
+          next[memberDoc.id] = {
+            id: memberDoc.id,
+            ...memberDoc.data(),
+          } as Member;
+        }
+        setMembers(next);
+      },
+    );
   }, [familyId, member?.role]);
 
   useEffect(() => {
     if (!familyId || !user) return;
-    return onSnapshot(doc(getDb(), "families", familyId, "taskRequests", user.uid), (snap) => {
-      setMyRequest(snap.exists() ? ({ id: snap.id, ...snap.data() } as TaskRequest) : null);
-    });
+    return onSnapshot(
+      doc(getDb(), "families", familyId, "taskRequests", user.uid),
+      (snap) => {
+        setMyRequest(
+          snap.exists()
+            ? ({ id: snap.id, ...snap.data() } as TaskRequest)
+            : null,
+        );
+      },
+    );
   }, [familyId, user]);
 
   // A parent completing their own task self-approves immediately. A child's
@@ -121,14 +157,22 @@ export default function TodayPage() {
     const template = templates[task.templateId];
 
     const isParent = member?.role === "parent";
-    const movingTowardCompletion = isParent ? task.status !== "done" : task.status !== "submitted";
-    const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
-    const photoExempt = family?.photoExemptFromLevel !== undefined && memberLevel >= family.photoExemptFromLevel;
-    if (template?.photoRequired && movingTowardCompletion) {
+    const movingTowardCompletion = isParent
+      ? task.status !== "done"
+      : task.status !== "submitted";
+    const memberLevel = levelForXp(
+      member?.xpBalance ?? 0,
+      family?.levelThresholds,
+    );
+    const photoExempt =
+      family?.photoExemptFromLevel !== undefined &&
+      memberLevel >= family.photoExemptFromLevel;
+    if (photosEnabled && template?.photoRequired && movingTowardCompletion) {
       if (isParent) {
         const wantsPhoto = await confirm({
           title: "Přiložit fotku?",
-          description: "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
+          description:
+            "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
           confirmLabel: "Ano, přiložit",
           cancelLabel: "Ne, bez fotky",
         });
@@ -157,7 +201,10 @@ export default function TodayPage() {
           });
           if (!ok) return;
         }
-        await updateDoc(ref, { status: nextStatus, completedAt: nextStatus === "done" ? Date.now() : null });
+        await updateDoc(ref, {
+          status: nextStatus,
+          completedAt: nextStatus === "done" ? Date.now() : null,
+        });
         return;
       }
 
@@ -194,16 +241,28 @@ export default function TodayPage() {
         quality: family?.photoCompressionQuality,
         maxDimension: family?.photoMaxDimension,
       });
-      const photoRef = storageRef(getFirebaseStorage(), `families/${familyId}/taskPhotos/${task.id}`);
-      await uploadBytes(photoRef, compressed, { contentType: compressed.type || file.type });
+      const photoRef = storageRef(
+        getFirebaseStorage(),
+        `families/${familyId}/taskPhotos/${task.id}`,
+      );
+      await uploadBytes(photoRef, compressed, {
+        contentType: compressed.type || file.type,
+      });
       const photoUrl = await getDownloadURL(photoRef);
       const isParentTask = member?.role === "parent";
-      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
-        status: isParentTask ? "done" : "submitted",
-        completedAt: Date.now(),
-        photoUrl,
-      });
-      toast.success(isParentTask ? "Foto nahráno, úkol splněn." : "Foto nahráno, úkol odeslán ke schválení.");
+      await updateDoc(
+        doc(getDb(), "families", familyId, "dailyTasks", task.id),
+        {
+          status: isParentTask ? "done" : "submitted",
+          completedAt: Date.now(),
+          photoUrl,
+        },
+      );
+      toast.success(
+        isParentTask
+          ? "Foto nahráno, úkol splněn."
+          : "Foto nahráno, úkol odeslán ke schválení.",
+      );
     } catch {
       toast.error("Foto se nepodařilo nahrát.");
     } finally {
@@ -218,11 +277,19 @@ export default function TodayPage() {
   async function handleApprove(task: DailyTask) {
     if (!familyId) return;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), { status: "done" });
+      await updateDoc(
+        doc(getDb(), "families", familyId, "dailyTasks", task.id),
+        { status: "done" },
+      );
       if (user) {
         const template = templates[task.templateId];
         const requester = members[task.assignedTo];
-        logAction(familyId, user.uid, "task_approved", `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`);
+        logAction(
+          familyId,
+          user.uid,
+          "task_approved",
+          `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`,
+        );
       }
       toast.success("Úkol schválen.");
     } catch {
@@ -239,14 +306,22 @@ export default function TodayPage() {
     });
     if (comment === null) return;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "dailyTasks", task.id), {
-        status: "returned",
-        returnComment: comment,
-      });
+      await updateDoc(
+        doc(getDb(), "families", familyId, "dailyTasks", task.id),
+        {
+          status: "returned",
+          returnComment: comment,
+        },
+      );
       if (user) {
         const template = templates[task.templateId];
         const requester = members[task.assignedTo];
-        logAction(familyId, user.uid, "task_returned", `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`);
+        logAction(
+          familyId,
+          user.uid,
+          "task_returned",
+          `${template?.title ?? task.templateId} — ${requester?.name ?? task.assignedTo}`,
+        );
       }
       toast.success("Úkol vrácen.");
     } catch {
@@ -258,12 +333,15 @@ export default function TodayPage() {
     if (!familyId || !user) return;
     setSubmittingRequest(true);
     try {
-      await setDoc(doc(getDb(), "families", familyId, "taskRequests", user.uid), {
-        requestedBy: user.uid,
-        status: "open",
-        timestamp: Date.now(),
-        date: todayKey(),
-      });
+      await setDoc(
+        doc(getDb(), "families", familyId, "taskRequests", user.uid),
+        {
+          requestedBy: user.uid,
+          status: "open",
+          timestamp: Date.now(),
+          date: todayKey(),
+        },
+      );
       toast.success("Žádost odeslána rodině — mohou ti navrhnout nový úkol.");
     } catch {
       toast.error("Žádost se nepodařilo odeslat.");
@@ -275,7 +353,10 @@ export default function TodayPage() {
   async function handleCancelRequest() {
     if (!familyId || !myRequest) return;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "taskRequests", myRequest.id), { status: "cancelled" });
+      await updateDoc(
+        doc(getDb(), "families", familyId, "taskRequests", myRequest.id),
+        { status: "cancelled" },
+      );
     } catch {
       toast.error("Žádost se nepodařilo zrušit.");
     }
@@ -283,9 +364,15 @@ export default function TodayPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-2" aria-label="Načítání…">
+      <div
+        className="flex min-h-[calc(100dvh-11rem)] flex-col gap-2"
+        aria-label="Načítání…"
+      >
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-[60px] animate-pulse rounded-xl bg-surface-muted" />
+          <div
+            key={i}
+            className="h-[60px] animate-pulse rounded-xl bg-surface-muted"
+          />
         ))}
       </div>
     );
@@ -299,25 +386,35 @@ export default function TodayPage() {
   // whether a parent has gotten around to approving everything yet. Applies
   // equally to a parent with nothing assigned today at all (tasks.length
   // === 0) — "nothing left to do" either way, not just "finished it all".
-  const remainingCount = tasks.filter((t) => t.status === "pending" || t.status === "returned").length;
+  const remainingCount = tasks.filter(
+    (t) => t.status === "pending" || t.status === "returned",
+  ).length;
   const awaitingMyAction = remainingCount > 0;
   const requestsEnabled = family?.taskRequestsEnabled !== false;
   // A parent can require the leftover count to drop to (or below) a chosen
   // number before the inline "want another task" button unlocks — absent =
   // no limit, so it's available as soon as anything is left, same as
   // before this setting existed.
-  const maxRemainingForInlineRequest = family?.taskRequestMaxRemaining ?? Infinity;
+  const maxRemainingForInlineRequest =
+    family?.taskRequestMaxRemaining ?? Infinity;
   // A request is only ever a same-day ask — one left open from a previous
   // day (the cron sweep cancels those, but only runs once at 00:05) should
   // never keep blocking a fresh "want another task" click today.
-  const hasOpenRequestToday = myRequest?.status === "open" && myRequest.date === todayKey();
+  const hasOpenRequestToday =
+    myRequest?.status === "open" && myRequest.date === todayKey();
 
   const requestCta = requestsEnabled && !awaitingMyAction && (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border py-6 text-center">
       {hasOpenRequestToday ? (
         <>
-          <p className="text-sm text-zinc-500">{t("today.waitingForRequest")}</p>
-          <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
+          <p className="text-sm text-zinc-500">
+            {t("today.waitingForRequest")}
+          </p>
+          <button
+            type="button"
+            onClick={handleCancelRequest}
+            className="flex items-center gap-1 text-sm text-zinc-500"
+          >
             <X size={14} /> {t("today.cancelRequest")}
           </button>
         </>
@@ -342,24 +439,30 @@ export default function TodayPage() {
   // same request flow as requestCta above, just a low-key inline version
   // that stays available alongside a still-nonempty task list instead of
   // only appearing once every last pending/returned task is gone.
-  const requestMoreInline = requestsEnabled && awaitingMyAction && remainingCount <= maxRemainingForInlineRequest && (
-    <div className="flex flex-col items-center gap-1 pt-1 text-center">
-      {hasOpenRequestToday ? (
-        <button type="button" onClick={handleCancelRequest} className="flex items-center gap-1 text-sm text-zinc-500">
-          <X size={14} /> Čekáš na návrh nového úkolu — zrušit žádost
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={handleRequestTask}
-          disabled={submittingRequest}
-          className="flex items-center gap-1.5 text-sm font-semibold text-accent disabled:opacity-50"
-        >
-          <Star size={14} /> Chci ještě další úkol
-        </button>
-      )}
-    </div>
-  );
+  const requestMoreInline = requestsEnabled &&
+    awaitingMyAction &&
+    remainingCount <= maxRemainingForInlineRequest && (
+      <div className="flex flex-col items-center gap-1 pt-1 text-center">
+        {hasOpenRequestToday ? (
+          <button
+            type="button"
+            onClick={handleCancelRequest}
+            className="flex items-center gap-1 text-sm text-zinc-500"
+          >
+            <X size={14} /> Čekáš na návrh nového úkolu — zrušit žádost
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleRequestTask}
+            disabled={submittingRequest}
+            className="flex items-center gap-1.5 text-sm font-semibold text-accent disabled:opacity-50"
+          >
+            <Star size={14} /> Chci ještě další úkol
+          </button>
+        )}
+      </div>
+    );
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-6">
@@ -380,17 +483,25 @@ export default function TodayPage() {
 
       {familyId && <LongTermGoalsPanel variant="mine" />}
 
-      {familyId && member?.role === "parent" && <PendingXpAdjustments familyId={familyId} />}
+      {familyId && member?.role === "parent" && (
+        <PendingXpAdjustments familyId={familyId} />
+      )}
 
-      {familyId && member?.role === "parent" && <PendingJournalDeletions familyId={familyId} />}
+      {familyId && member?.role === "parent" && (
+        <PendingJournalDeletions familyId={familyId} />
+      )}
 
-      {familyId && member?.role === "parent" && <PendingAdHocApprovals familyId={familyId} />}
+      {familyId && member?.role === "parent" && (
+        <PendingAdHocApprovals familyId={familyId} />
+      )}
 
       {familyId && <PendingTaskProposals familyId={familyId} />}
 
       {familyId && <PendingPooledContributions familyId={familyId} />}
 
-      {familyId && member?.role === "parent" && <PendingRewardRedemptions familyId={familyId} />}
+      {familyId && member?.role === "parent" && (
+        <PendingRewardRedemptions familyId={familyId} />
+      )}
 
       {pendingApproval.length > 0 && (
         <section className="flex flex-col gap-2">
@@ -420,11 +531,18 @@ export default function TodayPage() {
                       />
                     </button>
                   )}
-                  {requester && <Avatar name={requester.name} avatarUrl={requester.avatarUrl} size="sm" />}
+                  {requester && (
+                    <Avatar
+                      name={requester.name}
+                      avatarUrl={requester.avatarUrl}
+                      size="sm"
+                    />
+                  )}
                   <div>
                     <p className="font-medium">{template.title}</p>
                     <p className="text-sm text-zinc-500">
-                      {requester?.name ?? task.assignedTo} · +{formatXp(template.xpValue)} XP
+                      {requester?.name ?? task.assignedTo} · +
+                      {formatXp(template.xpValue)} XP
                     </p>
                   </div>
                 </div>
@@ -459,7 +577,9 @@ export default function TodayPage() {
           member?.role === "parent" ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-zinc-500">
               <Sparkles size={40} />
-              <p className="text-lg text-foreground">{t("today.noTasksParent")}</p>
+              <p className="text-lg text-foreground">
+                {t("today.noTasksParent")}
+              </p>
               <p className="max-w-xs text-sm">{t("today.noTasksParentHint")}</p>
               <Link
                 href="/assign"
@@ -494,6 +614,7 @@ export default function TodayPage() {
                       template={template}
                       onToggle={handleOwnToggle}
                       disabled={pendingTaskIds.has(task.id)}
+                      photosEnabled={photosEnabled}
                     />
                   );
                 })}
@@ -512,6 +633,7 @@ export default function TodayPage() {
                       template={template}
                       onToggle={handleOwnToggle}
                       disabled={pendingTaskIds.has(task.id)}
+                      photosEnabled={photosEnabled}
                     />
                   );
                 })}
@@ -549,7 +671,7 @@ export default function TodayPage() {
               onClick={(e) => e.stopPropagation()}
             />
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

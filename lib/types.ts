@@ -59,6 +59,8 @@ export interface Family {
    * the feature is off (real XP balances are never negative).
    */
   photoExemptFromXp?: number;
+  /** Master switch for the whole proof-photo feature — when explicitly false, no task/ad-hoc type ever requires a photo regardless of its own photoRequired flag or photoExemptFromLevel; absent/true = photos work as normal (per-template opt-in, honoring the level exemption above). A parent toggle in Settings for a family that's decided proof photos aren't worth the friction at all. */
+  photoRequirementsEnabled?: boolean;
   /** Whether members can ask the family for a new task once they're out of tasks for the day; absent = enabled. */
   taskRequestsEnabled?: boolean;
   /** Max number of still-pending/returned tasks at which a member can already ask for another one, before the list is fully empty; absent = no limit (always allowed, as soon as taskRequestsEnabled). */
@@ -120,7 +122,9 @@ export interface Family {
    * the AI otázky test notification (deliberately unfiltered — it's a
    * device self-check, not a real event).
    */
-  notificationSettings?: Partial<Record<NotificationTypeId, { enabled?: boolean; recipientIds?: string[] }>>;
+  notificationSettings?: Partial<
+    Record<NotificationTypeId, { enabled?: boolean; recipientIds?: string[] }>
+  >;
 }
 
 /**
@@ -189,7 +193,12 @@ export interface Member {
 
 export type Recurrence = "once" | "daily" | "weekly" | "monthly" | "custom";
 
-export type TaskCategory = "household" | "school" | "health" | "personal" | "other";
+export type TaskCategory =
+  | "household"
+  | "school"
+  | "health"
+  | "personal"
+  | "other";
 
 export interface TaskTemplate {
   id: string;
@@ -216,7 +225,12 @@ export interface TaskTemplate {
  * Children always pass through 'submitted' for a parent to approve; a parent
  * completing their own task skips straight to 'done' (self-approved).
  */
-export type DailyTaskStatus = "pending" | "submitted" | "done" | "returned" | "missed";
+export type DailyTaskStatus =
+  | "pending"
+  | "submitted"
+  | "done"
+  | "returned"
+  | "missed";
 
 export interface DailyTask {
   id: string;
@@ -304,7 +318,11 @@ export interface Reward {
  * requested only — an approved redemption is committed, it can't be
  * rejected after XP has already been spent).
  */
-export type RewardRedemptionStatus = "requested" | "approved" | "fulfilled" | "rejected";
+export type RewardRedemptionStatus =
+  | "requested"
+  | "approved"
+  | "fulfilled"
+  | "rejected";
 
 export interface RewardRedemption {
   id: string;
@@ -432,7 +450,12 @@ export interface PooledContribution {
  * early, principal only — interest forfeited) | cancelled (balance no
  * longer covered the principal by the time the server processed it).
  */
-export type InvestmentStatus = "active" | "withdrawal_requested" | "withdrawn" | "matured" | "cancelled";
+export type InvestmentStatus =
+  | "active"
+  | "withdrawal_requested"
+  | "withdrawn"
+  | "matured"
+  | "cancelled";
 
 export interface Investment {
   id: string;
@@ -608,7 +631,12 @@ export interface AuditLogEntry {
   timestamp: number;
 }
 
-export type CalendarEventCategory = "doctor" | "birthday" | "holiday" | "vacation" | "other";
+export type CalendarEventCategory =
+  | "doctor"
+  | "birthday"
+  | "holiday"
+  | "vacation"
+  | "other";
 
 /** How an event repeats — 'none' (or absent) is a one-off, everything else recurs forever from `date` onward. */
 export type CalendarRecurrence = "none" | "weekly" | "monthly" | "yearly";
@@ -706,7 +734,13 @@ export interface ShoppingItem {
   timestamp: number;
 }
 
-export type ListKind = "wishlist" | "ideas" | "howto" | "packing" | "emergency" | "custom";
+export type ListKind =
+  | "wishlist"
+  | "ideas"
+  | "howto"
+  | "packing"
+  | "emergency"
+  | "custom";
 
 /**
  * families/{familyId}/lists/{id} — a list living on the "Seznamy" card
@@ -909,7 +943,12 @@ export interface WeeklyDigest {
   text: string;
   weekStart: string;
   weekEnd: string;
-  stats: { name: string; tasksCompleted: number; xpEarned: number; currentStreak: number }[];
+  stats: {
+    name: string;
+    tasksCompleted: number;
+    xpEarned: number;
+    currentStreak: number;
+  }[];
   generatedAt: number;
 }
 
@@ -937,7 +976,12 @@ export interface NotificationRecord {
  * accepts a move against; every other status means the game is over and a
  * fresh startChessGame call is needed to play that difficulty again.
  */
-export type ChessGameStatus = "in_progress" | "won" | "lost" | "draw" | "resigned";
+export type ChessGameStatus =
+  | "in_progress"
+  | "won"
+  | "lost"
+  | "draw"
+  | "resigned";
 
 /**
  * families/{familyId}/chessGames/{gameId} — one game per member per

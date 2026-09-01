@@ -2,18 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { Plus, X } from "lucide-react";
-import { getDb, getFirebaseFunctions, getFirebaseStorage } from "@/lib/firebase";
+import {
+  getDb,
+  getFirebaseFunctions,
+  getFirebaseStorage,
+} from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
 import { useToast } from "@/lib/toast-context";
 import { useDialog } from "@/lib/dialog-context";
 import { compressImage } from "@/lib/image-compress";
 import { formatXp, levelForXp } from "@/lib/xp-engine";
-import { adHocCooldownInfo, formatCooldownRemaining, latestCompletionByType } from "@/lib/adhoc-tasks";
+import {
+  adHocCooldownInfo,
+  formatCooldownRemaining,
+  latestCompletionByType,
+} from "@/lib/adhoc-tasks";
 import type { AdHocTaskCompletion, AdHocTaskType } from "@/lib/types";
 
 interface SubmitResponse {
@@ -26,7 +44,11 @@ function describeError(err: unknown, fallback: string): string {
 }
 
 /** Module-scope (not component-body) so Date.now() here isn't subject to the react-compiler's render-purity analysis. */
-function buildAdHocPhotoPath(familyId: string, uid: string, typeId: string): string {
+function buildAdHocPhotoPath(
+  familyId: string,
+  uid: string,
+  typeId: string,
+): string {
   return `families/${familyId}/adHocTaskPhotos/${uid}/${typeId}_${Date.now()}`;
 }
 
@@ -40,6 +62,7 @@ function buildAdHocPhotoPath(familyId: string, uid: string, typeId: string): str
 export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   const { user } = useAuth();
   const { family, member } = useFamily();
+  const photosEnabled = family?.photoRequirementsEnabled !== false;
   const toast = useToast();
   const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
@@ -51,9 +74,16 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    return onSnapshot(collection(getDb(), "families", familyId, "adHocTaskTypes"), (snapshot) => {
-      setTypes(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AdHocTaskType));
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "adHocTaskTypes"),
+      (snapshot) => {
+        setTypes(
+          snapshot.docs.map(
+            (d) => ({ id: d.id, ...d.data() }) as AdHocTaskType,
+          ),
+        );
+      },
+    );
   }, [familyId]);
 
   useEffect(() => {
@@ -61,10 +91,14 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
     const completionsQuery = query(
       collection(getDb(), "families", familyId, "adHocCompletions"),
       orderBy("timestamp", "desc"),
-      limit(200)
+      limit(200),
     );
     return onSnapshot(completionsQuery, (snapshot) => {
-      setCompletions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AdHocTaskCompletion));
+      setCompletions(
+        snapshot.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as AdHocTaskCompletion,
+        ),
+      );
     });
   }, [familyId, open]);
 
@@ -81,11 +115,18 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   async function submitCompletion(type: AdHocTaskType, photoUrl?: string) {
     setSubmittingId(type.id);
     try {
-      const result = await httpsCallable<{ familyId: string; typeId: string; photoUrl?: string }, SubmitResponse>(
+      const result = await httpsCallable<
+        { familyId: string; typeId: string; photoUrl?: string },
+        SubmitResponse
+      >(
         getFirebaseFunctions(),
-        "completeAdHocTask"
+        "completeAdHocTask",
       )({ familyId, typeId: type.id, photoUrl });
-      toast.success(result.data.pending ? "Foto odesláno ke schválení rodiči." : `Hotovo! +${formatXp(result.data.awarded)} XP`);
+      toast.success(
+        result.data.pending
+          ? "Foto odesláno ke schválení rodiči."
+          : `Hotovo! +${formatXp(result.data.awarded)} XP`,
+      );
     } catch (err) {
       toast.error(describeError(err, "Úkol se nepodařilo splnit."));
     } finally {
@@ -94,7 +135,7 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
   }
 
   async function handleComplete(type: AdHocTaskType) {
-    if (type.photoRequired) {
+    if (photosEnabled && type.photoRequired) {
       // A parent is never gated on the photo — ask each time instead of
       // forcing the camera (mirrors /today's own-task flow). A child past
       // family.photoExemptFromLevel skips it silently, same as the server
@@ -102,7 +143,8 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
       if (member?.role === "parent") {
         const wantsPhoto = await confirm({
           title: "Přiložit fotku?",
-          description: "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
+          description:
+            "Jako dospělák fotku nemusíš nahrávat — je čistě dobrovolná.",
           confirmLabel: "Ano, přiložit",
           cancelLabel: "Ne, bez fotky",
         });
@@ -111,8 +153,13 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
           return;
         }
       } else {
-        const memberLevel = levelForXp(member?.xpBalance ?? 0, family?.levelThresholds);
-        const photoExempt = family?.photoExemptFromLevel !== undefined && memberLevel >= family.photoExemptFromLevel;
+        const memberLevel = levelForXp(
+          member?.xpBalance ?? 0,
+          family?.levelThresholds,
+        );
+        const photoExempt =
+          family?.photoExemptFromLevel !== undefined &&
+          memberLevel >= family.photoExemptFromLevel;
         if (photoExempt) {
           submitCompletion(type);
           return;
@@ -138,8 +185,13 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
         quality: family?.photoCompressionQuality,
         maxDimension: family?.photoMaxDimension,
       });
-      const photoRef = storageRef(getFirebaseStorage(), buildAdHocPhotoPath(familyId, user.uid, type.id));
-      await uploadBytes(photoRef, compressed, { contentType: compressed.type || file.type });
+      const photoRef = storageRef(
+        getFirebaseStorage(),
+        buildAdHocPhotoPath(familyId, user.uid, type.id),
+      );
+      await uploadBytes(photoRef, compressed, {
+        contentType: compressed.type || file.type,
+      });
       const photoUrl = await getDownloadURL(photoRef);
       await submitCompletion(type, photoUrl);
     } catch {
@@ -150,7 +202,14 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
 
   return (
     <>
-      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handlePhotoSelected} />
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={handlePhotoSelected}
+      />
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -187,12 +246,17 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
 
               {activeTypes.length === 0 ? (
                 <p className="text-sm text-zinc-500">
-                  Rodič zatím nenastavil žádné jednorázové úkoly (Nastavení → Jednorázové úkoly).
+                  Rodič zatím nenastavil žádné jednorázové úkoly (Nastavení →
+                  Jednorázové úkoly).
                 </p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {activeTypes.map((type) => {
-                    const cooldown = adHocCooldownInfo(type.cooldownMinutes, latestByType[type.id], now);
+                    const cooldown = adHocCooldownInfo(
+                      type.cooldownMinutes,
+                      latestByType[type.id],
+                      now,
+                    );
                     return (
                       <div
                         key={type.id}
@@ -201,7 +265,10 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
                         <div className="min-w-0">
                           <p className="truncate font-medium">{type.title}</p>
                           <p className="text-sm text-zinc-500">
-                            +{formatXp(type.xpValue)} XP{type.photoRequired ? " · vyžaduje foto" : ""}
+                            +{formatXp(type.xpValue)} XP
+                            {photosEnabled && type.photoRequired
+                              ? " · vyžaduje foto"
+                              : ""}
                           </p>
                         </div>
                         {cooldown.onCooldown ? (
@@ -225,7 +292,7 @@ export default function AdHocTasksButton({ familyId }: { familyId: string }) {
               )}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );

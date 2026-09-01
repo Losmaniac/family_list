@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, updateDoc, writeBatch } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  updateDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
@@ -43,7 +52,16 @@ import AuditLogPanel from "@/components/AuditLogPanel";
 import AntiGamingPanel from "@/components/AntiGamingPanel";
 import SettingsSection from "@/components/SettingsSection";
 import NotificationSettingsPanel from "@/components/NotificationSettingsPanel";
-import { Bell, BellOff, LogOut, RefreshCw, Sparkles, Trash2, UserPlus, Zap } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  LogOut,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  UserPlus,
+  Zap,
+} from "lucide-react";
 import type { Member } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -54,7 +72,9 @@ export default function SettingsPage() {
   const { confirm } = useDialog();
   const { t: tLang } = useLocale();
   const [members, setMembers] = useState<Member[]>([]);
-  const [adjustingMemberId, setAdjustingMemberId] = useState<string | null>(null);
+  const [adjustingMemberId, setAdjustingMemberId] = useState<string | null>(
+    null,
+  );
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
@@ -67,7 +87,9 @@ export default function SettingsPage() {
   // no effect needed, and re-syncing on every snapshot update would clobber
   // in-progress edits whenever an unrelated field (e.g. xpBalance) changes.
   const [name, setName] = useState(() => member?.name ?? "");
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(() => member?.avatarUrl);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
+    () => member?.avatarUrl,
+  );
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [pushStatus, setPushStatus] = useState<string | null>(null);
@@ -78,7 +100,7 @@ export default function SettingsPage() {
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   );
   const iosNotStandalone = mounted && isIosNotStandalone();
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -88,9 +110,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
-    return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
-      setMembers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Member));
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "members"),
+      (snapshot) => {
+        setMembers(
+          snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Member),
+        );
+      },
+    );
   }, [familyId, member?.role]);
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -101,7 +128,7 @@ export default function SettingsPage() {
       toast.error(
         conflict.type === "name"
           ? `„${conflict.member.name}“ už tohle jméno má — vyber jiné.`
-          : `„${conflict.member.name}“ už má stejného avatara — vyber jiného.`
+          : `„${conflict.member.name}“ už má stejného avatara — vyber jiného.`,
       );
       return;
     }
@@ -127,7 +154,7 @@ export default function SettingsPage() {
         ? "Notifikace zapnuty."
         : result === "denied"
           ? "Notifikace zamítnuty v prohlížeči."
-          : "Notifikace nejsou v tomto prohlížeči podporovány."
+          : "Notifikace nejsou v tomto prohlížeči podporovány.",
     );
   }
 
@@ -135,9 +162,13 @@ export default function SettingsPage() {
     setSendingTest(true);
     try {
       await httpsCallable(getFirebaseFunctions(), "sendTestNotification")();
-      toast.success("Testovací upozornění odesláno — mělo by dorazit během chvilky.");
+      toast.success(
+        "Testovací upozornění odesláno — mělo by dorazit během chvilky.",
+      );
     } catch {
-      toast.error("Upozornění se nepodařilo odeslat. Zkus notifikace znovu povolit výše.");
+      toast.error(
+        "Upozornění se nepodařilo odeslat. Zkus notifikace znovu povolit výše.",
+      );
     } finally {
       setSendingTest(false);
     }
@@ -172,14 +203,17 @@ export default function SettingsPage() {
     if (!familyId) return;
     const ok = await confirm({
       title: "Vymazat celou historii chatu?",
-      description: "Všechny zprávy se nenávratně smažou. Tuto akci nelze vrátit zpět.",
+      description:
+        "Všechny zprávy se nenávratně smažou. Tuto akci nelze vrátit zpět.",
       confirmLabel: "Vymazat historii",
       danger: true,
     });
     if (!ok) return;
     setClearingChat(true);
     try {
-      const snapshot = await getDocs(collection(getDb(), "families", familyId, "messages"));
+      const snapshot = await getDocs(
+        collection(getDb(), "families", familyId, "messages"),
+      );
       // Firestore batches cap at 500 writes — chunk defensively even though
       // a family chat is very unlikely to ever get that large.
       const docs = snapshot.docs;
@@ -188,7 +222,13 @@ export default function SettingsPage() {
         for (const d of docs.slice(i, i + 400)) batch.delete(d.ref);
         await batch.commit();
       }
-      if (user) logAction(familyId, user.uid, "chat_cleared", `${docs.length} zpráv smazáno`);
+      if (user)
+        logAction(
+          familyId,
+          user.uid,
+          "chat_cleared",
+          `${docs.length} zpráv smazáno`,
+        );
       toast.success("Historie chatu byla vymazána.");
     } catch {
       toast.error("Historii chatu se nepodařilo vymazat.");
@@ -201,14 +241,17 @@ export default function SettingsPage() {
     if (!familyId) return;
     const ok = await confirm({
       title: "Vymazat historii akcí?",
-      description: "Celý log rodičovských akcí se nenávratně smaže. Tuto akci nelze vrátit zpět.",
+      description:
+        "Celý log rodičovských akcí se nenávratně smaže. Tuto akci nelze vrátit zpět.",
       confirmLabel: "Vymazat historii",
       danger: true,
     });
     if (!ok) return;
     setClearingAuditLog(true);
     try {
-      const snapshot = await getDocs(collection(getDb(), "families", familyId, "auditLog"));
+      const snapshot = await getDocs(
+        collection(getDb(), "families", familyId, "auditLog"),
+      );
       const docs = snapshot.docs;
       for (let i = 0; i < docs.length; i += 400) {
         const batch = writeBatch(getDb());
@@ -218,7 +261,13 @@ export default function SettingsPage() {
       // Logged after the wipe, not before — so it's the one entry that
       // survives, a record that a clear happened without keeping what
       // was cleared.
-      if (user) logAction(familyId, user.uid, "audit_log_cleared", `${docs.length} záznamů smazáno`);
+      if (user)
+        logAction(
+          familyId,
+          user.uid,
+          "audit_log_cleared",
+          `${docs.length} záznamů smazáno`,
+        );
       toast.success("Historie akcí byla vymazána.");
     } catch {
       toast.error("Historii akcí se nepodařilo vymazat.");
@@ -250,15 +299,18 @@ export default function SettingsPage() {
     }
     const nextRole = target.role === "parent" ? "child" : "parent";
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "members", target.id), {
-        role: nextRole,
-      });
+      await updateDoc(
+        doc(getDb(), "families", familyId, "members", target.id),
+        {
+          role: nextRole,
+        },
+      );
       if (user) {
         logAction(
           familyId,
           user.uid,
           "member_role_changed",
-          `${target.name}: ${target.role === "parent" ? "rodič" : "dítě"} → ${nextRole === "parent" ? "rodič" : "dítě"}`
+          `${target.name}: ${target.role === "parent" ? "rodič" : "dítě"} → ${nextRole === "parent" ? "rodič" : "dítě"}`,
         );
       }
     } catch {
@@ -316,7 +368,10 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleSubmitAdjustment(e: React.FormEvent, targetUserId: string) {
+  async function handleSubmitAdjustment(
+    e: React.FormEvent,
+    targetUserId: string,
+  ) {
     e.preventDefault();
     if (!familyId || !user) return;
     const delta = Number(adjustDelta);
@@ -324,19 +379,22 @@ export default function SettingsPage() {
 
     setSubmittingAdjustment(true);
     try {
-      await addDoc(collection(getDb(), "families", familyId, "xpAdjustmentRequests"), {
-        targetUserId,
-        requestedBy: user.uid,
-        delta,
-        reason: adjustReason.trim(),
-        status: "requested",
-        timestamp: Date.now(),
-      });
+      await addDoc(
+        collection(getDb(), "families", familyId, "xpAdjustmentRequests"),
+        {
+          targetUserId,
+          requestedBy: user.uid,
+          delta,
+          reason: adjustReason.trim(),
+          status: "requested",
+          timestamp: Date.now(),
+        },
+      );
       const parentCount = members.filter((m) => m.role === "parent").length;
       toast.success(
         xpAdjustmentNeedsApproval(parentCount)
           ? "Žádost odeslána, čeká na schválení druhým rodičem."
-          : "XP upraveno."
+          : "XP upraveno.",
       );
       setAdjustingMemberId(null);
       setAdjustDelta("");
@@ -387,8 +445,13 @@ export default function SettingsPage() {
         </div>
         {familyId && member.role === "parent" && (
           <div className="flex flex-col gap-1.5">
-            <p className="text-sm text-zinc-500">Barva zvýraznění (pro celou rodinu)</p>
-            <AccentColorPicker familyId={familyId} currentColor={family?.accentColor} />
+            <p className="text-sm text-zinc-500">
+              Barva zvýraznění (pro celou rodinu)
+            </p>
+            <AccentColorPicker
+              familyId={familyId}
+              currentColor={family?.accentColor}
+            />
           </div>
         )}
       </SettingsSection>
@@ -434,7 +497,10 @@ export default function SettingsPage() {
 
       {member.role === "parent" && familyId && (
         <SettingsSection id="rozvrh" title="Rozvrh hodin">
-          <ScheduleSettingsPanel familyId={familyId} scheduleVisibleToAll={family?.scheduleVisibleToAll} />
+          <ScheduleSettingsPanel
+            familyId={familyId}
+            scheduleVisibleToAll={family?.scheduleVisibleToAll}
+          />
         </SettingsSection>
       )}
 
@@ -451,7 +517,10 @@ export default function SettingsPage() {
 
       {member.role === "parent" && familyId && (
         <SettingsSection id="nakup" title="Nákupní seznam">
-          <ShoppingSettingsPanel familyId={familyId} shoppingCategories={family?.shoppingCategories} />
+          <ShoppingSettingsPanel
+            familyId={familyId}
+            shoppingCategories={family?.shoppingCategories}
+          />
         </SettingsSection>
       )}
 
@@ -500,7 +569,10 @@ export default function SettingsPage() {
         <SettingsSection id="ai-otazky" title="AI otázky (Vzdělání)">
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-zinc-500">Gemini</p>
-            <AiQuizSettingsPanel familyId={familyId} configured={family?.geminiApiKeyConfigured === true} />
+            <AiQuizSettingsPanel
+              familyId={familyId}
+              configured={family?.geminiApiKeyConfigured === true}
+            />
           </div>
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
             <p className="text-xs font-medium text-zinc-500">OpenRouter</p>
@@ -522,13 +594,16 @@ export default function SettingsPage() {
       <SettingsSection id="notifikace" title="Notifikace">
         {iosNotStandalone ? (
           <p className="text-sm text-zinc-500">
-            Na iPhonu notifikace fungují jen po přidání appky na plochu — nejdřív klepni na Sdílet →
-            „Přidat na plochu“, appku otevři odtud a pak se sem vrať.
+            Na iPhonu notifikace fungují jen po přidání appky na plochu —
+            nejdřív klepni na Sdílet → „Přidat na plochu“, appku otevři odtud a
+            pak se sem vrať.
           </p>
         ) : (
           <>
             <p className="text-sm text-zinc-500">
-              {member.fcmToken ? "Notifikace jsou zapnuté na tomto zařízení." : "Notifikace nejsou zapnuté."}
+              {member.fcmToken
+                ? "Notifikace jsou zapnuté na tomto zařízení."
+                : "Notifikace nejsou zapnuté."}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -549,7 +624,9 @@ export default function SettingsPage() {
                 </button>
               )}
             </div>
-            {pushStatus && <p className="text-sm text-zinc-500">{pushStatus}</p>}
+            {pushStatus && (
+              <p className="text-sm text-zinc-500">{pushStatus}</p>
+            )}
           </>
         )}
         {member.role === "parent" && familyId && (
@@ -572,7 +649,11 @@ export default function SettingsPage() {
                 description="Pro každý typ notifikace lze vypnout odesílání úplně, nebo zúžit okruh příjemců na vybrané členy z jejich přirozeného okruhu (např. jen jednoho rodiče místo obou) — nikdy ale nejde poslat notifikaci někomu, kdo by ji normálně vůbec nedostal."
               />
             </p>
-            <NotificationSettingsPanel familyId={familyId} members={members} notificationSettings={family?.notificationSettings} />
+            <NotificationSettingsPanel
+              familyId={familyId}
+              members={members}
+              notificationSettings={family?.notificationSettings}
+            />
           </div>
         )}
       </SettingsSection>
@@ -585,7 +666,8 @@ export default function SettingsPage() {
             disabled={clearingChat}
             className="flex items-center gap-1.5 self-start rounded-full border border-danger/30 px-5 py-2 text-sm font-semibold text-danger disabled:opacity-50"
           >
-            <Trash2 size={16} /> {clearingChat ? "Mažu…" : "Vymazat historii chatu"}
+            <Trash2 size={16} />{" "}
+            {clearingChat ? "Mažu…" : "Vymazat historii chatu"}
           </button>
         </SettingsSection>
       )}
@@ -596,6 +678,7 @@ export default function SettingsPage() {
             familyId={familyId}
             photoCompressionQuality={family?.photoCompressionQuality}
             photoMaxDimension={family?.photoMaxDimension}
+            photoRequirementsEnabled={family?.photoRequirementsEnabled}
           />
         </SettingsSection>
       )}
@@ -656,9 +739,13 @@ export default function SettingsPage() {
           }
         >
           {showAddMemberForm && (
-            <form onSubmit={handleAddMember} className="flex flex-col gap-2 rounded-xl border border-border p-4">
+            <form
+              onSubmit={handleAddMember}
+              className="flex flex-col gap-2 rounded-xl border border-border p-4"
+            >
               <p className="text-xs text-zinc-500">
-                Pro člena, který se sám nepřihlašuje (např. miminko) — přidá se jako dítě, bez invite kódu.
+                Pro člena, který se sám nepřihlašuje (např. miminko) — přidá se
+                jako dítě, bez invite kódu.
               </p>
               <div className="flex gap-2">
                 <input
@@ -692,7 +779,10 @@ export default function SettingsPage() {
           )}
           <div className="flex flex-col gap-2">
             {members.map((m) => (
-              <div key={m.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
+              <div
+                key={m.id}
+                className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar name={m.name} avatarUrl={m.avatarUrl} size="sm" />
@@ -702,7 +792,11 @@ export default function SettingsPage() {
                         {m.role === "parent" ? "Rodič" : "Dítě"}
                         <span
                           className="flex items-center gap-0.5"
-                          title={m.fcmToken ? "Notifikace zapnuté" : "Notifikace nejsou zapnuté"}
+                          title={
+                            m.fcmToken
+                              ? "Notifikace zapnuté"
+                              : "Notifikace nejsou zapnuté"
+                          }
                         >
                           {m.fcmToken ? (
                             <Bell size={12} className="text-success" />
@@ -717,7 +811,9 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setAdjustingMemberId(adjustingMemberId === m.id ? null : m.id);
+                        setAdjustingMemberId(
+                          adjustingMemberId === m.id ? null : m.id,
+                        );
                         setAdjustDelta("");
                         setAdjustReason("");
                       }}
@@ -725,8 +821,14 @@ export default function SettingsPage() {
                     >
                       <Zap size={14} /> XP
                     </button>
-                    <button type="button" onClick={() => handleRoleToggle(m)} className="text-sm text-accent">
-                      {m.role === "parent" ? "Nastavit jako dítě" : "Nastavit jako rodiče"}
+                    <button
+                      type="button"
+                      onClick={() => handleRoleToggle(m)}
+                      className="text-sm text-accent"
+                    >
+                      {m.role === "parent"
+                        ? "Nastavit jako dítě"
+                        : "Nastavit jako rodiče"}
                     </button>
                     {m.id !== user?.uid && (
                       <button
@@ -787,7 +889,9 @@ export default function SettingsPage() {
         </SettingsSection>
       )}
 
-      {member.role === "parent" && familyId && <AntiGamingPanel familyId={familyId} members={members} />}
+      {member.role === "parent" && familyId && (
+        <AntiGamingPanel familyId={familyId} members={members} />
+      )}
 
       {member.role === "parent" && familyId && (
         <>
@@ -798,7 +902,8 @@ export default function SettingsPage() {
             disabled={clearingAuditLog}
             className="flex items-center gap-1.5 self-start rounded-full border border-danger/30 px-5 py-2 text-sm font-semibold text-danger disabled:opacity-50"
           >
-            <Trash2 size={16} /> {clearingAuditLog ? "Mažu…" : "Vymazat historii akcí"}
+            <Trash2 size={16} />{" "}
+            {clearingAuditLog ? "Mažu…" : "Vymazat historii akcí"}
           </button>
         </>
       )}
@@ -806,8 +911,9 @@ export default function SettingsPage() {
       {member.role === "parent" && (
         <SettingsSection id="vyvoj" title="Vývoj">
           <p className="text-sm text-zinc-500">
-            Odkaz na Claude Code session, ve které appka vzniká — otevře se v nové záložce (přihlášení
-            ke svému Anthropic účtu je potřeba zvlášť, appka ho nijak nesdílí).
+            Odkaz na Claude Code session, ve které appka vzniká — otevře se v
+            nové záložce (přihlášení ke svému Anthropic účtu je potřeba zvlášť,
+            appka ho nijak nesdílí).
           </p>
           <a
             href="https://claude.ai/code/session_01SP1aoS2nWYPNndd7EA96kM"
