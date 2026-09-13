@@ -2,9 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { CalendarDays, Sunrise, Sunset } from "lucide-react";
-import { buildSvatkyApiUrlForDate, parseDayInfo, SVATKY_API_URL, type DayInfo } from "@/lib/svatky-api";
-import { buildSunriseSunsetUrl, FULNEK_COORDS, parseSunTimes, type SunTimes } from "@/lib/sunrise-sunset";
-import { buildForecastUrl, parseForecast, weatherCodeInfo } from "@/lib/open-meteo";
+import {
+  buildSvatkyApiUrlForDate,
+  parseDayInfo,
+  SVATKY_API_URL,
+  type DayInfo,
+} from "@/lib/svatky-api";
+import {
+  buildSunriseSunsetUrl,
+  FULNEK_COORDS,
+  parseSunTimes,
+  type SunTimes,
+} from "@/lib/sunrise-sunset";
+import {
+  buildForecastUrl,
+  parseForecast,
+  weatherCodeInfo,
+} from "@/lib/open-meteo";
 import { addDays, dateKeyInFamilyZone } from "@/lib/date-utils";
 
 interface DayWeather {
@@ -27,19 +41,27 @@ interface TomorrowWeather {
  * Dnes. Each piece is fetched independently and just omitted if its call
  * fails; this is a nice-to-have banner, not core to the page, so no
  * toasts/retries.
+ *
+ * Every fetch here is `cache: "no-store"` — svatkyapi.cz's "today" endpoint
+ * (SVATKY_API_URL, unlike the date-specific one used for tomorrow) has a
+ * fixed URL with a `Cache-Control: max-age=86400` response header, so the
+ * browser's default HTTP cache would otherwise keep serving yesterday's
+ * answer for up to a day past midnight — exactly what caused the date
+ * banner to show the wrong day.
  */
 export default function TodayDateBanner() {
   const [info, setInfo] = useState<DayInfo | null>(null);
   const [tomorrowInfo, setTomorrowInfo] = useState<DayInfo | null>(null);
   const [sun, setSun] = useState<SunTimes | null>(null);
   const [weather, setWeather] = useState<DayWeather | null>(null);
-  const [tomorrowWeather, setTomorrowWeather] = useState<TomorrowWeather | null>(null);
+  const [tomorrowWeather, setTomorrowWeather] =
+    useState<TomorrowWeather | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(SVATKY_API_URL);
+        const res = await fetch(SVATKY_API_URL, { cache: "no-store" });
         if (res.ok && !cancelled) setInfo(parseDayInfo(await res.json()));
       } catch {
         // Best-effort.
@@ -56,8 +78,11 @@ export default function TodayDateBanner() {
     async function load() {
       try {
         const tomorrowKey = dateKeyInFamilyZone(addDays(new Date(), 1));
-        const res = await fetch(buildSvatkyApiUrlForDate(tomorrowKey));
-        if (res.ok && !cancelled) setTomorrowInfo(parseDayInfo(await res.json()));
+        const res = await fetch(buildSvatkyApiUrlForDate(tomorrowKey), {
+          cache: "no-store",
+        });
+        if (res.ok && !cancelled)
+          setTomorrowInfo(parseDayInfo(await res.json()));
       } catch {
         // Best-effort.
       }
@@ -72,7 +97,13 @@ export default function TodayDateBanner() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(buildSunriseSunsetUrl(FULNEK_COORDS.latitude, FULNEK_COORDS.longitude));
+        const res = await fetch(
+          buildSunriseSunsetUrl(
+            FULNEK_COORDS.latitude,
+            FULNEK_COORDS.longitude,
+          ),
+          { cache: "no-store" },
+        );
         if (res.ok && !cancelled) setSun(parseSunTimes(await res.json()));
       } catch {
         // Best-effort.
@@ -88,15 +119,25 @@ export default function TodayDateBanner() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(buildForecastUrl(FULNEK_COORDS.latitude, FULNEK_COORDS.longitude));
+        const res = await fetch(
+          buildForecastUrl(FULNEK_COORDS.latitude, FULNEK_COORDS.longitude),
+          { cache: "no-store" },
+        );
         if (!res.ok) return;
         const forecast = parseForecast(await res.json());
         if (!forecast || cancelled) return;
-        setWeather({ ...weatherCodeInfo(forecast.current.weatherCode), temperature: forecast.current.temperature });
+        setWeather({
+          ...weatherCodeInfo(forecast.current.weatherCode),
+          temperature: forecast.current.temperature,
+        });
         const tomorrowKey = dateKeyInFamilyZone(addDays(new Date(), 1));
         const tomorrow = forecast.daily.find((d) => d.date === tomorrowKey);
         if (tomorrow) {
-          setTomorrowWeather({ ...weatherCodeInfo(tomorrow.weatherCode), min: tomorrow.min, max: tomorrow.max });
+          setTomorrowWeather({
+            ...weatherCodeInfo(tomorrow.weatherCode),
+            min: tomorrow.min,
+            max: tomorrow.max,
+          });
         }
       } catch {
         // Best-effort.
@@ -108,7 +149,8 @@ export default function TodayDateBanner() {
     };
   }, []);
 
-  if (!info && !sun && !weather && !tomorrowInfo && !tomorrowWeather) return null;
+  if (!info && !sun && !weather && !tomorrowInfo && !tomorrowWeather)
+    return null;
 
   return (
     <div className="flex flex-col gap-1 text-sm text-zinc-500">
@@ -142,11 +184,14 @@ export default function TodayDateBanner() {
           <span>
             Zítra
             {tomorrowInfo?.name && <> · Svátek má {tomorrowInfo.name}</>}
-            {tomorrowInfo?.isHoliday && tomorrowInfo.holidayName && <> · {tomorrowInfo.holidayName}</>}
+            {tomorrowInfo?.isHoliday && tomorrowInfo.holidayName && (
+              <> · {tomorrowInfo.holidayName}</>
+            )}
           </span>
           {tomorrowWeather && (
             <span className="flex items-center gap-1">
-              {tomorrowWeather.icon} {Math.round(tomorrowWeather.min)}–{Math.round(tomorrowWeather.max)}°C
+              {tomorrowWeather.icon} {Math.round(tomorrowWeather.min)}–
+              {Math.round(tomorrowWeather.max)}°C
             </span>
           )}
         </div>
