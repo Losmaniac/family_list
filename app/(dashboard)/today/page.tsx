@@ -38,6 +38,7 @@ import PendingAdHocApprovals from "@/components/PendingAdHocApprovals";
 import PendingTaskProposals from "@/components/PendingTaskProposals";
 import PendingPooledContributions from "@/components/PendingPooledContributions";
 import PendingRewardRedemptions from "@/components/PendingRewardRedemptions";
+import PendingRewardRequests from "@/components/PendingRewardRequests";
 import TodayDateBanner from "@/components/TodayDateBanner";
 import WeeklyDigestBanner from "@/components/WeeklyDigestBanner";
 import Link from "next/link";
@@ -501,6 +502,10 @@ export default function TodayPage() {
 
       {familyId && member?.role === "parent" && (
         <PendingRewardRedemptions familyId={familyId} />
+      )}
+
+      {familyId && member?.role === "parent" && (
+        <PendingRewardRequests familyId={familyId} />
       )}
 
       {pendingApproval.length > 0 && (

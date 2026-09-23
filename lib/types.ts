@@ -143,6 +143,8 @@ export type NotificationTypeId =
   | "xp_adjustment"
   | "pooled_contribution"
   | "reward_redemption"
+  | "reward_request"
+  | "reward_request_decided"
   | "marketplace_offer"
   | "investment_matured"
   | "weekly_digest"
@@ -330,6 +332,32 @@ export interface RewardRedemption {
   rewardId: string;
   status: RewardRedemptionStatus;
   timestamp: number;
+}
+
+export type RewardRequestStatus = "pending" | "approved" | "rejected";
+
+/**
+ * families/{familyId}/rewardRequests/{id} — a member (typically a child)
+ * proposing a brand-new reward the shop doesn't have yet, distinct from
+ * RewardRedemption above (which asks to redeem a reward that already
+ * exists). There's no xpCost yet when this is created — a parent sets one
+ * when approving, at which point the matching `rewards` doc is created and
+ * its id stored back here as `rewardId` so the requester's own view can
+ * link straight to it. Rejecting just closes the request out, no reward
+ * created.
+ */
+export interface RewardRequest {
+  id: string;
+  title: string;
+  note?: string;
+  requestedBy: string;
+  status: RewardRequestStatus;
+  /** Set only once approved. */
+  xpCost?: number;
+  /** Set only once approved — the families/{familyId}/rewards doc created for it. */
+  rewardId?: string;
+  timestamp: number;
+  decidedAt?: number;
 }
 
 /**
@@ -616,6 +644,7 @@ export type AuditAction =
   | "task_completion_reverted"
   | "task_template_deleted"
   | "reward_redemption_decided"
+  | "reward_request_decided"
   | "pooled_contribution_decided"
   | "chat_cleared"
   | "photos_cleared"

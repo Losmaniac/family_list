@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { ShoppingBag, Trash2 } from "lucide-react";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { ShoppingBag, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -13,7 +24,27 @@ import { formatXp } from "@/lib/xp-engine";
 import RewardShop from "@/components/RewardShop";
 import SavingsProgress from "@/components/SavingsProgress";
 import Marketplace from "@/components/Marketplace";
-import type { Member, PooledContribution, Reward, RewardRedemption, RewardRedemptionStatus } from "@/lib/types";
+import type {
+  Member,
+  PooledContribution,
+  Reward,
+  RewardRedemption,
+  RewardRedemptionStatus,
+  RewardRequest,
+  RewardRequestStatus,
+} from "@/lib/types";
+
+const REQUEST_STATUS_LABELS: Record<RewardRequestStatus, string> = {
+  pending: "Čeká na rodiče",
+  approved: "Schváleno",
+  rejected: "Zamítnuto",
+};
+
+const REQUEST_STATUS_COLORS: Record<RewardRequestStatus, string> = {
+  pending: "text-accent",
+  approved: "text-success",
+  rejected: "text-danger",
+};
 
 const STATUS_LABELS: Record<RewardRedemptionStatus, string> = {
   requested: "Čeká na schválení",
@@ -38,15 +69,26 @@ export default function ShopPage() {
   const [myRedemptions, setMyRedemptions] = useState<RewardRedemption[]>([]);
   const [members, setMembers] = useState<Record<string, Member>>({});
   const [pools, setPools] = useState<PooledContribution[]>([]);
-  const [pledgeAmounts, setPledgeAmounts] = useState<Record<string, string>>({});
+  const [pledgeAmounts, setPledgeAmounts] = useState<Record<string, string>>(
+    {},
+  );
   const [loaded, setLoaded] = useState(false);
+  const [myRewardRequests, setMyRewardRequests] = useState<RewardRequest[]>([]);
+  const [requestTitle, setRequestTitle] = useState("");
+  const [requestNote, setRequestNote] = useState("");
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   useEffect(() => {
     if (!familyId) return;
-    return onSnapshot(collection(getDb(), "families", familyId, "rewards"), (snapshot) => {
-      setRewards(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Reward));
-      setLoaded(true);
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "rewards"),
+      (snapshot) => {
+        setRewards(
+          snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Reward),
+        );
+        setLoaded(true);
+      },
+    );
   }, [familyId]);
 
   useEffect(() => {
@@ -55,32 +97,61 @@ export default function ShopPage() {
       collection(getDb(), "families", familyId, "rewardRedemptions"),
       where("userId", "==", user.uid),
       orderBy("timestamp", "desc"),
-      limit(10)
+      limit(10),
     );
     return onSnapshot(myQuery, (snapshot) => {
-      setMyRedemptions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as RewardRedemption));
+      setMyRedemptions(
+        snapshot.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as RewardRedemption,
+        ),
+      );
     });
   }, [familyId, user]);
 
   useEffect(() => {
     if (!familyId) return;
-    return onSnapshot(collection(getDb(), "families", familyId, "members"), (snapshot) => {
-      const next: Record<string, Member> = {};
-      for (const memberDoc of snapshot.docs) {
-        next[memberDoc.id] = { id: memberDoc.id, ...memberDoc.data() } as Member;
-      }
-      setMembers(next);
-    });
+    return onSnapshot(
+      collection(getDb(), "families", familyId, "members"),
+      (snapshot) => {
+        const next: Record<string, Member> = {};
+        for (const memberDoc of snapshot.docs) {
+          next[memberDoc.id] = {
+            id: memberDoc.id,
+            ...memberDoc.data(),
+          } as Member;
+        }
+        setMembers(next);
+      },
+    );
   }, [familyId]);
+
+  useEffect(() => {
+    if (!familyId || !user) return;
+    const myRequestsQuery = query(
+      collection(getDb(), "families", familyId, "rewardRequests"),
+      where("requestedBy", "==", user.uid),
+      orderBy("timestamp", "desc"),
+      limit(10),
+    );
+    return onSnapshot(myRequestsQuery, (snapshot) => {
+      setMyRewardRequests(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as RewardRequest),
+      );
+    });
+  }, [familyId, user]);
 
   useEffect(() => {
     if (!familyId) return;
     const poolsQuery = query(
       collection(getDb(), "families", familyId, "pooledContributions"),
-      where("status", "==", "collecting")
+      where("status", "==", "collecting"),
     );
     return onSnapshot(poolsQuery, (snapshot) => {
-      setPools(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as PooledContribution));
+      setPools(
+        snapshot.docs.map(
+          (d) => ({ id: d.id, ...d.data() }) as PooledContribution,
+        ),
+      );
     });
   }, [familyId]);
 
@@ -88,7 +159,8 @@ export default function ShopPage() {
     if (!familyId || !user) return;
     try {
       await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
-        savingsGoalRewardId: member?.savingsGoalRewardId === reward.id ? null : reward.id,
+        savingsGoalRewardId:
+          member?.savingsGoalRewardId === reward.id ? null : reward.id,
       });
     } catch {
       toast.error("Cíl se nepodařilo nastavit.");
@@ -98,7 +170,9 @@ export default function ShopPage() {
   async function handleClearGoal() {
     if (!familyId || !user) return;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), { savingsGoalRewardId: null });
+      await updateDoc(doc(getDb(), "families", familyId, "members", user.uid), {
+        savingsGoalRewardId: null,
+      });
     } catch {
       toast.error("Cíl se nepodařilo zrušit.");
     }
@@ -107,13 +181,18 @@ export default function ShopPage() {
   async function handleRedeem(reward: Reward) {
     if (!familyId || !user) return;
     try {
-      await addDoc(collection(getDb(), "families", familyId, "rewardRedemptions"), {
-        userId: user.uid,
-        rewardId: reward.id,
-        status: reward.approvalRequired ? "requested" : "approved",
-        timestamp: Date.now(),
-      });
-      toast.success(reward.approvalRequired ? "Odměna vyžádána." : "Odměna uplatněna.");
+      await addDoc(
+        collection(getDb(), "families", familyId, "rewardRedemptions"),
+        {
+          userId: user.uid,
+          rewardId: reward.id,
+          status: reward.approvalRequired ? "requested" : "approved",
+          timestamp: Date.now(),
+        },
+      );
+      toast.success(
+        reward.approvalRequired ? "Odměna vyžádána." : "Odměna uplatněna.",
+      );
     } catch {
       toast.error("Odměnu se nepodařilo uplatnit.");
     }
@@ -124,16 +203,45 @@ export default function ShopPage() {
     const reward = rewards.find((r) => r.id === redemption.rewardId);
     const ok = await confirm({
       title: `Smazat „${reward?.title ?? redemption.rewardId}“ z historie?`,
-      description: "Tuto akci nelze vrátit zpět. Případně už odečtené XP se tím nevrátí.",
+      description:
+        "Tuto akci nelze vrátit zpět. Případně už odečtené XP se tím nevrátí.",
       confirmLabel: "Smazat",
       danger: true,
     });
     if (!ok) return;
     try {
-      await deleteDoc(doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id));
+      await deleteDoc(
+        doc(getDb(), "families", familyId, "rewardRedemptions", redemption.id),
+      );
       toast.success("Odměna byla smazána z historie.");
     } catch {
       toast.error("Nepodařilo se smazat.");
+    }
+  }
+
+  async function handleSubmitRewardRequest() {
+    if (!familyId || !user) return;
+    const title = requestTitle.trim();
+    if (!title) return;
+    setSubmittingRequest(true);
+    try {
+      await addDoc(
+        collection(getDb(), "families", familyId, "rewardRequests"),
+        {
+          title,
+          note: requestNote.trim() || null,
+          requestedBy: user.uid,
+          status: "pending",
+          timestamp: Date.now(),
+        },
+      );
+      setRequestTitle("");
+      setRequestNote("");
+      toast.success("Návrh odeslán rodičům.");
+    } catch {
+      toast.error("Návrh se nepodařilo odeslat.");
+    } finally {
+      setSubmittingRequest(false);
     }
   }
 
@@ -142,9 +250,12 @@ export default function ShopPage() {
     const amount = Number(pledgeAmounts[pool.id]);
     if (!Number.isFinite(amount) || amount < 0) return;
     try {
-      await updateDoc(doc(getDb(), "families", familyId, "pooledContributions", pool.id), {
-        [`contributions.${user.uid}`]: amount,
-      });
+      await updateDoc(
+        doc(getDb(), "families", familyId, "pooledContributions", pool.id),
+        {
+          [`contributions.${user.uid}`]: amount,
+        },
+      );
       toast.success("Příspěvek uložen.");
     } catch {
       toast.error("Příspěvek se nepodařilo uložit.");
@@ -154,22 +265,31 @@ export default function ShopPage() {
   // The reward catalog can be empty while the P2P marketplace below is
   // still perfectly usable — this placeholder only replaces the top
   // catalog section, never the whole page.
-  const emptyRewardsPlaceholder = loaded && rewards.length === 0 && pools.length === 0 && (
-    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-zinc-500">
-      <ShoppingBag size={40} />
-      <p className="text-lg text-foreground">Obchod je zatím prázdný.</p>
-      {member?.role === "parent" ? (
-        <>
-          <p className="max-w-xs text-sm">Přidej první odměny v Nastavení → Obchod.</p>
-          <Link href="/settings" className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground">
-            Otevřít Nastavení
-          </Link>
-        </>
-      ) : (
-        <p className="max-w-xs text-sm">Rodiče ještě nepřidali žádné odměny.</p>
-      )}
-    </div>
-  );
+  const emptyRewardsPlaceholder = loaded &&
+    rewards.length === 0 &&
+    pools.length === 0 && (
+      <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-zinc-500">
+        <ShoppingBag size={40} />
+        <p className="text-lg text-foreground">Obchod je zatím prázdný.</p>
+        {member?.role === "parent" ? (
+          <>
+            <p className="max-w-xs text-sm">
+              Přidej první odměny v Nastavení → Obchod.
+            </p>
+            <Link
+              href="/settings"
+              className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground"
+            >
+              Otevřít Nastavení
+            </Link>
+          </>
+        ) : (
+          <p className="max-w-xs text-sm">
+            Rodiče ještě nepřidali žádné odměny.
+          </p>
+        )}
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,16 +314,76 @@ export default function ShopPage() {
         onClearGoal={handleClearGoal}
       />
 
+      <section className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
+        <h2 className="flex items-center gap-1.5 font-medium">
+          <Sparkles size={16} /> Navrhnout odměnu
+        </h2>
+        <p className="text-sm text-zinc-500">
+          Chybí ti v obchodě něco? Napiš to a rodiče určí, kolik XP to bude
+          stát.
+        </p>
+        <input
+          type="text"
+          placeholder="Co bys chtěl(a)?"
+          value={requestTitle}
+          onChange={(e) => setRequestTitle(e.target.value)}
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+        />
+        <textarea
+          placeholder="Poznámka (nepovinné)"
+          value={requestNote}
+          onChange={(e) => setRequestNote(e.target.value)}
+          rows={2}
+          className="resize-none rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+        />
+        <button
+          type="button"
+          onClick={handleSubmitRewardRequest}
+          disabled={submittingRequest || !requestTitle.trim()}
+          className="self-start rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+        >
+          Odeslat návrh
+        </button>
+      </section>
+
+      {myRewardRequests.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium">Moje návrhy odměn</h2>
+          {myRewardRequests.map((request) => (
+            <div
+              key={request.id}
+              className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
+            >
+              <p className="font-medium">{request.title}</p>
+              <span
+                className={`text-sm font-medium ${REQUEST_STATUS_COLORS[request.status]}`}
+              >
+                {request.status === "approved" && request.xpCost !== undefined
+                  ? `Schváleno · ${formatXp(request.xpCost)} XP`
+                  : REQUEST_STATUS_LABELS[request.status]}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+
       {myRedemptions.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-medium">Moje odměny</h2>
           {myRedemptions.map((redemption) => {
             const reward = rewards.find((r) => r.id === redemption.rewardId);
             return (
-              <div key={redemption.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-                <p className="font-medium">{reward?.title ?? redemption.rewardId}</p>
+              <div
+                key={redemption.id}
+                className="flex items-center justify-between rounded-xl border border-border px-4 py-3"
+              >
+                <p className="font-medium">
+                  {reward?.title ?? redemption.rewardId}
+                </p>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-medium ${STATUS_COLORS[redemption.status]}`}>
+                  <span
+                    className={`text-sm font-medium ${STATUS_COLORS[redemption.status]}`}
+                  >
                     {STATUS_LABELS[redemption.status]}
                   </span>
                   {member?.role === "parent" && (
@@ -228,27 +408,49 @@ export default function ShopPage() {
           <h2 className="font-medium">Sbírky na odměnu</h2>
           {pools.map((pool) => {
             const reward = rewards.find((r) => r.id === pool.rewardId);
-            const total = Object.values(pool.contributions).reduce((sum, v) => sum + v, 0);
-            const progress = reward ? Math.min(100, Math.round((total / reward.xpCost) * 100)) : 0;
+            const total = Object.values(pool.contributions).reduce(
+              (sum, v) => sum + v,
+              0,
+            );
+            const progress = reward
+              ? Math.min(100, Math.round((total / reward.xpCost) * 100))
+              : 0;
             const myPledge = user ? pool.contributions[user.uid] : undefined;
-            const iAmInvited = user ? pool.invitedUserIds.includes(user.uid) : false;
+            const iAmInvited = user
+              ? pool.invitedUserIds.includes(user.uid)
+              : false;
             return (
-              <div key={pool.id} className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3">
+              <div
+                key={pool.id}
+                className="flex flex-col gap-2 rounded-xl border border-border px-4 py-3"
+              >
                 <div className="flex items-center justify-between text-sm">
-                  <p className="font-medium">{reward?.title ?? pool.rewardId}</p>
+                  <p className="font-medium">
+                    {reward?.title ?? pool.rewardId}
+                  </p>
                   <p className="text-zinc-500">
-                    {formatXp(total)}/{reward ? formatXp(reward.xpCost) : "?"} XP
+                    {formatXp(total)}/{reward ? formatXp(reward.xpCost) : "?"}{" "}
+                    XP
                   </p>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
-                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
+                  <div
+                    className="h-full rounded-full bg-accent transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs text-zinc-500">
                   {pool.invitedUserIds.map((userId) => {
                     const pledge = pool.contributions[userId];
                     return (
-                      <span key={userId} className="rounded-full bg-surface-muted px-2 py-0.5">
-                        {members[userId]?.name ?? userId}: {pledge !== undefined ? `${formatXp(pledge)} XP` : "čeká"}
+                      <span
+                        key={userId}
+                        className="rounded-full bg-surface-muted px-2 py-0.5"
+                      >
+                        {members[userId]?.name ?? userId}:{" "}
+                        {pledge !== undefined
+                          ? `${formatXp(pledge)} XP`
+                          : "čeká"}
                       </span>
                     );
                   })}
@@ -258,9 +460,18 @@ export default function ShopPage() {
                     <input
                       type="number"
                       min={0}
-                      placeholder={myPledge !== undefined ? String(myPledge) : "Kolik XP dáš?"}
+                      placeholder={
+                        myPledge !== undefined
+                          ? String(myPledge)
+                          : "Kolik XP dáš?"
+                      }
                       value={pledgeAmounts[pool.id] ?? ""}
-                      onChange={(e) => setPledgeAmounts((prev) => ({ ...prev, [pool.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setPledgeAmounts((prev) => ({
+                          ...prev,
+                          [pool.id]: e.target.value,
+                        }))
+                      }
                       className="w-32 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
                     />
                     <button

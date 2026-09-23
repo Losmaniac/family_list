@@ -20,7 +20,7 @@ export interface NotifyTargetLike {
 export function applyNotificationSettings<T extends NotifyTargetLike>(
   settings: Family["notificationSettings"] | undefined,
   typeId: NotificationTypeId,
-  naturalTargets: T[]
+  naturalTargets: T[],
 ): T[] {
   const typeSettings = settings?.[typeId];
   if (typeSettings?.enabled === false) return [];
@@ -32,7 +32,10 @@ export function applyNotificationSettings<T extends NotifyTargetLike>(
 }
 
 /** Every NotificationTypeId a parent can actually see/configure in Settings — excludes "evening_reminder" (see its own type comment in lib/types.ts). */
-type ConfigurableNotificationTypeId = Exclude<NotificationTypeId, "evening_reminder">;
+type ConfigurableNotificationTypeId = Exclude<
+  NotificationTypeId,
+  "evening_reminder"
+>;
 
 export const NOTIFICATION_TYPE_ORDER: ConfigurableNotificationTypeId[] = [
   "task_submitted",
@@ -42,6 +45,8 @@ export const NOTIFICATION_TYPE_ORDER: ConfigurableNotificationTypeId[] = [
   "xp_adjustment",
   "pooled_contribution",
   "reward_redemption",
+  "reward_request",
+  "reward_request_decided",
   "marketplace_offer",
   "investment_matured",
   "weekly_digest",
@@ -60,20 +65,110 @@ interface NotificationTypeInfo {
   audienceFilter: "parents" | "all";
 }
 
-export const NOTIFICATION_TYPE_INFO: Record<ConfigurableNotificationTypeId, NotificationTypeInfo> = {
-  task_submitted: { label: "Úkol odeslán ke schválení", audienceLabel: "Rodiče", hasRecipientChoice: true, audienceFilter: "parents" },
-  task_decided: { label: "Úkol schválen nebo vrácen", audienceLabel: "Ten, kdo úkol odeslal", hasRecipientChoice: false, audienceFilter: "all" },
-  task_proposal: { label: "Návrh nového úkolu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
-  task_request: { label: "Žádost o nový úkol", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
-  xp_adjustment: { label: "Žádost o schválení úpravy XP", audienceLabel: "Ostatní rodiče", hasRecipientChoice: true, audienceFilter: "parents" },
-  pooled_contribution: { label: "Pozvánka do sbírky na odměnu", audienceLabel: "Pozvaní členové", hasRecipientChoice: true, audienceFilter: "all" },
-  reward_redemption: { label: "Žádost o odměnu", audienceLabel: "Rodiče", hasRecipientChoice: true, audienceFilter: "parents" },
-  marketplace_offer: { label: "Nabídka/poptávka na trhu služeb", audienceLabel: "Druhá strana obchodu", hasRecipientChoice: false, audienceFilter: "all" },
-  investment_matured: { label: "Investice dozrála", audienceLabel: "Ten, komu investice patří", hasRecipientChoice: false, audienceFilter: "all" },
-  weekly_digest: { label: "Týdenní AI souhrn", audienceLabel: "Všichni členové", hasRecipientChoice: true, audienceFilter: "all" },
-  invest_demo_round_started: { label: "Nové kolo demo investování", audienceLabel: "Kdo má demo portfolio", hasRecipientChoice: true, audienceFilter: "all" },
-  invest_demo_contest_settled: { label: "Vyhodnocení soutěže demo investování", audienceLabel: "Kdo má demo portfolio", hasRecipientChoice: true, audienceFilter: "all" },
-  shopping_item_added: { label: "Přidaná položka do nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
-  shopping_item_checked: { label: "Odškrtnutá položka z nákupního seznamu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
-  chat_message: { label: "Nová zpráva v rodinném chatu", audienceLabel: "Ostatní členové", hasRecipientChoice: true, audienceFilter: "all" },
+export const NOTIFICATION_TYPE_INFO: Record<
+  ConfigurableNotificationTypeId,
+  NotificationTypeInfo
+> = {
+  task_submitted: {
+    label: "Úkol odeslán ke schválení",
+    audienceLabel: "Rodiče",
+    hasRecipientChoice: true,
+    audienceFilter: "parents",
+  },
+  task_decided: {
+    label: "Úkol schválen nebo vrácen",
+    audienceLabel: "Ten, kdo úkol odeslal",
+    hasRecipientChoice: false,
+    audienceFilter: "all",
+  },
+  task_proposal: {
+    label: "Návrh nového úkolu",
+    audienceLabel: "Ostatní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  task_request: {
+    label: "Žádost o nový úkol",
+    audienceLabel: "Ostatní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  xp_adjustment: {
+    label: "Žádost o schválení úpravy XP",
+    audienceLabel: "Ostatní rodiče",
+    hasRecipientChoice: true,
+    audienceFilter: "parents",
+  },
+  pooled_contribution: {
+    label: "Pozvánka do sbírky na odměnu",
+    audienceLabel: "Pozvaní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  reward_redemption: {
+    label: "Žádost o odměnu",
+    audienceLabel: "Rodiče",
+    hasRecipientChoice: true,
+    audienceFilter: "parents",
+  },
+  reward_request: {
+    label: "Návrh nové odměny",
+    audienceLabel: "Rodiče",
+    hasRecipientChoice: true,
+    audienceFilter: "parents",
+  },
+  reward_request_decided: {
+    label: "Návrh odměny vyřízen",
+    audienceLabel: "Ten, kdo odměnu navrhl",
+    hasRecipientChoice: false,
+    audienceFilter: "all",
+  },
+  marketplace_offer: {
+    label: "Nabídka/poptávka na trhu služeb",
+    audienceLabel: "Druhá strana obchodu",
+    hasRecipientChoice: false,
+    audienceFilter: "all",
+  },
+  investment_matured: {
+    label: "Investice dozrála",
+    audienceLabel: "Ten, komu investice patří",
+    hasRecipientChoice: false,
+    audienceFilter: "all",
+  },
+  weekly_digest: {
+    label: "Týdenní AI souhrn",
+    audienceLabel: "Všichni členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  invest_demo_round_started: {
+    label: "Nové kolo demo investování",
+    audienceLabel: "Kdo má demo portfolio",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  invest_demo_contest_settled: {
+    label: "Vyhodnocení soutěže demo investování",
+    audienceLabel: "Kdo má demo portfolio",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  shopping_item_added: {
+    label: "Přidaná položka do nákupního seznamu",
+    audienceLabel: "Ostatní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  shopping_item_checked: {
+    label: "Odškrtnutá položka z nákupního seznamu",
+    audienceLabel: "Ostatní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
+  chat_message: {
+    label: "Nová zpráva v rodinném chatu",
+    audienceLabel: "Ostatní členové",
+    hasRecipientChoice: true,
+    audienceFilter: "all",
+  },
 };

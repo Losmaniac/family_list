@@ -12,15 +12,30 @@ export { onXpAdjustmentRequestWritten } from "./xpAdjustments";
 export { onJournalDeletionRequestWritten } from "./journalDeletions";
 export { onTaskProposalWritten } from "./taskProposals";
 export { onPooledContributionWritten } from "./pooledContributions";
-export { onInvestmentWritten, maturedInvestmentsPayout, reconcileInvestmentSweep } from "./investments";
+export {
+  onInvestmentWritten,
+  maturedInvestmentsPayout,
+  reconcileInvestmentSweep,
+} from "./investments";
 export { onTaskStatusNotify } from "./taskNotifications";
 export { sendTestNotification } from "./notifications";
-export { generatePracticeProblem, submitPracticeAnswer, getPracticeCapStatus, giveUpPracticeProblem } from "./practice";
+export {
+  generatePracticeProblem,
+  submitPracticeAnswer,
+  getPracticeCapStatus,
+  giveUpPracticeProblem,
+} from "./practice";
 export { onMarketplaceOfferWritten } from "./marketplace";
 export { chargeMediaListening } from "./mediaBilling";
 export { startChessGame, submitChessMove, resignChessGame } from "./chess";
-export { generateEnglishFlashcards, submitEnglishFlashcardAnswer } from "./englishFlashcards";
-export { generateSpanishFlashcards, submitSpanishFlashcardAnswer } from "./spanishFlashcards";
+export {
+  generateEnglishFlashcards,
+  submitEnglishFlashcardAnswer,
+} from "./englishFlashcards";
+export {
+  generateSpanishFlashcards,
+  submitSpanishFlashcardAnswer,
+} from "./spanishFlashcards";
 export { completeAdHocTask } from "./adHocTasks";
 export { onAdHocCompletionDecided } from "./onAdHocCompletionDecided";
 export {
@@ -42,7 +57,12 @@ export {
   getTriviaDuelQuestion,
   submitTriviaDuelAnswer,
 } from "./triviaDuel";
-export { setGeminiApiKey, setOpenRouterConfig, generateAiQuizQuestion, submitAiQuizAnswer } from "./aiQuiz";
+export {
+  setGeminiApiKey,
+  setOpenRouterConfig,
+  generateAiQuizQuestion,
+  submitAiQuizAnswer,
+} from "./aiQuiz";
 export { askAiTutor } from "./aiTutor";
 export { askAiAssistant } from "./aiAssistant";
 export { weeklyDigestGenerator } from "./weeklyDigest";
@@ -53,5 +73,6 @@ export {
   onXpAdjustmentRequestCreated,
   onPooledContributionCreated,
   onRewardRedemptionActionable,
+  onRewardRequestActionable,
   onMarketplaceOfferActionable,
 } from "./actionNotifications";

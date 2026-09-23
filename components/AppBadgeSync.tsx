@@ -5,7 +5,11 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useFamily } from "@/lib/family-context";
-import type { PooledContribution, TaskProposal, XpAdjustmentRequest } from "@/lib/types";
+import type {
+  PooledContribution,
+  TaskProposal,
+  XpAdjustmentRequest,
+} from "@/lib/types";
 
 interface BadgeCounts {
   returnedTasks: number;
@@ -14,6 +18,7 @@ interface BadgeCounts {
   submittedTasks: number;
   xpAdjustments: number;
   redemptions: number;
+  rewardRequests: number;
 }
 
 const ZERO_COUNTS: BadgeCounts = {
@@ -23,6 +28,7 @@ const ZERO_COUNTS: BadgeCounts = {
   submittedTasks: 0,
   xpAdjustments: 0,
   redemptions: 0,
+  rewardRequests: 0,
 };
 
 /**
@@ -42,14 +48,19 @@ export default function AppBadgeSync() {
     const q = query(
       collection(getDb(), "families", familyId, "dailyTasks"),
       where("assignedTo", "==", user.uid),
-      where("status", "==", "returned")
+      where("status", "==", "returned"),
     );
-    return onSnapshot(q, (snap) => setCounts((c) => ({ ...c, returnedTasks: snap.size })));
+    return onSnapshot(q, (snap) =>
+      setCounts((c) => ({ ...c, returnedTasks: snap.size })),
+    );
   }, [familyId, user]);
 
   useEffect(() => {
     if (!familyId || !user) return;
-    const q = query(collection(getDb(), "families", familyId, "taskProposals"), where("status", "==", "pending"));
+    const q = query(
+      collection(getDb(), "families", familyId, "taskProposals"),
+      where("status", "==", "pending"),
+    );
     return onSnapshot(q, (snap) => {
       const count = snap.docs.filter((d) => {
         const p = d.data() as TaskProposal;
@@ -61,11 +72,16 @@ export default function AppBadgeSync() {
 
   useEffect(() => {
     if (!familyId || !user) return;
-    const q = query(collection(getDb(), "families", familyId, "pooledContributions"), where("status", "==", "collecting"));
+    const q = query(
+      collection(getDb(), "families", familyId, "pooledContributions"),
+      where("status", "==", "collecting"),
+    );
     return onSnapshot(q, (snap) => {
       const count = snap.docs.filter((d) => {
         const p = d.data() as PooledContribution;
-        return p.invitedUserIds.includes(user.uid) && !(user.uid in p.contributions);
+        return (
+          p.invitedUserIds.includes(user.uid) && !(user.uid in p.contributions)
+        );
       }).length;
       setCounts((c) => ({ ...c, poolsToPledge: count }));
     });
@@ -73,15 +89,25 @@ export default function AppBadgeSync() {
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent") return;
-    const q = query(collection(getDb(), "families", familyId, "dailyTasks"), where("status", "==", "submitted"));
-    return onSnapshot(q, (snap) => setCounts((c) => ({ ...c, submittedTasks: snap.size })));
+    const q = query(
+      collection(getDb(), "families", familyId, "dailyTasks"),
+      where("status", "==", "submitted"),
+    );
+    return onSnapshot(q, (snap) =>
+      setCounts((c) => ({ ...c, submittedTasks: snap.size })),
+    );
   }, [familyId, member?.role]);
 
   useEffect(() => {
     if (!familyId || member?.role !== "parent" || !user) return;
-    const q = query(collection(getDb(), "families", familyId, "xpAdjustmentRequests"), where("status", "==", "requested"));
+    const q = query(
+      collection(getDb(), "families", familyId, "xpAdjustmentRequests"),
+      where("status", "==", "requested"),
+    );
     return onSnapshot(q, (snap) => {
-      const count = snap.docs.filter((d) => (d.data() as XpAdjustmentRequest).requestedBy !== user.uid).length;
+      const count = snap.docs.filter(
+        (d) => (d.data() as XpAdjustmentRequest).requestedBy !== user.uid,
+      ).length;
       setCounts((c) => ({ ...c, xpAdjustments: count }));
     });
   }, [familyId, member?.role, user]);
@@ -90,13 +116,27 @@ export default function AppBadgeSync() {
     if (!familyId || member?.role !== "parent") return;
     const q = query(
       collection(getDb(), "families", familyId, "rewardRedemptions"),
-      where("status", "in", ["requested", "approved"])
+      where("status", "in", ["requested", "approved"]),
     );
-    return onSnapshot(q, (snap) => setCounts((c) => ({ ...c, redemptions: snap.size })));
+    return onSnapshot(q, (snap) =>
+      setCounts((c) => ({ ...c, redemptions: snap.size })),
+    );
   }, [familyId, member?.role]);
 
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("setAppBadge" in navigator)) return;
+    if (!familyId || member?.role !== "parent") return;
+    const q = query(
+      collection(getDb(), "families", familyId, "rewardRequests"),
+      where("status", "==", "pending"),
+    );
+    return onSnapshot(q, (snap) =>
+      setCounts((c) => ({ ...c, rewardRequests: snap.size })),
+    );
+  }, [familyId, member?.role]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("setAppBadge" in navigator))
+      return;
     const nav = navigator as Navigator & {
       setAppBadge?: (count?: number) => Promise<void>;
       clearAppBadge?: () => Promise<void>;
