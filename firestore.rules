@@ -356,6 +356,27 @@ service cloud.firestore {
         allow delete: if isParent(familyId) && resource.data.userId == request.auth.uid;
       }
 
+      // A member (typically a child) proposing a brand-new reward the shop
+      // doesn't have yet — separate from rewardRedemptions above, which
+      // asks to redeem a reward that already exists. Always starts
+      // 'pending' with no xpCost/rewardId of its own (a parent sets those
+      // when approving, together with creating the matching `rewards` doc
+      // via the ordinary parent-write rule on that collection).
+      match /rewardRequests/{requestId} {
+        allow read: if isFamilyMember(familyId);
+        allow create: if isFamilyMember(familyId) &&
+          request.resource.data.requestedBy == request.auth.uid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0;
+        // pending -> approved (with xpCost/rewardId set together) or
+        // rejected. Never any other transition.
+        allow update: if isParent(familyId) &&
+          resource.data.status == 'pending' &&
+          request.resource.data.status in ['approved', 'rejected'] &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'xpCost', 'rewardId', 'decidedAt']);
+        allow delete: if isParent(familyId) || (resource.data.requestedBy == request.auth.uid && resource.data.status == 'pending');
+      }
+
       match /marketplaceOffers/{offerId} {
         allow read: if isFamilyMember(familyId);
         // Either party can propose a P2P trade with any other family

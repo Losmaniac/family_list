@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
 import { History } from "lucide-react";
 import { getDb } from "@/lib/firebase";
 import type { AuditAction, AuditLogEntry, Member } from "@/lib/types";
@@ -16,6 +22,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   task_completion_reverted: "Odebrání XP za úkol",
   task_template_deleted: "Smazání úkolu",
   reward_redemption_decided: "Rozhodnutí o odměně",
+  reward_request_decided: "Rozhodnutí o návrhu odměny",
   pooled_contribution_decided: "Rozhodnutí o sbírce",
   chat_cleared: "Vymazání historie chatu",
   photos_cleared: "Vymazání fotek úkolů",
@@ -23,17 +30,25 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   investment_deleted: "Smazání investice",
 };
 
-export default function AuditLogPanel({ familyId, members }: { familyId: string; members: Member[] }) {
+export default function AuditLogPanel({
+  familyId,
+  members,
+}: {
+  familyId: string;
+  members: Member[];
+}) {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
 
   useEffect(() => {
     const auditQuery = query(
       collection(getDb(), "families", familyId, "auditLog"),
       orderBy("timestamp", "desc"),
-      limit(20)
+      limit(20),
     );
     return onSnapshot(auditQuery, (snapshot) => {
-      setEntries(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AuditLogEntry));
+      setEntries(
+        snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as AuditLogEntry),
+      );
     });
   }, [familyId]);
 
@@ -48,13 +63,19 @@ export default function AuditLogPanel({ familyId, members }: { familyId: string;
         {entries.map((entry) => {
           const actor = members.find((m) => m.id === entry.actorId);
           return (
-            <div key={entry.id} className="rounded-lg border border-border px-3 py-2 text-sm">
+            <div
+              key={entry.id}
+              className="rounded-lg border border-border px-3 py-2 text-sm"
+            >
               <p>
-                <span className="font-medium">{ACTION_LABELS[entry.action] ?? entry.action}</span>{" "}
+                <span className="font-medium">
+                  {ACTION_LABELS[entry.action] ?? entry.action}
+                </span>{" "}
                 <span className="text-zinc-500">— {entry.detail}</span>
               </p>
               <p className="text-xs text-zinc-500">
-                {actor?.name ?? entry.actorId} · {new Date(entry.timestamp).toLocaleString("cs-CZ")}
+                {actor?.name ?? entry.actorId} ·{" "}
+                {new Date(entry.timestamp).toLocaleString("cs-CZ")}
               </p>
             </div>
           );
